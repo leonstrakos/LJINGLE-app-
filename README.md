@@ -1,413 +1,475 @@
+# Tracking App
 
-.\start-backend.ps1
-npm run web:clear
+A personal catalogue, activity tracker and memory system built around one idea:
 
+> **Keep track of what you spend your time on — and preserve the history around it.**
 
+Tracking App combines books, films, television, games, notes, activities, timers, statistics and personal memories into one private library.
 
-## Podaci o projektu
-- Student: Leon Strakoš
-- Projekt: Sustav za upravljanje knjigama u knjižnici
-- Tehnologije: React Native, Expo SQLite, Spring Boot i PostgreSQL
-- Akademska godina: 2025./2026.
+It is not designed as a social network or productivity scoreboard.  
+It is a personal archive of **what I watched, read, played, worked on, thought about and spent time with**.
 
-# Osobni katalog i praćenje vremena
+---
 
-Projekt je sada **offline-first**: React Native aplikacija sprema osobne podatke u
-SQLite bazu na telefonu. Spring Boot i PostgreSQL ostaju u projektu kao neobavezna
-osnova za online metapodatke te budući backup i sinkronizaciju.
-Postojeći katalog knjiga ostaje funkcionalna osnova, a aplikacija se postupno razvija u
-osobni katalog medija, interesa, aktivnosti i vremena.
+## Overview
 
-## Trenutačna razvojna etapa: osobni katalog života
+Most tracking apps isolate different parts of life:
 
-Aplikacija sada povezuje osobni katalog, teme, aktivnosti, trajno spremljeno vrijeme i
-zapise u jednu modularnu cjelinu:
+- Letterboxd tracks films
+- Goodreads tracks books
+- Backloggd tracks games
+- time trackers record activities
+- note apps store thoughts
+- journals preserve memories
 
-- knjige imaju osobni status čitanja, napredak, doživljaj, favorite i datume;
-- početni ekran **Danas** prikazuje aktivne timere i današnji zbroj vremena;
-- početni ekran ispod aktivnog timera prikazuje **Nedavno / Continue** za pauzirane
-  aktivnosti poredane po zadnjem korištenju;
-- zajednički **Katalog** objedinjuje Knjige, Filmove i serije te Igre; dodavanje i
-  online pretraga nalaze se unutar odgovarajuće zbirke, bez duplih prečaca na početnom
-  ekranu;
-- **tema** okuplja vlastite aktivnosti, primjerice igranje i proučavanje šaha;
-- **aktivnost** predstavlja radnju koja se može nastaviti, primjerice `Čitanje — Dina`;
-- **vremenska sesija** predstavlja jedan stvarni interval s vremenom početka i završetka;
-- ekran **Povijest** prikazuje spremljene sesije kronološki i podržava paginaciju;
-- aplikacija podržava bilješke, citate, opažanja, recenzije i zapise napretka povezane s
-  knjigom, temom ili aktivnosti;
-- igre imaju vlastiti katalog, statuse, platformu, napredak, doživljaj, favorite,
-  timer igranja i online pretragu bez obveznog API ključa;
-- filmovi i serije imaju osobne statuse gledanja, napredak, favorite, doživljaj,
-  timer gledanja i online pretragu bez obveznog API ključa;
-- knjige se mogu pronaći i uvesti iz Open Libraryja i Google Booksa uz pregled
-  duplikata i izričitu potvrdu prije promjene bibliografskih podataka;
-- ekran **Zapisi** omogućuje izradu, uređivanje, filtriranje i brisanje bilješki,
-  citata, opažanja, recenzija i zapisa napretka.
+Tracking App brings those ideas together into one interconnected system.
 
-Pravila mjerenja vremena:
+The catalogue provides the objects.  
+Timers and history record interaction with them.  
+Entries and topics provide context.  
+Statistics reveal patterns over time.
 
-- Pokretanje timera sprema `startedAt` u SQLite na telefonu; aplikacija ne zapisuje
-  trajanje svake sekunde.
-- Aktivni timer zato preživljava ponovno učitavanje, zatvaranje aplikacije i mirovanje
-  telefona.
-- Zaustavljanje trajno zaključuje sesiju, a detalj knjige prikazuje zbroj svih sesija.
-- Jedna aktivnost ne može imati dvije aktivne sesije, ali različite aktivnosti mogu se
-  pratiti istodobno.
-- Brisanje knjige ne briše već spremljene vremenske sesije.
-- Gašenje računala, gubitak interneta ili zatvaranje aplikacije ne prekida lokalni katalog.
+---
 
-```mermaid
-flowchart TD
-    B["Knjiga u katalogu"] --> A["Aktivnost: čitanje"]
-    A --> S1["Sesija 1"]
-    A --> S2["Sesija 2"]
-    A --> SN["Aktivna sesija"]
-```
+## Features
 
-## Arhitektura
+### Today
 
-```mermaid
-flowchart TD
-    A[React Native aplikacija] --> B[(SQLite na telefonu)]
-    A -. samo kad je online .-> C[Spring REST]
-    C -. metapodaci i budući sync .-> D[(PostgreSQL)]
-```
+The main dashboard provides quick access to the things currently happening.
 
-Knjige, igre, filmovi/serije, teme, aktivnosti, sesije, statistika i zapisi čitaju se i
-pišu izravno u lokalnu bazu `life_catalogue.db`. Postojeći mobilni DTO ugovori ostaju
-isti, pa ekrani ne ovise o tome je li Spring servis pokrenut.
+- active timers
+- recent activity
+- catalogue
+- entries
+- topics
+- history
+- statistics
+- Memory Radio
+- contextual session notes
 
-## Korištene tehnologije
+The goal is to make the app useful without turning the home screen into a traditional productivity dashboard.
 
-- mobilna aplikacija: React Native, Expo SDK 54, Expo SQLite, TypeScript i React Navigation
-- backend: Java 17, Spring Boot 3.5, Spring Web, Spring Data JPA i Bean Validation
-- glavna mobilna baza: SQLite na Android/iOS uređaju
-- neobavezna poslužiteljska baza: PostgreSQL 17 i Flyway migracije
-- razvojno okruženje: Docker Compose, Maven i npm
+---
 
-## Struktura projekta
+## Catalogue
+
+One library for several kinds of media:
+
+### Books
+
+Track books and their reading state, metadata and personal history.
+
+### Films & Series
+
+Track:
+
+- watchlist
+- currently watching
+- completed titles
+- dropped titles
+- series progress
+- episode history
+
+### Games
+
+Track games using states such as:
+
+- backlog
+- playing
+- installed
+- completed
+- played before
+- dropped
+- quit
+
+### Collections
+
+Books, media and games can also be grouped into custom collections.
+
+---
+
+## Catalogue Search
+
+The catalogue home screen includes a global search across saved:
+
+- books
+- films
+- series
+- games
+
+It also supports structured queries.
+
+Examples:
 
 ```text
-library-management-system/
-├── backend/                 Spring Boot aplikacija
-│   ├── src/main/java/       kontroler, servis, mapper, repozitorij i entiteti
-│   ├── src/main/resources/  konfiguracija i Flyway migracije
-│   └── src/test/            integracijski testovi REST API-ja
-├── mobile/                  Expo/React Native aplikacija
-│   └── src/                 ekrani, komponente, API servis i tipovi
-├── docs/                    Postman kolekcija
-└── docker-compose.yml       PostgreSQL i backend
+type:movie
+type:series
+type:book
+type:game
+
+status:watching
+status:reading
+status:playing
+status:installed
+
+year:2024
+jingle
 ```
 
+Queries can be combined:
 
+```text
+type:movie year:2024
+type:game status:installed
+jingle type:movie
+type:book status:reading
+```
 
-## 1. Offline spremanje na telefonu
+Normal text can be mixed with filters:
 
-Pri prvom pokretanju aplikacija automatski izrađuje `life_catalogue.db` u privatnom
-prostoru aplikacije. Baza ostaje spremljena nakon zatvaranja i ponovnog pokretanja
-aplikacije. U njoj su katalog, teme, aktivnosti, timeri, povijest i zapisi.
+```text
+type:movie now
+jingle alien
+```
 
-Važno: brisanje aplikacije ili brisanje njezinih podataka u postavkama telefona briše i
-lokalnu bazu. Izvoz/backup i sinkronizacija s PostgreSQL-om predviđeni su kao sljedeća
-etapa; trenutačno nisu automatski uključeni.
+---
 
-## 2. Svakodnevni razvoj i testiranje u webu
+## Random Picker
 
-Dok se aplikacija razvija, nije potrebno stalno raditi Android build. Preduvjeti su samo
-Node.js i npm. Iz korijena projekta pokrenite:
+**Odaberi mi nešto** is deliberately not a random-item button.
+
+It answers a more useful question:
+
+> **What should I continue right now?**
+
+The picker selects only from active items:
+
+- books currently being read
+- series or films currently being watched
+- games currently being played
+- installed games
+
+Completed, dropped, backlog and planned items are excluded.
+
+Repeated rolls avoid previously selected items until the active pool has been exhausted.
+
+---
+
+## Jingle 🔔
+
+`Jingle` is the app's lightweight favourite / meaningful-item marker.
+
+It is independent from catalogue status.
+
+A book can be completed and still be a Jingle.  
+A game can be currently played and be a Jingle.  
+A film can be years old and remain a Jingle.
+
+Internally this is stored as a favourite flag, while the interface uses the bell metaphor.
+
+---
+
+## History
+
+Tracking App keeps activity as history rather than treating completed timers as disposable data.
+
+History can preserve:
+
+- activity sessions
+- catalogue interactions
+- timestamps
+- session notes
+- contextual information
+
+The long-term goal is for the app to become increasingly useful simply because it has existed for longer.
+
+---
+
+## Entries & Topics
+
+The app also includes a lightweight writing system.
+
+### Entries
+
+Entries can be used for notes, observations, logs and longer pieces of text.
+
+### Topics
+
+Topics provide a way to connect and organize entries around recurring subjects.
+
+This allows catalogue activity and personal writing to coexist inside the same system instead of living in separate apps.
+
+---
+
+## Memory Radio
+
+Memory Radio resurfaces material from the personal archive.
+
+Rather than always presenting information chronologically, it provides another way to revisit previously recorded material and memories.
+
+The feature includes its own player and audio-related interface.
+
+---
+
+## Statistics
+
+Statistics are generated from the local history and catalogue.
+
+Current and planned statistics include:
+
+- catalogue totals
+- watch / read / play activity
+- time spent
+- recent interests
+- historical snapshots
+- changing catalogue composition
+- longer-term eras and patterns
+
+### What am I into lately?
+
+Recent activity can also be analyzed over shorter periods to surface what has dominated attention lately rather than only showing lifetime totals.
+
+---
+
+## Catalogue Snapshots
+
+The app can preserve snapshots of the catalogue over time.
+
+This makes it possible to eventually answer questions such as:
+
+- What was I watching during a certain period?
+- What games dominated a particular year?
+- When did my interests shift?
+- How different is my library now compared with an earlier snapshot?
+
+The catalogue therefore functions as both a collection and a historical record.
+
+---
+
+## Command Palette
+
+On desktop/web:
+
+```text
+Ctrl + K
+```
+
+or
+
+```text
+Cmd + K
+```
+
+opens the global command palette.
+
+It can be used to:
+
+- search catalogue items
+- open books
+- open films and series
+- open games
+- navigate to major screens
+- access Jingle items
+- reopen recent catalogue items
+- reuse recent searches
+
+Keyboard navigation is supported with:
+
+```text
+↑ ↓
+Enter
+Esc
+```
+
+---
+
+## Themes
+
+The app includes a customizable visual system with independent:
+
+- accent color
+- background color
+- visual skins
+
+One of the current visual directions is inspired by **Frutiger Aero** — glass, grass, bubbles, sky and tactile interface elements — while keeping the actual information architecture clean and usable.
+
+The visual layer is intentionally independent from the data model.
+
+---
+
+## Imports
+
+The project includes tooling used to migrate historical catalogue data from external services.
+
+Existing development work includes migration and repair pipelines for:
+
+- TV Time history
+- series metadata
+- episode history
+- movie runtimes
+- game catalogue information
+- game notes
+
+These imports are migration tools rather than runtime dependencies of the application.
+
+---
+
+## Architecture
+
+The repository contains the mobile application and backend in a single repository.
+
+```text
+TRACKING APP/
+│
+├── mobile/
+│   ├── assets/
+│   ├── src/
+│   │   ├── audio/
+│   │   ├── components/
+│   │   ├── games/
+│   │   ├── screens/
+│   │   ├── services/
+│   │   ├── storage/
+│   │   ├── theme/
+│   │   └── types/
+│   │
+│   ├── App.tsx
+│   └── package.json
+│
+├── backend/
+│   └── Spring Boot backend
+│
+├── docs/
+├── docker-compose.yml
+├── start-backend.ps1
+├── start-mobile.ps1
+└── README.md
+```
+
+---
+
+## Mobile Stack
+
+The client is built with:
+
+- React Native
+- Expo
+- TypeScript
+- React Navigation
+- SQLite
+
+Local SQLite is the primary storage layer for the mobile application.
+
+The app is designed so that personal tracking remains usable locally rather than requiring a permanent network connection.
+
+---
+
+## Backend
+
+The repository also contains a Java backend built with:
+
+- Java
+- Spring Boot
+- Maven
+- Flyway
+- relational database persistence
+
+The backend is being developed alongside the local-first mobile architecture and is not required for every mobile feature.
+
+---
+
+## Running the App
+
+### Mobile
+
+From the repository root:
 
 ```powershell
 .\start-mobile.ps1
 ```
 
-Skripta instalira ovisnosti samo pri prvom pokretanju, provjerava TypeScript i otvara
-web-verziju, najčešće na `http://localhost:8081`. Promjene koda osvježavaju se bez novog
-Android builda.
-
-Ručno pokretanje:
+Or manually:
 
 ```bash
 cd mobile
-npm ci
-npm run typecheck
-npm run web
+npm install
+npx expo start
 ```
 
-Ako Metro nakon promjene konfiguracije zadrži stari cache, jednokratno pokrenite
-`npm run web:clear`.
+### Backend
 
-Web koristi isti lokalni API sloj i istu SQLite shemu kao mobilna verzija. Podaci ostaju
-u spremištu tog browsera nakon refreshanja i ponovnog pokretanja. Brisanje podataka
-stranice ili korištenje privatnog prozora briše/izolira razvojnu bazu.
-
-Važno: razvojna baza browsera i buduća baza instalirane aplikacije na telefonu dva su
-odvojena lokalna spremišta. Prije završnog builda dodat ćemo izvoz/uvoz ili sync ako
-želite prenijeti testne podatke na telefon. `EXPO_PUBLIC_API_URL` nije potreban za
-lokalni CRUD, timere, povijest ili statistiku.
-
-Expo SQLite web koristi WebAssembly; `mobile/metro.config.js` uključuje WASM datoteke i
-potrebne razvojne COOP/COEP headere.
-
-## 3. Završni build za telefon
-
-Za stvarni uvjet **telefon radi dok je računalo ugašeno**, jednom izradite i instalirajte
-samostalni Android/iOS build. Primjer internog Android builda:
-
-```bash
-cd mobile
-npx eas build --platform android --profile preview
-```
-
-Nakon instalacije tog builda računalo i internet nisu potrebni za osobni katalog,
-timere ni povijest. Internet je potreban samo kada svjesno pokrenete online pretragu
-metapodataka.
-
-## 4. Neobavezni backend i PostgreSQL
-
-Backend nije potreban za osnovni rad aplikacije. Trenutačno je koristan za online
-pretrage Open Library/Google Books, Apple kataloga filmova, TVmaze serija i Steam
-Storea, a kasnije se može koristiti za sinkronizaciju i backup.
-
-### Preporučeno na Windowsu
-
-Iz korijena projekta pokrenite skriptu koja uvijek bira ispravnu bazu
-`life_catalogue_v2` i uklanja naslijeđene Flyway override varijable:
+From the repository root:
 
 ```powershell
 .\start-backend.ps1
 ```
 
-Skripta koristi vlastitu lokaciju projekta, pa radi i kada je ZIP raspakiran u dodatnu
-mapu `TRACKING APP`. Za drugačiju lokalnu lozinku postavite
-`LIFE_CATALOGUE_DB_PASSWORD` prije pokretanja backenda.
+The backend can also be run directly from its project directory using Maven.
 
-### Najjednostavnije: Docker Compose
-```bash
-docker compose up --build
-```
-Time se pokreću PostgreSQL na portu `5432` i backend na adresi:
-```text
-http://localhost:8080/api/books
-```
+---
 
-### Lokalno pokretanje bez Docker backenda
-Za lokalno pokretanje bez Dockera potrebno je prethodno izraditi PostgreSQL korisnika i bazu:
+## Type Checking
 
-bash
-``` 
-cd backend
-```
-
-```
-CREATE ROLE library_user
-WITH LOGIN PASSWORD 'library_password';
-```
-Zatim se zasebno izrađuje baza:
-```
-CREATE DATABASE life_catalogue_v2
-WITH OWNER = library_user;
-```
-ili
-
-```
-$env:DB_URL = "jdbc:postgresql://localhost:5432/life_catalogue_v2"
-$env:DB_USERNAME = "library_user"
-$env:DB_PASSWORD = "library_password"
-```
-
-
-Na praznoj bazi dovoljno je pokrenuti backend:
-Pokrenite samo PostgreSQL, a zatim u novom terminalu:
-
-```bash
-mvn spring-boot:run
-```
-
-Zadane postavke veze su u `backend/src/main/resources/application.yml`. Mogu se promijeniti varijablama `DB_URL`, `DB_USERNAME` i `DB_PASSWORD`.
-
-
-- `V1__create_books_table.sql` izrađuje tablicu `books` i potrebne indekse
-- `V2__seed_books.sql` dodaje tri početne knjige
-- `V3__seed_catalog.sql` dodaje još 100 demo-knjiga
-- `V4__create_activities_and_time_sessions.sql` dodaje trajne aktivnosti i sesije
-- `V5__add_personal_book_tracking.sql` dodaje osobni status, napredak i doživljaj knjige
-- `V6__create_topics_and_link_activities.sql` dodaje teme i vlastite kategorije aktivnosti
-- `V7__create_entries.sql` dodaje bilješke, citate, opažanja, recenzije i napredak
-- `V8__create_games.sql` dodaje katalog igara i veze s aktivnostima igranja
-- `V9__create_media_catalog.sql` dodaje filmove, serije i aktivnosti gledanja
-
-Migracije su nepromjenjiva povijest baze: nakon što je broj migracije jednom primijenjen,
-njegova se datoteka više ne mijenja niti ponovno koristi. Svaka buduća promjena dobiva
-novi broj (`V10`, `V11` itd.). Ne pokrećite `flyway repair` radi prikrivanja checksum
-neslaganja. Tracking App koristi isključivo bazu `life_catalogue_v2`; baza projekta Bell
-ne smije se koristiti za ovu aplikaciju.
-
-### Neobavezne poslužiteljske API postavke
-
-Vanjski izvori služe samo za metapodatke. Osobni statusi, napredak, doživljaj, favoriti,
-zapisi i vrijeme uvijek ostaju u SQLite bazi na telefonu.
-
-```powershell
-$env:GOOGLE_BOOKS_API_KEY = "neobavezni-google-books-kljuc"
-$env:IGDB_CLIENT_ID = "twitch-client-id"
-$env:IGDB_ACCESS_TOKEN = "twitch-app-access-token"
-$env:TMDB_API_TOKEN = "tmdb-api-read-access-token"
-```
-
-Te varijable više nisu potrebne za online pretragu. Bez njih backend automatski koristi
-Open Library za knjige, Apple Search za filmove, TVmaze za serije te Steam Store za
-igre. Ako se ključevi jednom dodaju, TMDB i IGDB postaju primarni izvori, a javni
-izvori ostaju automatski fallback. Tajne se nikad ne šalju mobilnoj aplikaciji.
-
-
-
-### Online pretraga na fizičkom telefonu
-
-Samo ako želite koristiti online metapodatke kroz postojeći backend, u datoteci
-`mobile/.env` postavite IP adresu računala na kojem je backend pokrenut:
-
-```env
-EXPO_PUBLIC_API_URL=http://IP_ADRESA_RACUNALA:8080/api
-```
-
-Telefon i računalo tada moraju biti na istoj mreži. Ako backend nije dostupan, aplikacija
-prikazuje poruku samo na ekranu online pretrage; lokalni podaci i timeri nastavljaju raditi.
-
-### Neobavezna adresa backenda prema okruženju
-
-| Okruženje | `EXPO_PUBLIC_API_URL` |
-|---|---|
-| Web-preglednik na računalu | `http://localhost:8080/api` |
-| Android emulator | `http://10.0.2.2:8080/api` |
-| iOS simulator | `http://localhost:8080/api` |
-| Fizički Android/iOS uređaj | `http://IP_ADRESA_RACUNALA:8080/api` |
-
-Nakon svake promjene `.env` datoteke potrebno je ponovno pokrenuti Expo.
-
-
-## REST API
-
-| Metoda | Putanja | Opis | Odgovor |
-|---|---|---|---|
-| `GET` | `/api/books` | dohvat svih knjiga | `BookResponse[]` |
-| `GET` | `/api/books?page=0&size=10` | paginirani dohvat | `PagedResponse<BookResponse>` |
-| `GET` | `/api/books/{bookId}` | dohvat jedne knjige | `BookResponse` |
-| `POST` | `/api/books` | dodavanje knjige | `201 Created` + `BookResponse` |
-| `PUT` | `/api/books/{bookId}` | uređivanje knjige | `BookResponse` |
-| `DELETE` | `/api/books/{bookId}` | brisanje knjige | `204 No Content` |
-
-`BookRequest` i `BookResponse` koriste `readingStatus`, `progress`, `enjoyment`,
-`favourite`, `startedOn` i `finishedOn`. Staro javno polje `available` više nije dio
-osobnog kataloga. Ako stariji klijent izostavi nova polja, backend primjenjuje sigurne
-zadane vrijednosti `LATER`, `0` i `false`.
-
-### API aktivnosti i sesija
-
-| Metoda | Putanja | Opis |
-|---|---|---|
-| `GET` | `/api/activities/books/{bookId}/reading` | stanje i ukupno vrijeme čitanja knjige |
-| `POST` | `/api/activities/books/{bookId}/reading/start` | pokretanje ili dohvat već aktivne sesije |
-| `POST` | `/api/activities/books/{bookId}/reading/stop` | završetak i spremanje aktivne sesije |
-| `GET` | `/api/activities/active` | svi trenutačno aktivni timeri |
-| `GET` | `/api/activities/recent?limit=6` | zadnje pauzirane aktivnosti za brzi nastavak |
-| `POST` | `/api/activities/{activityId}/start` | idempotentno pokretanje bilo koje aktivnosti |
-| `POST` | `/api/activities/{activityId}/stop` | zaustavljanje aktivnosti iz globalnog prikaza |
-| `GET` | `/api/activities/{activityId}/sessions` | povijest sesija jedne aktivnosti |
-
-### API tema, statistike, povijesti i zapisa
-
-| Metoda | Putanja | Opis |
-|---|---|---|
-| `GET` | `/api/topics` | sve teme |
-| `GET` | `/api/topics/{topicId}` | jedna tema |
-| `POST` | `/api/topics` | izrada teme |
-| `PUT` | `/api/topics/{topicId}` | uređivanje teme |
-| `DELETE` | `/api/topics/{topicId}` | brisanje teme bez brisanja povijesti |
-| `GET` | `/api/topics/{topicId}/activities` | aktivnosti teme |
-| `POST` | `/api/topics/{topicId}/activities` | nova aktivnost jedne od sedam podržanih kategorija |
-| `GET` | `/api/stats/daily?date=YYYY-MM-DD&zone=Europe/Zagreb` | dnevni zbroj i raspodjela vremena |
-| `GET` | `/api/history/sessions?page=0&size=30` | najnovije sesije s kontekstom knjige i teme |
-| `GET` | `/api/entries` | zapisi s filtrima `bookId`, `topicId`, `activityId` i `type` |
-| `GET` | `/api/entries/{entryId}` | jedan zapis |
-| `POST` | `/api/entries` | novi zapis |
-| `PUT` | `/api/entries/{entryId}` | uređivanje zapisa |
-| `DELETE` | `/api/entries/{entryId}` | brisanje zapisa |
-
-### API igara, filmova/serija i uvoza knjiga
-
-| Metoda | Putanja | Opis |
-|---|---|---|
-| `GET/POST` | `/api/games` | popis/izrada igara |
-| `GET/PUT/DELETE` | `/api/games/{gameId}` | detalj, izmjena ili brisanje igre |
-| `GET/POST` | `/api/games/{gameId}/timer[/start\|/stop]` | stanje, početak ili završetak igranja |
-| `GET` | `/api/games/metadata/search?query=...` | online pretraga igara (IGDB ili Steam fallback) |
-| `GET/POST` | `/api/media` | popis/izrada filmova i serija |
-| `GET/PUT/DELETE` | `/api/media/{mediaId}` | detalj, izmjena ili brisanje naslova |
-| `GET/POST` | `/api/media/{mediaId}/watching[/start\|/stop]` | stanje, početak ili završetak gledanja |
-| `GET` | `/api/media/tmdb/search?query=...&mediaType=MOVIE` | online pretraga filmova/serija (TMDB ili Apple fallback) |
-| `GET` | `/api/book-metadata/search?q=...` | Open Library/Google Books pretraga |
-| `GET` | `/api/book-metadata/isbn/{isbn}` | ISBN lookup i detekcija duplikata |
-| `POST` | `/api/book-metadata/imports/preview` | pregled uvoza bez pisanja |
-| `POST` | `/api/book-metadata/imports/confirm` | izričito potvrđen uvoz |
-
-Potpuni ugovori novih modula nalaze se u `docs/BOOK_METADATA_API_CONTRACT.md`,
-`docs/GAMES_API_CONTRACT.md` i `docs/MOVIES_TV_API_CONTRACT.md`.
-
-Migracija `V4__create_activities_and_time_sessions.sql` dodaje tablice `activities` i
-`time_sessions`, njihove indekse, veze i ograničenje jedne aktivne sesije po aktivnosti.
-
-Točan oblik URL-a za paginaciju koristi query parametre `?`: `/api/books?page=0&size=10`.
-
-
-
-Detaljna mapa modula i sljedećih etapa nalazi se u
-`docs/LIFE_CATALOGUE_MODULES.md`.
-
-## Validacija i obrada grešaka
-
-- naslov, autor i ISBN ne smiju biti prazni
-- godina mora biti valjan cijeli broj
-- napredak mora biti između 0 i 100, a datum završetka ne može prethoditi početku
-- nazivi tema i aktivnosti ne smiju biti prazni; duplikati vraćaju `409 Conflict`
-- sadržaj zapisa je obvezan, a nepoznate poveznice vraćaju `404 Not Found`
-- backend vraća strukturiran `ApiError` s HTTP statusom i greškama pojedinih polja
-- mobilna aplikacija prikazuje greške dohvaćanja i omogućuje ponovni pokušaj
-- prije brisanja prikazuje se potvrdni dijalog
-- svaki povratak na listu ponovno dohvaća ažurirane podatke
-
-## Testiranje
-
-Backend integracijski testovi koriste H2 bazu u PostgreSQL načinu rada:
-
-```bash
-cd backend
-mvn test
-```
-
-Provjera TypeScript tipova:
+Before committing mobile changes:
 
 ```bash
 cd mobile
-npm run typecheck
+npx tsc --noEmit
 ```
 
-Za ručno testiranje može se uvesti kolekcija `docs/library-api.postman_collection.json` u Postman.
+A clean run should produce no TypeScript errors.
 
-## Pokrivenost zahtjeva zadatka
+---
 
-- `BookEntity` nasljeđuje `BaseEntity`
-- `bookId` je UUID string, a `id` interni automatski generirani `Long`
-- implementirani su svi CRUD endpointi i paginacija
-- komunikacija se odvija isključivo DTO objektima
-- postoje ekrani Danas, kataloga, detalja i obrasca knjige, tema i povijesti
-- postoje potpuni mobilni moduli za Zapise, Igre, Filmove/serije i uvoz knjiga
-- lista koristi `FlatList`, HTTP komunikacija koristi `fetch`
-- korišteni su `useState`, `useEffect` i React Navigation
-- implementirani su validacija, error/loading stanja, pull-to-refresh i potvrda brisanja
-- aktivne sesije, dnevni zbrojevi i povijest računaju se na backendu iz trajnih zapisa
-- Today prikazuje jedan prirodan radni tok: aktivno sada, zatim nedavne pauzirane
-  aktivnosti koje se nastavljaju jednim dodirom
-- centralizirane su početne palete `graphite`, `sky`, `solar` i `forest`; zadana tema
-  ostaje postojeća monokromatska `graphite`, a nedavne aktivnosti dobivaju diskretne
-  boje prema vrsti aktivnosti
+## Development Philosophy
+
+A few principles guide the project.
+
+### Local first
+
+The personal archive should remain useful without depending on an external service.
+
+### History should accumulate
+
+Completed activity should not disappear.  
+The value of the system should increase as its history grows.
+
+### Catalogue objects are context
+
+A film, book or game is not just an item in a database. It can connect to time, notes, memories, collections and periods of life.
+
+### Status and meaning are different
+
+Whether something is currently being watched or has been completed is separate from whether it matters personally.
+
+This is why features such as **Jingle** exist independently from status.
+
+### Discovery belongs above management
+
+Individual Books, Media and Games screens remain focused on managing their own collections.
+
+Cross-catalogue discovery, global search and random selection live at the catalogue level instead of cluttering every list.
+
+### No social layer required
+
+There are no follower counts, feeds or engagement mechanics at the center of the design.
+
+The user is the audience.
+
+---
+
+## Status
+
+**Active development.**
+
+The current repository represents the first consolidated baseline of the application, including the catalogue, tracking, history, statistics, themes, Memory Radio and discovery systems.
+
+The architecture and interface are still evolving.
+
+---
+
+## License
+
+Personal project.
+
+No license has currently been granted for redistribution or reuse.
