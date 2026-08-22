@@ -45,3 +45,47 @@ yarn-error.log*
 google-services.json
 GoogleService-Info.plist
 local.properties
+# === TRACKING APP CANONICAL IGNORE ===
+
+# Node / Expo
+node_modules/
+**/node_modules/
+.expo/
+**/.expo/
+dist/
+coverage/
+
+# Java / Maven
+backend/target/
+*.class
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Local databases / runtime state
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# Logs / temporary / recovery
+*.log
+*.tmp
+*.bak
+_recovery/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Signing / private build credentials
+*.keystore
+*.jks
+*.p12
+*.mobileprovision

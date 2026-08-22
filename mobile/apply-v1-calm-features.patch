@@ -1,0 +1,438 @@
+diff -ruN --exclude node_modules --exclude .expo a/App.tsx "b/App.tsx"
+--- a/App.tsx	2026-08-21 19:37:27.536713513 +0200
++++ "b/App.tsx"	2026-08-21 19:23:58.012678853 +0200
+@@ -18,6 +18,10 @@
+ import { ParentBackButton } from './src/components/ParentBackButton';
+ import { TodayScreen } from './src/screens/TodayScreen';
+ import { ThemePickerScreen } from './src/screens/ThemePickerScreen';
++import { QuickAddScreen } from './src/screens/QuickAddScreen';
++import { ActivityDetailsScreen } from './src/screens/ActivityDetailsScreen';
++import { WeekOverviewScreen } from './src/screens/WeekOverviewScreen';
++import { BackupScreen } from './src/screens/BackupScreen';
+ import { TopicDetailsScreen } from './src/screens/TopicDetailsScreen';
+ import { TopicListScreen } from './src/screens/TopicListScreen';
+ import { colors } from './src/theme/colors';
+@@ -71,6 +75,10 @@
+             component={ThemePickerScreen}
+             options={{ title: 'Izgled aplikacije' }}
+           />
++          <Stack.Screen name="QuickAdd" component={QuickAddScreen} options={{ title: 'Nova aktivnost' }} />
++          <Stack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ title: 'Aktivnost' }} />
++          <Stack.Screen name="WeekOverview" component={WeekOverviewScreen} options={{ title: 'Ovaj tjedan' }} />
++          <Stack.Screen name="Backup" component={BackupScreen} options={{ title: 'Backup podataka' }} />
+ 
+           <Stack.Screen
+             name="Catalogue"
+diff -ruN --exclude node_modules --exclude .expo a/src/components/ParentBackButton.tsx "b/src/components/ParentBackButton.tsx"
+--- a/src/components/ParentBackButton.tsx	2026-08-21 19:37:27.608713516 +0200
++++ "b/src/components/ParentBackButton.tsx"	2026-08-21 19:24:25.164680016 +0200
+@@ -31,9 +31,9 @@
+     opacity: 0.45,
+   },
+   symbol: {
+-    color: colors.text,
+-    fontSize: 25,
+-    lineHeight: 29,
+-    fontWeight: '800',
++    color: colors.black,
++    fontSize: 30,
++    lineHeight: 34,
++    fontWeight: '600',
+   },
+ });
+diff -ruN --exclude node_modules --exclude .expo a/src/screens/ActivityDetailsScreen.tsx "b/src/screens/ActivityDetailsScreen.tsx"
+--- a/src/screens/ActivityDetailsScreen.tsx	1970-01-01 01:00:00.000000000 +0100
++++ "b/src/screens/ActivityDetailsScreen.tsx"	2026-08-21 19:23:09.216676764 +0200
+@@ -0,0 +1,14 @@
++import { useCallback, useState } from 'react';
++import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
++import { useFocusEffect } from '@react-navigation/native';
++import type { NativeStackScreenProps } from '@react-navigation/native-stack';
++import { SafeAreaView } from 'react-native-safe-area-context';
++import { activityApi } from '../services/activityApi';
++import { colors } from '../theme/colors';
++import type { ActivityDetailsResponse, TimeSessionResponse } from '../types/activity';
++import type { RootStackParamList } from '../types/navigation';
++import { formatDuration } from '../utils/activityTime';
++type Props=NativeStackScreenProps<RootStackParamList,'ActivityDetails'>;
++function dateText(iso:string){return new Date(iso).toLocaleDateString('hr-HR',{day:'numeric',month:'short'})}
++export function ActivityDetailsScreen({route}:Props){const [activity,setActivity]=useState<ActivityDetailsResponse|null>(null);const [sessions,setSessions]=useState<TimeSessionResponse[]>([]);const [busy,setBusy]=useState(false);const load=useCallback(async()=>{const [a,s]=await Promise.all([activityApi.getDetails(route.params.activityId),activityApi.getSessions(route.params.activityId)]);setActivity(a);setSessions(s)},[route.params.activityId]);useFocusEffect(useCallback(()=>{void load()},[load]));const toggle=async()=>{if(!activity||busy)return;setBusy(true);try{activity.running?await activityApi.stop(route.params.activityId):await activityApi.start(route.params.activityId);await load()}finally{setBusy(false)}};if(!activity)return <SafeAreaView style={styles.safe}><ActivityIndicator style={styles.loader} color={colors.black}/></SafeAreaView>;return <SafeAreaView style={styles.safe} edges={['left','right','bottom']}><ScrollView contentContainerStyle={styles.content}><Text style={styles.kicker}>AKTIVNOST</Text><Text style={styles.title}>{activity.label}</Text><Text style={styles.type}>{activity.activityType.toLowerCase()}</Text><View style={styles.total}><Text style={styles.totalValue}>{formatDuration(activity.totalSeconds)}</Text><Text style={styles.totalLabel}>ukupno zabilježeno</Text></View><Pressable onPress={()=>void toggle()} disabled={busy} style={[styles.button,activity.running&&styles.stop]}><Text style={styles.buttonText}>{busy?'Sprema…':activity.running?'Zaustavi i spremi':'Nastavi aktivnost'}</Text></Pressable><Text style={styles.heading}>Sesije</Text>{sessions.length? sessions.map(s=><View style={styles.session} key={s.sessionId}><View><Text style={styles.sessionDate}>{dateText(s.startedAt)}</Text><Text style={styles.sessionTime}>{new Date(s.startedAt).toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'})}{s.running?' · sada':''}</Text></View><Text style={styles.sessionDuration}>{formatDuration(s.durationSeconds)}</Text></View>):<Text style={styles.empty}>Još nema spremljenih sesija.</Text>}</ScrollView></SafeAreaView>}
++const styles=StyleSheet.create({safe:{flex:1,backgroundColor:colors.background},loader:{marginTop:60},content:{padding:22,paddingBottom:46},kicker:{color:colors.textMuted,fontSize:12,fontWeight:'900',letterSpacing:1},title:{color:colors.text,fontSize:34,lineHeight:40,fontWeight:'900',letterSpacing:-.8,marginTop:5},type:{color:colors.textMuted,fontSize:13,fontWeight:'700',marginTop:6,textTransform:'capitalize'},total:{marginTop:27,padding:20,borderRadius:20,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.separator},totalValue:{color:colors.text,fontSize:39,fontWeight:'800',letterSpacing:-1},totalLabel:{color:colors.textMuted,fontSize:13,marginTop:4},button:{marginTop:13,minHeight:55,alignItems:'center',justifyContent:'center',borderRadius:16,backgroundColor:colors.black},stop:{backgroundColor:colors.text},buttonText:{color:colors.white,fontSize:16,fontWeight:'900'},heading:{color:colors.text,fontSize:21,fontWeight:'900',marginTop:29,marginBottom:11},session:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',padding:15,marginBottom:8,borderRadius:16,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.separator},sessionDate:{color:colors.text,fontSize:15,fontWeight:'800'},sessionTime:{color:colors.textMuted,fontSize:12,marginTop:3},sessionDuration:{color:colors.text,fontSize:15,fontWeight:'800'},empty:{color:colors.textMuted,fontSize:14}});
+diff -ruN --exclude node_modules --exclude .expo a/src/screens/BackupScreen.tsx "b/src/screens/BackupScreen.tsx"
+--- a/src/screens/BackupScreen.tsx	1970-01-01 01:00:00.000000000 +0100
++++ "b/src/screens/BackupScreen.tsx"	2026-08-21 19:23:39.680678068 +0200
+@@ -0,0 +1,7 @@
++import { useState } from 'react';
++import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
++import { SafeAreaView } from 'react-native-safe-area-context';
++import { exportLocalData, importLocalData } from '../storage/backup';
++import { colors } from '../theme/colors';
++export function BackupScreen(){const [json,setJson]=useState('');const [busy,setBusy]=useState(false);const make=async()=>{setBusy(true);try{setJson(await exportLocalData())}catch{Alert.alert('Backup nije napravljen','Pokušaj ponovno.')}finally{setBusy(false)}};const restore=async()=>{if(!json.trim()||busy)return;setBusy(true);try{await importLocalData(json);Alert.alert('Podaci su vraćeni','Sve je ponovno spremljeno lokalno na ovom telefonu.')}catch(error){Alert.alert('Nije vraćeno',error instanceof Error?error.message:'Pokušaj ponovno.')}finally{setBusy(false)}};return <SafeAreaView style={styles.safe} edges={['left','right','bottom']}><ScrollView contentContainerStyle={styles.content}><Text style={styles.kicker}>LOKALNI BACKUP</Text><Text style={styles.title}>Tvoji podaci</Text><Text style={styles.copy}>Sve ostaje na ovom telefonu. Izvoz stvara JSON koji možeš označiti i spremiti; za povrat ga zalijepi ovdje.</Text><Pressable onPress={()=>void make()} disabled={busy} style={styles.dark}><Text style={styles.darkText}>{busy?'Radim…':'Napravi JSON backup'}</Text></Pressable><TextInput value={json} onChangeText={setJson} multiline autoCapitalize="none" autoCorrect={false} textAlignVertical="top" placeholder="Ovdje će se pojaviti backup — ili ovdje zalijepi postojeći JSON." placeholderTextColor={colors.textMuted} style={styles.area}/><Pressable onPress={()=>void restore()} disabled={!json.trim()||busy} style={[styles.restore,(!json.trim()||busy)&&styles.disabled]}><Text style={styles.restoreText}>Vrati iz ovog JSON-a</Text></Pressable><Text style={styles.note}>Prije vraćanja, trenutni lokalni podaci se zamjenjuju podacima iz backupa.</Text></ScrollView></SafeAreaView>}
++const styles=StyleSheet.create({safe:{flex:1,backgroundColor:colors.background},content:{padding:22,paddingBottom:44},kicker:{color:colors.textMuted,fontSize:12,fontWeight:'900',letterSpacing:1},title:{color:colors.text,fontSize:38,fontWeight:'900',letterSpacing:-1,marginTop:5},copy:{color:colors.textMuted,fontSize:15,lineHeight:22,marginTop:8},dark:{minHeight:54,marginTop:25,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.black},darkText:{color:colors.white,fontWeight:'900',fontSize:15},area:{minHeight:260,marginTop:13,padding:14,borderRadius:16,borderWidth:1,borderColor:colors.separator,backgroundColor:colors.surface,color:colors.text,fontSize:12,lineHeight:18},restore:{minHeight:54,marginTop:13,borderRadius:16,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.black},restoreText:{color:colors.text,fontWeight:'900',fontSize:15},disabled:{opacity:.4},note:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:10}});
+diff -ruN --exclude node_modules --exclude .expo a/src/screens/QuickAddScreen.tsx "b/src/screens/QuickAddScreen.tsx"
+--- a/src/screens/QuickAddScreen.tsx	1970-01-01 01:00:00.000000000 +0100
++++ "b/src/screens/QuickAddScreen.tsx"	2026-08-21 19:23:09.136676761 +0200
+@@ -0,0 +1,41 @@
++import { useState } from 'react';
++import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
++import type { NativeStackScreenProps } from '@react-navigation/native-stack';
++import { SafeAreaView } from 'react-native-safe-area-context';
++
++import { activityApi } from '../services/activityApi';
++import { colors } from '../theme/colors';
++import type { ActivityType } from '../types/activity';
++import type { RootStackParamList } from '../types/navigation';
++
++type Props = NativeStackScreenProps<RootStackParamList, 'QuickAdd'>;
++const types: Array<[ActivityType, string]> = [
++  ['WORK', 'Rad'], ['STUDYING', 'Učenje'], ['RESEARCH', 'Istraživanje'],
++  ['EXERCISE', 'Kretanje'], ['CUSTOM', 'Ostalo'],
++];
++
++export function QuickAddScreen({ navigation }: Props) {
++  const [label, setLabel] = useState('');
++  const [activityType, setActivityType] = useState<ActivityType>('WORK');
++  const [saving, setSaving] = useState(false);
++  const start = async () => {
++    if (!label.trim() || saving) return;
++    setSaving(true);
++    try {
++      const activity = await activityApi.create({ label, activityType });
++      await activityApi.start(activity.activityId!);
++      navigation.replace('ActivityDetails', { activityId: activity.activityId! });
++    } catch (error) {
++      Alert.alert('Nije spremljeno', error instanceof Error ? error.message : 'Pokušaj ponovno.');
++      setSaving(false);
++    }
++  };
++  return <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}><View style={styles.content}>
++    <Text style={styles.kicker}>BRZI POČETAK</Text><Text style={styles.title}>Što radiš?</Text>
++    <Text style={styles.copy}>Samo napiši naziv — vrijeme kreće odmah i ostaje spremljeno na telefonu.</Text>
++    <TextInput autoFocus value={label} onChangeText={setLabel} placeholder="npr. Učim anatomiju" placeholderTextColor={colors.textMuted} style={styles.input} returnKeyType="done" onSubmitEditing={() => void start()} />
++    <Text style={styles.label}>Vrsta</Text><View style={styles.types}>{types.map(([value, name]) => <Pressable key={value} onPress={() => setActivityType(value)} style={[styles.type, activityType === value && styles.typeSelected]}><Text style={[styles.typeText, activityType === value && styles.typeTextSelected]}>{name}</Text></Pressable>)}</View>
++    <Pressable disabled={!label.trim() || saving} onPress={() => void start()} style={[styles.start, (!label.trim() || saving) && styles.disabled]}><Text style={styles.startText}>{saving ? 'Spremam…' : 'Započni sada'}</Text></Pressable>
++  </View></SafeAreaView>;
++}
++const styles = StyleSheet.create({ safe:{flex:1,backgroundColor:colors.background},content:{padding:22},kicker:{color:colors.textMuted,fontSize:12,fontWeight:'900',letterSpacing:1},title:{color:colors.text,fontSize:38,fontWeight:'900',letterSpacing:-1,marginTop:5},copy:{color:colors.textMuted,fontSize:15,lineHeight:22,marginTop:8},input:{marginTop:28,padding:16,borderWidth:1,borderColor:colors.separator,borderRadius:16,backgroundColor:colors.surface,color:colors.text,fontSize:17},label:{marginTop:24,color:colors.text,fontSize:14,fontWeight:'800'},types:{flexDirection:'row',flexWrap:'wrap',gap:9,marginTop:10},type:{paddingHorizontal:13,paddingVertical:10,borderRadius:13,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.separator},typeSelected:{backgroundColor:colors.black,borderColor:colors.black},typeText:{color:colors.text,fontSize:13,fontWeight:'700'},typeTextSelected:{color:colors.white},start:{marginTop:30,minHeight:55,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.black},startText:{color:colors.white,fontSize:16,fontWeight:'900'},disabled:{opacity:.42} });
+diff -ruN --exclude node_modules --exclude .expo a/src/screens/ThemePickerScreen.tsx "b/src/screens/ThemePickerScreen.tsx"
+--- a/src/screens/ThemePickerScreen.tsx	2026-08-21 19:37:27.680713519 +0200
++++ "b/src/screens/ThemePickerScreen.tsx"	2026-08-21 19:23:58.260678864 +0200
+@@ -11,6 +11,7 @@
+ } from 'react-native';
+ import { reloadAppAsync } from 'expo';
+ import { SafeAreaView } from 'react-native-safe-area-context';
++import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+ 
+ import {
+   activeAccentColor,
+@@ -19,6 +20,7 @@
+   hslToHex,
+   persistAccentColor,
+ } from '../theme/colors';
++import type { RootStackParamList } from '../types/navigation';
+ 
+ const MAP_STEPS = 28;
+ const HUE_STEPS = 48;
+@@ -31,7 +33,8 @@
+   return Math.max(0, Math.min(1, value));
+ }
+ 
+-export function ThemePickerScreen() {
++type Props = NativeStackScreenProps<RootStackParamList, 'ThemePicker'>;
++export function ThemePickerScreen({ navigation }: Props) {
+   const [accent, setAccent] = useState(activeAccentColor);
+   const [saving, setSaving] = useState(false);
+   const [mapSize, setMapSize] = useState(0);
+@@ -183,6 +186,10 @@
+             {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Primijeni</Text>}
+           </Pressable>
+         </View>
++        <Pressable onPress={() => navigation.navigate('Backup')} style={styles.backupLink}>
++          <Text style={styles.backupTitle}>Podaci i backup</Text>
++          <Text style={styles.backupCopy}>Izvezi ili vrati lokalno spremljene podatke  ›</Text>
++        </Pressable>
+       </ScrollView>
+     </SafeAreaView>
+   );
+@@ -218,6 +225,9 @@
+   previewSubtitle: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 4 },
+   previewButton: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
+   previewButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
++  backupLink: { marginTop: 24, padding: 17, borderRadius: 19, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
++  backupTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
++  backupCopy: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
+   actions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+   resetButton: { flex: 1, minHeight: 53, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.fill },
+   resetText: { color: colors.text, fontSize: 14, fontWeight: '800' },
+diff -ruN --exclude node_modules --exclude .expo a/src/screens/TodayScreen.tsx "b/src/screens/TodayScreen.tsx"
+--- a/src/screens/TodayScreen.tsx	2026-08-21 19:37:37.368713934 +0200
++++ "b/src/screens/TodayScreen.tsx"	2026-08-21 19:24:25.248680019 +0200
+@@ -243,6 +243,9 @@
+         ) : (
+           <Text style={styles.dailyEmpty}>Prva spremljena sesija pojavit će se ovdje.</Text>
+         )}
++        <Pressable onPress={() => navigation.navigate('WeekOverview')} style={styles.weekLink}>
++          <Text style={styles.weekLinkText}>Otvori mirni pregled tjedna  ›</Text>
++        </Pressable>
+       </View>
+ 
+       <View style={styles.quickGrid}>
+@@ -293,6 +296,13 @@
+         ) : null}
+       </View>
+ 
++      <Pressable
++        accessibilityRole="button"
++        onPress={() => navigation.navigate('QuickAdd')}
++        style={({ pressed }) => [styles.quickAdd, pressed && styles.quickPressed]}
++      >
++        <Text style={styles.quickAddPlus}>＋</Text><Text style={styles.quickAddText}>Brzo započni aktivnost</Text><Text style={styles.quickWideArrow}>›</Text>
++      </Pressable>
+ 
+       {error && (timers.length > 0 || recentActivities.length > 0) ? (
+         <Pressable
+@@ -392,13 +402,7 @@
+             timer={item}
+             now={now}
+             stopping={item.activityId ? stoppingIds.has(item.activityId) : false}
+-            onOpen={
+-              item.bookId
+-                ? () => navigation.navigate('BookDetails', { bookId: item.bookId as string })
+-                : item.topicId
+-                  ? () => navigation.navigate('TopicDetails', { topicId: item.topicId as string })
+-                  : undefined
+-            }
++            onOpen={item.activityId ? () => navigation.navigate('ActivityDetails', { activityId: item.activityId as string }) : undefined}
+             onStop={() => void stopTimer(item)}
+           />
+         )}
+@@ -415,10 +419,10 @@
+             </Text>
+             <Pressable
+               accessibilityRole="button"
+-              onPress={() => navigation.navigate('Catalogue')}
++              onPress={() => navigation.navigate('QuickAdd')}
+               style={({ pressed }) => [styles.emptyButton, pressed && styles.emptyButtonPressed]}
+             >
+-              <Text style={styles.emptyButtonText}>Otvori katalog</Text>
++              <Text style={styles.emptyButtonText}>Započni aktivnost</Text>
+             </Pressable>
+           </View>
+         }
+@@ -464,6 +468,8 @@
+     backgroundColor: colors.surface,
+     borderWidth: 1,
+     borderColor: colors.separator,
++    zIndex: 100,
++    elevation: 100,
+   },
+   themeButtonPressed: { opacity: 0.65, transform: [{ scale: 0.96 }] },
+   themeButtonIcon: { color: colors.black, fontSize: 22, fontWeight: '800' },
+@@ -664,6 +670,8 @@
+     fontSize: 13,
+     lineHeight: 19,
+   },
++  weekLink: { marginTop: 14, paddingTop: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
++  weekLinkText: { color: colors.text, fontSize: 13, fontWeight: '800' },
+   quickGrid: {
+     marginTop: 14,
+     flexDirection: 'row',
+@@ -712,6 +720,9 @@
+     fontWeight: '300',
+     marginLeft: 8,
+   },
++  quickAdd: { minHeight: 58, marginBottom: 2, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderRadius: 17, backgroundColor: colors.black },
++  quickAddPlus: { color: colors.white, fontSize: 23, fontWeight: '400', marginRight: 10 },
++  quickAddText: { flex: 1, color: colors.white, fontSize: 15, fontWeight: '900' },
+   quickPressed: {
+     opacity: 0.7,
+     transform: [{ scale: 0.99 }],
+diff -ruN --exclude node_modules --exclude .expo a/src/screens/WeekOverviewScreen.tsx "b/src/screens/WeekOverviewScreen.tsx"
+--- a/src/screens/WeekOverviewScreen.tsx	1970-01-01 01:00:00.000000000 +0100
++++ "b/src/screens/WeekOverviewScreen.tsx"	2026-08-21 19:23:39.520678061 +0200
+@@ -0,0 +1,13 @@
++import { useCallback, useState } from 'react';
++import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
++import { useFocusEffect } from '@react-navigation/native';
++import { SafeAreaView } from 'react-native-safe-area-context';
++import { historyApi } from '../services/historyApi';
++import { colors } from '../theme/colors';
++import type { HistorySession } from '../types/history';
++import { formatDuration } from '../utils/activityTime';
++const names=['Ned','Pon','Uto','Sri','Čet','Pet','Sub'];
++function key(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
++function secondsOnDay(s:HistorySession,start:Date){const end=new Date(start);end.setDate(end.getDate()+1);return Math.max(0,Math.floor((Math.min(s.endedAt?Date.parse(s.endedAt):Date.now(),end.getTime())-Math.max(Date.parse(s.startedAt),start.getTime()))/1000))}
++export function WeekOverviewScreen(){const [sessions,setSessions]=useState<HistorySession[]>([]);const [loading,setLoading]=useState(true);const load=useCallback(async()=>{setLoading(true);try{const result=await historyApi.getSessions({size:300});setSessions(result.content)}finally{setLoading(false)}},[]);useFocusEffect(useCallback(()=>{void load()},[load]));const today=new Date();today.setHours(0,0,0,0);const days=Array.from({length:7},(_,i)=>{const d=new Date(today);d.setDate(today.getDate()-6+i);const total=sessions.reduce((sum,s)=>sum+secondsOnDay(s,d),0);return{d,total}});const max=Math.max(...days.map(x=>x.total),1);const total=days.reduce((sum,x)=>sum+x.total,0);return <SafeAreaView style={styles.safe} edges={['left','right','bottom']}><ScrollView contentContainerStyle={styles.content}><Text style={styles.kicker}>MIRAN PREGLED</Text><Text style={styles.title}>Ovaj tjedan</Text><Text style={styles.copy}>Samo trag vremena koji si već spremio — bez ciljeva, bez ocjena.</Text><View style={styles.card}><Text style={styles.total}>{formatDuration(total)}</Text><Text style={styles.totalLabel}>zabilježeno u zadnjih 7 dana</Text><View style={styles.chart}>{days.map(({d,total:dayTotal})=><View key={key(d)} style={styles.barCol}><View style={styles.barTrack}><View style={[styles.bar,{height:`${Math.max(5,(dayTotal/max)*100)}%`}]} /></View><Text style={styles.day}>{names[d.getDay()]}</Text><Text style={styles.dayValue}>{dayTotal?formatDuration(dayTotal):'—'}</Text></View>)}</View></View></ScrollView></SafeAreaView>}
++const styles=StyleSheet.create({safe:{flex:1,backgroundColor:colors.background},content:{padding:22,paddingBottom:44},kicker:{color:colors.textMuted,fontSize:12,fontWeight:'900',letterSpacing:1},title:{color:colors.text,fontSize:38,fontWeight:'900',letterSpacing:-1,marginTop:5},copy:{color:colors.textMuted,fontSize:15,lineHeight:22,marginTop:8,maxWidth:390},card:{marginTop:28,padding:18,borderRadius:22,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.separator},total:{color:colors.text,fontSize:37,fontWeight:'900',letterSpacing:-1},totalLabel:{color:colors.textMuted,fontSize:13,marginTop:3},chart:{height:235,marginTop:24,flexDirection:'row',gap:7,alignItems:'flex-end'},barCol:{flex:1,height:'100%',alignItems:'center',justifyContent:'flex-end'},barTrack:{height:153,width:'100%',maxWidth:28,justifyContent:'flex-end',borderRadius:12,overflow:'hidden',backgroundColor:colors.fill},bar:{width:'100%',borderRadius:12,backgroundColor:colors.black},day:{color:colors.text,fontSize:11,fontWeight:'800',marginTop:9},dayValue:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:3},});
+diff -ruN --exclude node_modules --exclude .expo a/src/services/activityApi.ts "b/src/services/activityApi.ts"
+--- a/src/services/activityApi.ts	2026-08-21 19:37:27.300713503 +0200
++++ "b/src/services/activityApi.ts"	2026-08-21 19:22:40.480675534 +0200
+@@ -1,10 +1,20 @@
+ import type {
+   ActivityTimerResponse,
+   TimeSessionResponse,
++  ActivityCreateRequest,
++  ActivityDetailsResponse,
+ } from '../types/activity';
+ import { apiRequest } from './apiClient';
+ 
+ export const activityApi = {
++  create: (payload: ActivityCreateRequest) =>
++    apiRequest<ActivityDetailsResponse>('/activities', {
++      method: 'POST',
++      body: JSON.stringify(payload),
++    }),
++
++  getDetails: (activityId: string) =>
++    apiRequest<ActivityDetailsResponse>(`/activities/${activityId}`),
+   getReadingTimer: (bookId: string) =>
+     apiRequest<ActivityTimerResponse>(`/activities/books/${bookId}/reading`),
+ 
+diff -ruN --exclude node_modules --exclude .expo a/src/storage/backup.ts "b/src/storage/backup.ts"
+--- a/src/storage/backup.ts	1970-01-01 01:00:00.000000000 +0100
++++ "b/src/storage/backup.ts"	2026-08-21 19:23:39.600678065 +0200
+@@ -0,0 +1,28 @@
++import { getDatabase } from './database';
++
++const tables = ['books','topics','media_items','activities','games','time_sessions','entries'] as const;
++type Table = typeof tables[number];
++type Backup = { version: 1; exportedAt: string; tables: Record<Table, Record<string, unknown>[]> };
++
++export async function exportLocalData() {
++  const database = await getDatabase();
++  const data = {} as Backup['tables'];
++  for (const table of tables) data[table] = await database.getAllAsync<Record<string, unknown>>(`SELECT * FROM ${table}`);
++  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), tables: data } satisfies Backup, null, 2);
++}
++
++export async function importLocalData(text: string) {
++  let backup: Backup;
++  try { backup = JSON.parse(text) as Backup; } catch { throw new Error('JSON nije valjan.'); }
++  if (backup.version !== 1 || !backup.tables || !tables.every((table) => Array.isArray(backup.tables[table]))) throw new Error('Ovo nije backup iz Life Catalogue aplikacije.');
++  const database = await getDatabase();
++  await database.withExclusiveTransactionAsync(async () => {
++    await database.execAsync('PRAGMA foreign_keys = OFF;');
++    for (const table of [...tables].reverse()) await database.runAsync(`DELETE FROM ${table}`);
++    for (const table of tables) for (const row of backup.tables[table]) {
++      const columns = Object.keys(row); if (!columns.length) continue;
++      await database.runAsync(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`, ...columns.map((column) => (row[column] ?? null) as string | number | null));
++    }
++    await database.execAsync('PRAGMA foreign_keys = ON;');
++  });
++}
+diff -ruN --exclude node_modules --exclude .expo a/src/storage/localApi.ts "b/src/storage/localApi.ts"
+--- a/src/storage/localApi.ts	2026-08-21 19:37:27.376713506 +0200
++++ "b/src/storage/localApi.ts"	2026-08-21 19:22:40.600675539 +0200
+@@ -1,6 +1,11 @@
+ import type { SQLiteDatabase } from 'expo-sqlite';
+ 
+-import type { ActivityTimerResponse, TimeSessionResponse } from '../types/activity';
++import type {
++  ActivityCreateRequest,
++  ActivityDetailsResponse,
++  ActivityTimerResponse,
++  TimeSessionResponse,
++} from '../types/activity';
+ import type { BookRequest, BookResponse, PagedBooks } from '../types/book';
+ import type { Entry, EntryRequest } from '../types/entry';
+ import type { HistorySession, HistorySessionPage } from '../types/history';
+@@ -211,6 +216,19 @@
+   };
+ }
+ 
++async function activityDetails(
++  database: SQLiteDatabase,
++  activityId: string,
++): Promise<ActivityDetailsResponse> {
++  const timer = await timerForActivity(database, activityId);
++  const row = await database.getFirstAsync<SqlRow>(
++    'SELECT media_id, created_at FROM activities WHERE activity_id = ?',
++    activityId,
++  );
++  if (!row) throw new LocalApiFailure('Aktivnost ne postoji.', 404);
++  return { ...timer, mediaId: row.media_id as string | null, createdAt: String(row.created_at) };
++}
++
+ async function startActivity(database: SQLiteDatabase, activityId: string) {
+   const existing = await database.getFirstAsync<SqlRow>(
+     'SELECT session_id FROM time_sessions WHERE activity_id = ? AND ended_at IS NULL',
+@@ -667,7 +685,23 @@
+   throw new LocalApiFailure('Metoda nije podržana.', 405);
+ }
+ 
+-async function handleActivities(database: SQLiteDatabase, url: URL, method: string) {
++async function handleActivities(database: SQLiteDatabase, url: URL, method: string, options?: RequestInit) {
++  if (url.pathname === '/activities' && method === 'POST') {
++    const payload = parsePayload<ActivityCreateRequest>(options);
++    const id = identifier();
++    const now = nowIso();
++    await database.runAsync(
++      `INSERT INTO activities
++       (activity_id, label, activity_type, book_id, topic_id, media_id, created_at, modified_at)
++       VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?)`,
++      id,
++      requiredText(payload.label, 'Naziv aktivnosti'),
++      payload.activityType,
++      now,
++      now,
++    );
++    return activityDetails(database, id);
++  }
+   const reading = url.pathname.match(/^\/activities\/books\/([^/]+)\/reading(?:\/(start|stop))?$/);
+   if (reading) {
+     const bookId = decodeURIComponent(reading[1]!);
+@@ -702,6 +736,10 @@
+     );
+     return Promise.all(rows.map((row) => timerForActivity(database, String(row.activity_id))));
+   }
++  const detailMatch = url.pathname.match(/^\/activities\/([^/]+)$/);
++  if (detailMatch && method === 'GET') {
++    return activityDetails(database, decodeURIComponent(detailMatch[1]!));
++  }
+   const match = url.pathname.match(/^\/activities\/([^/]+)\/(start|stop|sessions)$/);
+   if (!match) throw new LocalApiFailure('Nepoznata putanja.', 404);
+   const activityId = decodeURIComponent(match[1]!);
+@@ -1018,8 +1056,8 @@
+     result = await handleBooks(database, url, method, options);
+   } else if (url.pathname === '/topics' || url.pathname.startsWith('/topics/')) {
+     result = await handleTopics(database, url, method, options);
+-  } else if (url.pathname.startsWith('/activities/')) {
+-    result = await handleActivities(database, url, method);
++  } else if (url.pathname === '/activities' || url.pathname.startsWith('/activities/')) {
++    result = await handleActivities(database, url, method, options);
+   } else if (url.pathname === '/entries' || url.pathname.startsWith('/entries/')) {
+     result = await handleEntries(database, url, method, options);
+   } else if (url.pathname === '/games' || url.pathname.startsWith('/games/')) {
+diff -ruN --exclude node_modules --exclude .expo a/src/types/activity.ts "b/src/types/activity.ts"
+--- a/src/types/activity.ts	2026-08-21 19:37:27.224713500 +0200
++++ "b/src/types/activity.ts"	2026-08-21 19:22:40.392675530 +0200
+@@ -21,6 +21,15 @@
+   totalSeconds: number;
+ };
+ 
++export type ActivityCreateRequest = {
++  label: string;
++  activityType: ActivityType;
++};
++
++export type ActivityDetailsResponse = ActivityTimerResponse & {
++  mediaId: string | null;
++  createdAt: string;
++};
+ 
+ export type TimeSessionResponse = {
+   sessionId: string;
+diff -ruN --exclude node_modules --exclude .expo a/src/types/navigation.ts "b/src/types/navigation.ts"
+--- a/src/types/navigation.ts	2026-08-21 19:37:27.460713510 +0200
++++ "b/src/types/navigation.ts"	2026-08-21 19:22:40.732675544 +0200
+@@ -1,6 +1,10 @@
+ export type RootStackParamList = {
+   Today: undefined;
+   ThemePicker: undefined;
++  QuickAdd: undefined;
++  ActivityDetails: { activityId: string };
++  WeekOverview: undefined;
++  Backup: undefined;
+   Catalogue: undefined;
+   Topics: undefined;
+   TopicDetails: { topicId: string };

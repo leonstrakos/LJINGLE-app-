@@ -1,0 +1,22 @@
+export type RootStackParamList = {
+  Today: undefined;
+  ThemePicker: undefined;
+  Catalogue: undefined;
+  Collections: undefined;
+  CollectionDetails: { collectionId: string };
+  Topics: undefined;
+  TopicDetails: { topicId: string };
+  History: undefined;
+  Stats: undefined;
+  Entries: undefined;
+  EntryForm: { entryId?: string } | undefined;
+  MemoryRadio: undefined;
+  Games: undefined;
+  Media: undefined;
+  BookList: undefined;
+  BookSearch: undefined;
+  BookMetadataImport: undefined;
+  BookStats: undefined;
+  BookDetails: { bookId: string };
+  BookForm: { bookId?: string } | undefined;
+};
