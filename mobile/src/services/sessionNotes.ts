@@ -1,6 +1,5 @@
-import * as SQLite from 'expo-sqlite';
+import { getDatabase } from '../storage/database';
 
-const DATABASE_NAME = 'life_catalogue.db';
 
 export type SessionStoppedEvent = {
   sessionId: string;
@@ -24,7 +23,7 @@ export function subscribeSessionStopped(listener: Listener) {
 }
 
 async function databaseWithSessionNotes() {
-  const database = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  const database = await getDatabase() /* sqliteSingleConnectionV1 */;
 
   await database.execAsync(
     'CREATE TABLE IF NOT EXISTS time_session_notes (' +

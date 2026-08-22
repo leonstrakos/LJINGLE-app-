@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
-import * as SQLite from 'expo-sqlite';
+import { getDatabaseConnection } from '../storage/databaseConnection';
 
 const STORAGE_KEY = 'tracking_app_radio_theme';
-const DATABASE_NAME = 'life_catalogue.db';
 
 export type RadioThemeId = 'original' | 'inverted';
 
@@ -28,7 +27,7 @@ function isRadioTheme(value: unknown): value is RadioThemeId {
 }
 
 function database() {
-  const db = SQLite.openDatabaseSync(DATABASE_NAME);
+  const db = getDatabaseConnection() /* sqliteSingleConnectionV1 */;
 
   db.execSync(`
     CREATE TABLE IF NOT EXISTS app_settings (

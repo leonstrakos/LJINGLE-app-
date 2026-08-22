@@ -17,37 +17,42 @@ type Props = {
   onOpen: () => void;
 };
 
-const OPEN_THRESHOLD = 0.56;
+// commandPalettePeekGestureV2
+const OPEN_THRESHOLD = 0.44;
+const FLICK_THRESHOLD = 0.72;
 
 export function CommandPaletteEdgeGesture({
   onOpen,
 }: Props) {
-  // commandPalettePeekGestureV1
-
   const progress =
     useRef(new Animated.Value(0)).current;
 
   const progressValue = useRef(0);
+  const active = useRef(false);
+
+  const reset = () => {
+    active.current = false;
+    progressValue.current = 0;
+  };
 
   const animateBack = () => {
     Animated.spring(progress, {
       toValue: 0,
-      tension: 150,
-      friction: 18,
+      tension: 180,
+      friction: 19,
       useNativeDriver: true,
-    }).start();
-
-    progressValue.current = 0;
+    }).start(reset);
   };
 
   const completeGesture = () => {
-    Animated.timing(progress, {
+    Animated.spring(progress, {
       toValue: 1,
-      duration: 110,
+      tension: 210,
+      friction: 20,
       useNativeDriver: true,
     }).start(() => {
       progress.setValue(0);
-      progressValue.current = 0;
+      reset();
       onOpen();
     });
   };
@@ -55,29 +60,53 @@ export function CommandPaletteEdgeGesture({
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () =>
-          Platform.OS !== 'web',
+        // Important:
+        // a normal tap in this small zone remains untouched.
+        onStartShouldSetPanResponder: () => false,
 
         onMoveShouldSetPanResponder: (
           _event,
           gesture,
-        ) =>
-          Platform.OS !== 'web' &&
-          gesture.dx < -4 &&
-          gesture.dy < -4,
+        ) => {
+          if (Platform.OS === 'web') {
+            return false;
+          }
+
+          const left = -gesture.dx;
+          const up = -gesture.dy;
+
+          // Must be a deliberate diagonal pull inward,
+          // not ordinary vertical scrolling.
+          return (
+            left > 8 &&
+            up > 8 &&
+            left / Math.max(up, 1) > 0.35 &&
+            up / Math.max(left, 1) > 0.28
+          );
+        },
+
+        onPanResponderGrant: () => {
+          active.current = true;
+        },
 
         onPanResponderMove: (
           _event,
           gesture,
         ) => {
-          const horizontal =
-            Math.max(0, -gesture.dx) / 118;
+          if (!active.current) return;
 
-          const vertical =
-            Math.max(0, -gesture.dy) / 92;
+          const left =
+            Math.max(0, -gesture.dx);
 
-          // Requires a genuinely diagonal ↖ gesture.
-          const next = Math.max(
+          const up =
+            Math.max(0, -gesture.dy);
+
+          // Horizontal movement contributes slightly more,
+          // but BOTH directions must be present.
+          const horizontal = left / 108;
+          const vertical = up / 82;
+
+          const nextProgress = Math.max(
             0,
             Math.min(
               1,
@@ -88,27 +117,40 @@ export function CommandPaletteEdgeGesture({
             ),
           );
 
-          progressValue.current = next;
-          progress.setValue(next);
+          progressValue.current =
+            nextProgress;
+
+          progress.setValue(
+            nextProgress,
+          );
         },
 
-        onPanResponderRelease: () => {
+        onPanResponderRelease: (
+          _event,
+          gesture,
+        ) => {
+          const fastInwardFlick =
+            gesture.vx < -FLICK_THRESHOLD &&
+            gesture.vy < -FLICK_THRESHOLD * 0.55;
+
           if (
             progressValue.current >=
-            OPEN_THRESHOLD
+              OPEN_THRESHOLD ||
+            fastInwardFlick
           ) {
             completeGesture();
-          } else {
-            animateBack();
+            return;
           }
+
+          animateBack();
         },
 
         onPanResponderTerminate: () => {
           animateBack();
         },
 
-        onPanResponderTerminationRequest: () =>
-          false,
+        onPanResponderTerminationRequest:
+          () => false,
       }),
     [onOpen, progress],
   );
@@ -117,25 +159,31 @@ export function CommandPaletteEdgeGesture({
     return null;
   }
 
-  const translateX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [285, 0],
-  });
+  // Most of the palette starts outside the viewport.
+  // As the finger travels inward, more of it becomes visible.
+  const translateX =
+    progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [305, 0],
+    });
 
-  const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [32, 0],
-  });
+  const translateY =
+    progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [46, 0],
+    });
 
-  const opacity = progress.interpolate({
-    inputRange: [0, 0.08, 1],
-    outputRange: [0, 0.45, 1],
-  });
+  const opacity =
+    progress.interpolate({
+      inputRange: [0, 0.04, 0.24, 1],
+      outputRange: [0, 0.18, 0.72, 1],
+    });
 
-  const scale = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.96, 1],
-  });
+  const scale =
+    progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.94, 1],
+    });
 
   return (
     <>
@@ -153,20 +201,22 @@ export function CommandPaletteEdgeGesture({
           },
         ]}
       >
+        <View style={styles.peekHandle} />
+
         <Text style={styles.searchMark}>
           ⌕
         </Text>
 
         <View style={styles.copy}>
           <Text style={styles.label}>
-            Command
+            Pretraži
           </Text>
 
           <Text
             numberOfLines={1}
             style={styles.placeholder}
           >
-            Pretraži ili pokreni naredbu...
+            Katalog · naredbe · Jingle
           </Text>
         </View>
       </Animated.View>
@@ -181,41 +231,64 @@ export function CommandPaletteEdgeGesture({
 }
 
 const styles = StyleSheet.create({
-  // Tiny dedicated edge area instead of
-  // a global gesture listener.
   edgeZone: {
     position: 'absolute',
-    right: 0,
-    bottom: 28,
-    width: 18,
-    height: 128,
+
+    // Slightly inside Android's own system edge.
+    right: 5,
+    bottom: 30,
+
+    width: 34,
+    height: 156,
+
     zIndex: 9997,
   },
 
   peek: {
     position: 'absolute',
+
     right: 12,
-    bottom: 42,
-    width: 285,
-    minHeight: 64,
+    bottom: 44,
+
+    width: 305,
+    minHeight: 68,
+
     zIndex: 9996,
 
     flexDirection: 'row',
     alignItems: 'center',
 
-    paddingHorizontal: 16,
+    paddingHorizontal: 17,
 
-    borderRadius: 19,
+    overflow: 'hidden',
+
+    borderRadius: 21,
     borderWidth: 1,
     borderColor: colors.separator,
 
     backgroundColor: colors.surface,
   },
 
+  peekHandle: {
+    position: 'absolute',
+
+    left: 0,
+    top: 15,
+    bottom: 15,
+
+    width: 3,
+
+    borderRadius: 2,
+
+    backgroundColor: colors.black,
+
+    opacity: 0.26,
+  },
+
   searchMark: {
     color: colors.textMuted,
-    fontSize: 22,
-    marginRight: 11,
+    fontSize: 23,
+    marginRight: 12,
   },
 
   copy: {
@@ -225,13 +298,13 @@ const styles = StyleSheet.create({
 
   label: {
     color: colors.text,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
   },
 
   placeholder: {
     color: colors.textMuted,
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 3,
   },
 });

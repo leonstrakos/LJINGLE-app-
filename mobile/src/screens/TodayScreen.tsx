@@ -3112,7 +3112,8 @@ const styles = StyleSheet.create({
   },
 
   radioTimerRow: {
-    marginTop: aeroMode && Platform.OS !== 'web' ? 10 : 30,
+    // mobileStabilityUiPolishV1
+    marginTop: aeroMode && Platform.OS !== 'web' ? 19 : 30,
     marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'stretch',

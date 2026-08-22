@@ -1,10 +1,9 @@
 import { Platform } from 'react-native';
-import * as SQLite from 'expo-sqlite';
 import { activeVisualSkinId } from './visualSkins';
+import { getDatabaseConnection } from '../storage/databaseConnection';
 
 const ACCENT_STORAGE_KEY = 'tracking_app_accent';
 const BACKGROUND_STORAGE_KEY = 'tracking_app_background';
-const DATABASE_NAME = 'life_catalogue.db';
 const DEFAULT_ACCENT = '#1D1D1F';
 const DEFAULT_BACKGROUND = '#F1F1F2';
 
@@ -86,7 +85,7 @@ function mixHex(first: string, second: string, secondWeight: number) {
 }
 
 function getSettingsDatabase() {
-  const database = SQLite.openDatabaseSync(DATABASE_NAME);
+  const database = getDatabaseConnection() /* sqliteSingleConnectionV1 */;
   database.execSync(`
     CREATE TABLE IF NOT EXISTS app_settings (
       setting_key TEXT PRIMARY KEY NOT NULL,

@@ -16,6 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedbackView } from '../../components/FeedbackView';
 import { colors } from '../../theme/colors';
+import {
+  catalogueStateKey,
+  mergeScreenState,
+  readScreenState,
+} from '../../utils/screenStateCache';
 import { GameCard } from '../components/GameCard';
 import { gameApi } from '../services/gameApi';
 import { hydrateGameMetadata } from '../services/gameMetadataHydrator';
@@ -31,13 +36,111 @@ import {
 
 type Props = NativeStackScreenProps<GameStackParamList, 'GameList'>;
 
+// gameStatePreservationV1
+type GameListPreservedStatus =
+  | GameStatus
+  | 'JINGLE'
+  | null;
+
+type GameListPreservedState = {
+  status: GameListPreservedStatus;
+  scrollOffset: number;
+};
+
+const GAME_STATE_KEY =
+  catalogueStateKey('games');
+
 export function GameListScreen({ navigation }: Props) {
-  const [games, setGames] = useState<GameResponse[]>([]);
+  const initialScreenState = useRef(
+    readScreenState<GameListPreservedState>(
+      GAME_STATE_KEY,
+    ),
+  ).current;
+
+  const listRef =
+    useRef<FlatList<GameResponse>>(null);
+
+  const scrollOffsetRef = useRef(
+    initialScreenState?.scrollOffset ?? 0,
+  );
+
+  const restoreScrollRef = useRef(
+    (initialScreenState?.scrollOffset ?? 0) > 0,
+  );
+
+  const [games, setGames] =
+    useState<GameResponse[]>([]);
+
   // jingleGamesV1
-  const [status, setStatus] = useState<GameStatus | 'JINGLE' | null>(null);
+  const [status, setStatus] =
+    useState<GameListPreservedStatus>(
+      initialScreenState?.status ?? null,
+    );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectGameStatus = (
+    value: GameListPreservedStatus,
+  ) => {
+    scrollOffsetRef.current = 0;
+    restoreScrollRef.current = false;
+
+    mergeScreenState<GameListPreservedState>(
+      GAME_STATE_KEY,
+      {
+        status: value,
+        scrollOffset: 0,
+      },
+    );
+
+    setStatus(value);
+
+    listRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  };
+
+  const rememberGameScroll = (
+    offset: number,
+  ) => {
+    scrollOffsetRef.current = offset;
+
+    mergeScreenState<GameListPreservedState>(
+      GAME_STATE_KEY,
+      {
+        status,
+        scrollOffset: offset,
+      },
+    );
+  };
+
+  const restoreGameScroll = () => {
+    if (!restoreScrollRef.current) {
+      return;
+    }
+
+    const offset = scrollOffsetRef.current;
+
+    if (offset <= 0) {
+      restoreScrollRef.current = false;
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      try {
+        listRef.current?.scrollToOffset({
+          offset,
+          animated: false,
+        });
+
+        restoreScrollRef.current = false;
+      } catch {
+        // Content can still be measuring.
+      }
+    });
+  };
 
   // lazyGameCoversV1
   const onGameViewableItemsChanged = useRef(
@@ -158,7 +261,7 @@ export function GameListScreen({ navigation }: Props) {
         >
           <Pressable
             accessibilityRole="button"
-            onPress={() => setStatus(null)}
+            onPress={() => selectGameStatus(null)}
             style={[styles.filter, status === null && styles.filterSelected]}
           >
             <Text style={[styles.filterText, status === null && styles.filterTextSelected]}>Sve</Text>
@@ -167,7 +270,7 @@ export function GameListScreen({ navigation }: Props) {
             <Pressable
               key={option}
               accessibilityRole="button"
-              onPress={() => setStatus(option)}
+              onPress={() => selectGameStatus(option)}
               style={[styles.filter, status === option && styles.filterSelected]}
             >
               <Text style={[styles.filterText, status === option && styles.filterTextSelected]}>
@@ -178,7 +281,7 @@ export function GameListScreen({ navigation }: Props) {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => setStatus('JINGLE')}
+            onPress={() => selectGameStatus('JINGLE')}
             style={[
               styles.filter,
               status === 'JINGLE' && styles.filterSelected,
@@ -202,7 +305,15 @@ export function GameListScreen({ navigation }: Props) {
         <FeedbackView type="error" message={error} onRetry={() => void loadGames()} />
       ) : (
         <FlatList
+          ref={listRef}
           data={games}
+          onScroll={(event) => {
+            rememberGameScroll(
+              event.nativeEvent.contentOffset.y,
+            );
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={restoreGameScroll}
           onViewableItemsChanged={onGameViewableItemsChanged}
           viewabilityConfig={gameCoverViewability}
           keyExtractor={(item) => item.gameId}

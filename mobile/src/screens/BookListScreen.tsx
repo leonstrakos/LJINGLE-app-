@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Image,
   FlatList,
@@ -16,18 +16,116 @@ import { BookCard } from '../components/BookCard';
 import { FeedbackView } from '../components/FeedbackView';
 import { bookApi } from '../services/bookApi';
 import { colors } from '../theme/colors';
+import {
+  catalogueStateKey,
+  mergeScreenState,
+  readScreenState,
+} from '../utils/screenStateCache';
 import type { BookResponse } from '../types/book';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookList'>;
 
+// bookStatePreservationV1
+type BookListPreservedState = {
+  jingleOnly: boolean;
+  scrollOffset: number;
+};
+
+const BOOK_STATE_KEY =
+  catalogueStateKey('books');
+
 export function BookListScreen({ navigation }: Props) {
-  const [books, setBooks] = useState<BookResponse[]>([]);
+  const initialScreenState = useRef(
+    readScreenState<BookListPreservedState>(
+      BOOK_STATE_KEY,
+    ),
+  ).current;
+
+  const listRef =
+    useRef<FlatList<BookResponse>>(null);
+
+  const scrollOffsetRef = useRef(
+    initialScreenState?.scrollOffset ?? 0,
+  );
+
+  const restoreScrollRef = useRef(
+    (initialScreenState?.scrollOffset ?? 0) > 0,
+  );
+
+  const [books, setBooks] =
+    useState<BookResponse[]>([]);
+
   // jingleBooksV1
-  const [jingleOnly, setJingleOnly] = useState(false);
+  const [jingleOnly, setJingleOnly] =
+    useState(
+      initialScreenState?.jingleOnly ?? false,
+    );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectJingleOnly = (
+    value: boolean,
+  ) => {
+    scrollOffsetRef.current = 0;
+    restoreScrollRef.current = false;
+
+    mergeScreenState<BookListPreservedState>(
+      BOOK_STATE_KEY,
+      {
+        jingleOnly: value,
+        scrollOffset: 0,
+      },
+    );
+
+    setJingleOnly(value);
+
+    listRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  };
+
+  const rememberBookScroll = (
+    offset: number,
+  ) => {
+    scrollOffsetRef.current = offset;
+
+    mergeScreenState<BookListPreservedState>(
+      BOOK_STATE_KEY,
+      {
+        jingleOnly,
+        scrollOffset: offset,
+      },
+    );
+  };
+
+  const restoreBookScroll = () => {
+    if (!restoreScrollRef.current) {
+      return;
+    }
+
+    const offset = scrollOffsetRef.current;
+
+    if (offset <= 0) {
+      restoreScrollRef.current = false;
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      try {
+        listRef.current?.scrollToOffset({
+          offset,
+          animated: false,
+        });
+
+        restoreScrollRef.current = false;
+      } catch {
+        // Content can still be measuring.
+      }
+    });
+  };
 
   const loadBooks = useCallback(async (asRefresh = false) => {
     asRefresh ? setRefreshing(true) : setLoading(true);
@@ -111,7 +209,7 @@ export function BookListScreen({ navigation }: Props) {
         <View style={styles.jingleFilters}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setJingleOnly(false)}
+            onPress={() => selectJingleOnly(false)}
             style={[
               styles.jingleFilter,
               !jingleOnly && styles.jingleFilterSelected,
@@ -129,7 +227,7 @@ export function BookListScreen({ navigation }: Props) {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => setJingleOnly(true)}
+            onPress={() => selectJingleOnly(true)}
             style={[
               styles.jingleFilter,
               jingleOnly && styles.jingleFilterSelected,
@@ -153,7 +251,15 @@ export function BookListScreen({ navigation }: Props) {
         <FeedbackView type="error" message={error} onRetry={() => void loadBooks()} />
       ) : (
         <FlatList
+          ref={listRef}
           data={visibleBooks}
+          onScroll={(event) => {
+            rememberBookScroll(
+              event.nativeEvent.contentOffset.y,
+            );
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={restoreBookScroll}
           keyExtractor={(item) => item.bookId}
           renderItem={({ item }) => (
             <View style={styles.jingleRow}>

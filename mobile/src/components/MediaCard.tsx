@@ -84,9 +84,11 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.995 }],
   },
   content: {
+    // mobileStabilityUiPolishV1
     flex: 1,
     minWidth: 0,
     paddingVertical: 3,
+    paddingRight: 40,
   },
   metaRow: {
     flexDirection: 'row',

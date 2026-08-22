@@ -21,6 +21,11 @@ import { hydrateMovieMetadata } from '../services/movieMetadataHydrator';
 import { getCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
 import { colors } from '../theme/colors';
 import {
+  catalogueStateKey,
+  mergeScreenState,
+  readScreenState,
+} from '../utils/screenStateCache';
+import {
   mediaTypeLabels,
   watchStatusLabels,
   type MediaResponse,
@@ -46,14 +51,136 @@ const statusFilters: StatusFilter[] = [
   'NEBITNO',
 ];
 
+// mediaStatePreservationV1
+type MediaListPreservedState = {
+  typeFilter: TypeFilter;
+  statusFilter: StatusFilter;
+  scrollOffset: number;
+};
+
+const MEDIA_STATE_KEY =
+  catalogueStateKey('media');
+
 export function MediaListScreen({ navigation }: Props) {
-  const [items, setItems] = useState<MediaResponse[]>([]);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const initialScreenState = useRef(
+    readScreenState<MediaListPreservedState>(
+      MEDIA_STATE_KEY,
+    ),
+  ).current;
+
+  const listRef =
+    useRef<FlatList<MediaResponse>>(null);
+
+  const scrollOffsetRef = useRef(
+    initialScreenState?.scrollOffset ?? 0,
+  );
+
+  const restoreScrollRef = useRef(
+    (initialScreenState?.scrollOffset ?? 0) > 0,
+  );
+
+  const [items, setItems] =
+    useState<MediaResponse[]>([]);
+
+  const [typeFilter, setTypeFilter] =
+    useState<TypeFilter>(
+      initialScreenState?.typeFilter ?? 'ALL',
+    );
+
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>(
+      initialScreenState?.statusFilter ?? 'ALL',
+    );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jingleBusy, setJingleBusy] = useState<string | null>(null);
+
+  const selectTypeFilter = (
+    value: TypeFilter,
+  ) => {
+    scrollOffsetRef.current = 0;
+    restoreScrollRef.current = false;
+
+    mergeScreenState<MediaListPreservedState>(
+      MEDIA_STATE_KEY,
+      {
+        typeFilter: value,
+        statusFilter,
+        scrollOffset: 0,
+      },
+    );
+
+    setTypeFilter(value);
+
+    listRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  };
+
+  const selectStatusFilter = (
+    value: StatusFilter,
+  ) => {
+    scrollOffsetRef.current = 0;
+    restoreScrollRef.current = false;
+
+    mergeScreenState<MediaListPreservedState>(
+      MEDIA_STATE_KEY,
+      {
+        typeFilter,
+        statusFilter: value,
+        scrollOffset: 0,
+      },
+    );
+
+    setStatusFilter(value);
+
+    listRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  };
+
+  const rememberScroll = (offset: number) => {
+    scrollOffsetRef.current = offset;
+
+    mergeScreenState<MediaListPreservedState>(
+      MEDIA_STATE_KEY,
+      {
+        typeFilter,
+        statusFilter,
+        scrollOffset: offset,
+      },
+    );
+  };
+
+  const restoreScroll = () => {
+    if (!restoreScrollRef.current) {
+      return;
+    }
+
+    const offset = scrollOffsetRef.current;
+
+    if (offset <= 0) {
+      restoreScrollRef.current = false;
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      try {
+        listRef.current?.scrollToOffset({
+          offset,
+          animated: false,
+        });
+
+        restoreScrollRef.current = false;
+      } catch {
+        // Content may still be measuring.
+        // onContentSizeChange will retry.
+      }
+    });
+  };
 
   const toggleJingle = async (item: MediaResponse) => {
     if (jingleBusy === item.mediaId) return;
@@ -156,7 +283,7 @@ export function MediaListScreen({ navigation }: Props) {
               key={value}
               active={typeFilter === value}
               label={value === 'ALL' ? 'Sve vrste' : mediaTypeLabels[value]}
-              onPress={() => setTypeFilter(value)}
+              onPress={() => selectTypeFilter(value)}
             />
           ))}
         </ScrollView>
@@ -174,7 +301,7 @@ export function MediaListScreen({ navigation }: Props) {
                       ? 'Nebitno'
                       : watchStatusLabels[value]
               }
-              onPress={() => setStatusFilter(value)}
+              onPress={() => selectStatusFilter(value)}
             />
           ))}
         </ScrollView>
@@ -186,7 +313,15 @@ export function MediaListScreen({ navigation }: Props) {
         <MediaFeedbackView type="error" message={error} onRetry={() => void load()} />
       ) : (
         <FlatList
+          ref={listRef}
           data={items}
+          onScroll={(event) => {
+            rememberScroll(
+              event.nativeEvent.contentOffset.y,
+            );
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={restoreScroll}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={moviePosterViewability}
           keyExtractor={(item) => item.mediaId}
@@ -253,9 +388,24 @@ function FilterChip({ label, active, onPress }: FilterChipProps) {
 const styles = StyleSheet.create({
   // jingleCatalogueV3
   jingleRow: { position: 'relative' },
-  jingleButton: { position: 'absolute', top: 2, right: 2, zIndex: 40, width: 76, height: 80, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderWidth: 0 },
+  jingleButton: {
+    // mobileStabilityUiPolishV1
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    zIndex: 40,
+    width: 48,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
   jingleButtonPressed: { opacity: 0.72, transform: [{ scale: 0.95 }] },
-  jingleIcon: { width: 62, height: 74 },
+  jingleIcon: {
+    width: 42,
+    height: 50,
+  },
   jingleIconInactive: { opacity: 0.22 },
   safeArea: { flex: 1, backgroundColor: colors.background },
   hero: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 17 },

@@ -153,6 +153,183 @@ function parseCatalogueSearch(
   return result;
 }
 
+// catalogueSearchAutocompleteV1
+type SearchSuggestion = {
+  label: string;
+  token: string;
+};
+
+function getCatalogueSearchSuggestions(
+  input: string,
+): SearchSuggestion[] {
+  const trimmedLeft = input.replace(/^\s+/, '');
+
+  const lastWhitespace =
+    Math.max(
+      trimmedLeft.lastIndexOf(' '),
+      trimmedLeft.lastIndexOf('\n'),
+      trimmedLeft.lastIndexOf('\t'),
+    );
+
+  const currentToken =
+    trimmedLeft
+      .slice(lastWhitespace + 1)
+      .toLocaleLowerCase();
+
+  if (
+    currentToken === 't' ||
+    currentToken === 'ty' ||
+    currentToken === 'typ'
+  ) {
+    return [
+      {
+        label: 'type:',
+        token: 'type:',
+      },
+    ];
+  }
+
+  if (
+    currentToken === 's' ||
+    currentToken === 'st' ||
+    currentToken === 'sta' ||
+    currentToken === 'stat' ||
+    currentToken === 'statu'
+  ) {
+    return [
+      {
+        label: 'status:',
+        token: 'status:',
+      },
+    ];
+  }
+
+  if (
+    currentToken === 'y' ||
+    currentToken === 'ye' ||
+    currentToken === 'yea'
+  ) {
+    return [
+      {
+        label: 'year:',
+        token: 'year:',
+      },
+    ];
+  }
+
+  if (
+    currentToken === 'j' ||
+    currentToken === 'ji' ||
+    currentToken === 'jin' ||
+    currentToken === 'jing' ||
+    currentToken === 'jingl'
+  ) {
+    return [
+      {
+        label: 'Jingle',
+        token: 'jingle ',
+      },
+    ];
+  }
+
+  if (
+    currentToken === 'type:' ||
+    currentToken.startsWith('type:')
+  ) {
+    const typedValue =
+      currentToken.slice('type:'.length);
+
+    return [
+      {
+        label: 'Film',
+        token: 'type:movie ',
+      },
+      {
+        label: 'Serija',
+        token: 'type:series ',
+      },
+      {
+        label: 'Knjiga',
+        token: 'type:book ',
+      },
+      {
+        label: 'Igra',
+        token: 'type:game ',
+      },
+    ].filter((suggestion) =>
+      typedValue.length === 0 ||
+      suggestion.token
+        .slice('type:'.length)
+        .startsWith(typedValue)
+    );
+  }
+
+  if (
+    currentToken === 'status:' ||
+    currentToken.startsWith('status:')
+  ) {
+    const typedValue =
+      currentToken.slice('status:'.length);
+
+    return [
+      {
+        label: 'Gledam',
+        token: 'status:watching ',
+      },
+      {
+        label: 'Čitam',
+        token: 'status:reading ',
+      },
+      {
+        label: 'Igram',
+        token: 'status:playing ',
+      },
+      {
+        label: 'Instalirano',
+        token: 'status:installed ',
+      },
+      {
+        label: 'Završeno',
+        token: 'status:completed ',
+      },
+      {
+        label: 'Za poslije',
+        token: 'status:planned ',
+      },
+      {
+        label: 'Odustao/la',
+        token: 'status:dropped ',
+      },
+    ].filter((suggestion) =>
+      typedValue.length === 0 ||
+      suggestion.token
+        .slice('status:'.length)
+        .startsWith(typedValue)
+    );
+  }
+
+  return [];
+}
+
+function applyCatalogueSearchSuggestion(
+  input: string,
+  suggestion: SearchSuggestion,
+) {
+  const lastWhitespace =
+    Math.max(
+      input.lastIndexOf(' '),
+      input.lastIndexOf('\n'),
+      input.lastIndexOf('\t'),
+    );
+
+  const prefix =
+    lastWhitespace >= 0
+      ? input.slice(0, lastWhitespace + 1)
+      : '';
+
+  return prefix + suggestion.token;
+}
+
 function statusMatches(
   actual: unknown,
   wantedRaw: string,
@@ -261,6 +438,11 @@ export function CatalogueHomeScreen({ navigation }: Props) {
     useCallback(() => {
       void loadCatalogue();
     }, [loadCatalogue]),
+  );
+
+  const searchSuggestions = useMemo(
+    () => getCatalogueSearchSuggestions(query),
+    [query],
   );
 
   const searchResults = useMemo(() => {
@@ -707,6 +889,42 @@ export function CatalogueHomeScreen({ navigation }: Props) {
               </Pressable>
             ) : null}
           </View>
+
+          {searchSuggestions.length > 0 ? (
+            <View style={styles.autocompleteRow}>
+              {searchSuggestions.map(
+                (suggestion) => (
+                  <Pressable
+                    key={suggestion.token}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      'Dovrši pretragu: ' +
+                      suggestion.label
+                    }
+                    onPress={() => {
+                      setQuery(
+                        applyCatalogueSearchSuggestion(
+                          query,
+                          suggestion,
+                        ),
+                      );
+                    }}
+                    style={({ pressed }) => [
+                      styles.autocompleteChip,
+                      pressed &&
+                        styles.autocompleteChipPressed,
+                    ]}
+                  >
+                    <Text
+                      style={styles.autocompleteChipText}
+                    >
+                      {suggestion.label}
+                    </Text>
+                  </Pressable>
+                ),
+              )}
+            </View>
+          ) : null}
 
           {query.trim().length > 0 ? (
             <>
@@ -1188,6 +1406,35 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 22,
     lineHeight: 24,
+  },
+
+  autocompleteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    paddingHorizontal: 2,
+  },
+
+  autocompleteChip: {
+    minHeight: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.surface,
+  },
+
+  autocompleteChipPressed: {
+    opacity: 0.58,
+    transform: [{ scale: 0.97 }],
+  },
+
+  autocompleteChipText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '800',
   },
 
   searchChips: {

@@ -2,8 +2,8 @@ import * as SQLite from 'expo-sqlite';
 import { importGamesNotesOnce } from './gamesNotesImport';
 import { importTvTimeOnce } from './tvTimeImport';
 import { repairTvTimeOnce } from './tvTimeRepair';
+import { getDatabaseConnection } from './databaseConnection'; // sqliteSingleConnectionV1
 
-const DATABASE_NAME = 'life_catalogue.db';
 const DATABASE_VERSION = 4;
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -271,7 +271,8 @@ async function migrate(database: SQLite.SQLiteDatabase) {
 
 export function getDatabase() {
   if (!databasePromise) {
-    databasePromise = SQLite.openDatabaseAsync(DATABASE_NAME).then(async (database) => {
+    // sqliteSingleConnectionV1
+    databasePromise = Promise.resolve(getDatabaseConnection()).then(async (database) => {
       await migrate(database);
       // tvTimeImportV1 — one-time idempotent TV Time migration
       await importTvTimeOnce(database);

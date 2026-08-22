@@ -1,9 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
+import { getDatabase } from '../storage/database';
 
-const DATABASE_NAME = 'life_catalogue.db';
 const IMAGE_DIRECTORY_NAME = 'entry-images';
 
 export type EntryImageAttachment = {
@@ -41,7 +40,7 @@ function identifier() {
 }
 
 async function databaseWithEntryImages() {
-  const database = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  const database = await getDatabase() /* sqliteSingleConnectionV1 */;
 
   await database.execAsync(
     'CREATE TABLE IF NOT EXISTS entry_image_attachments (' +

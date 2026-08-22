@@ -122,56 +122,70 @@ export function GameDetailsScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <CatalogueCoverDisplay
-          entityType="GAME"
-          entityId={gameId}
-          imageStyle={styles.cover}
-        >
-          {game.coverUrl ? (
-            <Image
-              source={{ uri: game.coverUrl }}
-              resizeMode="cover"
-              style={styles.cover}
-            />
-          ) : (
-            <View style={styles.coverPlaceholder}>
-              <Text style={styles.coverMark}>G</Text>
-              <Text numberOfLines={3} style={styles.coverTitle}>
-                {game.title}
+        {/* mobileStabilityUiPolishV1 */}
+        <View style={styles.hero}>
+          <CatalogueCoverDisplay
+            entityType="GAME"
+            entityId={gameId}
+            imageStyle={styles.cover}
+          >
+            {game.coverUrl ? (
+              <Image
+                source={{ uri: game.coverUrl }}
+                resizeMode="cover"
+                style={styles.cover}
+              />
+            ) : (
+              <View style={styles.coverPlaceholder}>
+                <Text style={styles.coverMark}>G</Text>
+              </View>
+            )}
+          </CatalogueCoverDisplay>
+
+          <View style={styles.heroText}>
+            <Text style={styles.type}>IGRA</Text>
+
+            <Text
+              numberOfLines={4}
+              style={styles.title}
+            >
+              {game.title}{game.dnf ? ' *' : ''}
+            </Text>
+
+            <Text style={styles.subtitle}>
+              {[game.developer, game.releaseYear]
+                .filter(Boolean)
+                .join(' · ') || game.platform}
+            </Text>
+
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>
+                {gameStatusLabels[game.gameStatus]}
+                {game.dnf ? ' *' : ''}
               </Text>
             </View>
-          )}
-        </CatalogueCoverDisplay>
+
+            <Text
+              numberOfLines={1}
+              style={styles.platform}
+            >
+              {game.platform}
+            </Text>
+
+            {game.favourite ? (
+              <Image
+                source={require('../../assets/aero/fav.png')}
+                resizeMode="contain"
+                style={styles.heroJingle}
+              />
+            ) : null}
+          </View>
+        </View>
 
         <CatalogueCoverOverrideControls
           entityType="GAME"
           entityId={gameId}
         />
-
-        <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <Text style={styles.title}>{game.title}{game.dnf ? ' *' : ''}</Text>
-            <Text style={styles.subtitle}>
-              {[game.developer, game.releaseYear].filter(Boolean).join(' · ') || game.platform}
-            </Text>
-          </View>
-          {game.favourite ? (
-                            <Image
-                source={require('../../assets/aero/fav.png')}
-                resizeMode="contain"
-                style={{ width: 48, height: 58 }}
-              />
-            ) : null}
-        </View>
-
-        <View style={styles.statusRow}>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>
-              ●  {gameStatusLabels[game.gameStatus]}{game.dnf ? ' *' : ''}
-            </Text>
-          </View>
-          <Text style={styles.platform}>{game.platform}</Text>
-        </View>
 
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
@@ -236,40 +250,73 @@ export function GameDetailsScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, paddingBottom: 42 },
+  hero: {
+    flexDirection: 'row',
+    gap: 20,
+    alignItems: 'flex-end',
+  },
+  heroText: {
+    flex: 1,
+    minWidth: 0,
+    paddingBottom: 4,
+  },
+  type: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   cover: {
-    width: '100%',
-    aspectRatio: 0.75,
-    maxHeight: 430,
-    alignSelf: 'center',
+    width: 156,
+    height: 234,
     backgroundColor: colors.fillStrong,
-    borderRadius: 21,
+    borderRadius: 12,
   },
   coverPlaceholder: {
-    minHeight: 300,
+    width: 156,
+    height: 234,
     justifyContent: 'flex-end',
     overflow: 'hidden',
     backgroundColor: colors.black,
-    borderRadius: 21,
-    padding: 24,
+    borderRadius: 12,
+    padding: 16,
   },
   coverMark: {
     position: 'absolute',
     top: -8,
     right: 18,
     color: colors.navySoft,
-    fontSize: 130,
+    fontSize: 82,
     fontWeight: '900',
   },
   coverTitle: { color: colors.white, fontSize: 30, lineHeight: 36, fontWeight: '900' },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 20 },
   titleCopy: { flex: 1 },
   title: { color: colors.text, fontSize: 29, lineHeight: 35, fontWeight: '900' },
+  heroJingle: {
+    width: 34,
+    height: 41,
+    marginTop: 9,
+  },
   subtitle: { color: colors.textMuted, fontSize: 15, lineHeight: 21, marginTop: 6 },
   favourite: { color: colors.black, fontSize: 25 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
-  statusBadge: { backgroundColor: colors.successSoft, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999 },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 13,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
   statusText: { color: colors.text, fontSize: 13, fontWeight: '800' },
-  platform: { flex: 1, color: colors.textMuted, fontSize: 13, fontWeight: '700' },
+  platform: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
   progressCard: {
     marginTop: 14,
     backgroundColor: colors.surface,
