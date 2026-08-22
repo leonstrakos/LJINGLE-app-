@@ -2,7 +2,7 @@
 
 A personal catalogue, activity tracker and memory system built around one idea:
 
-> **Keep track of what you spend your time on — and preserve the history around it.**
+> **Keep track of what you spend your time on and preserve the history around it.**
 
 Tracking App combines books, films, television, games, notes, activities, timers, statistics and personal memories into one private library.
 
