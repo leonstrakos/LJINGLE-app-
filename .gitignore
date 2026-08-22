@@ -1,0 +1,47 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+
+# React Native / Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/.env
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+
+# Additional Expo/React Native output
+mobile/.expo-shared/
+mobile/web-build/
+mobile/coverage/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# All environment variants, but keep examples
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# Mobile credentials
+*.keystore
+*.jks
+*.p8
+*.p12
+*.pem
+google-services.json
+GoogleService-Info.plist
+local.properties
