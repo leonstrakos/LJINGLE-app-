@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   GestureResponderEvent,
+  Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -10,7 +12,9 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';import { SafeAreaView } from 'react-native-safe-area-context';
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { reloadAppAsync } from 'expo';
 
 import {
   activeAccentColor,
@@ -30,6 +34,12 @@ import {
   visualSkins,
   type VisualSkinId,
 } from '../theme/visualSkins';
+import {
+  activeAeroBackgroundId,
+  aeroBackgrounds,
+  persistAeroBackground,
+  type AeroBackgroundId,
+} from '../theme/aeroBackground';
 // catalogueQuietModeV1
 import {
   getCatalogueDisplayMode,
@@ -60,10 +70,16 @@ export function ThemePickerScreen() {
   const [backgroundColor, setBackgroundColor] = useState(activeBackgroundColor);
   const [colorTarget, setColorTarget] = useState<'accent' | 'background'>('accent');
   const [visualSkin, setVisualSkin] = useState<VisualSkinId>(activeVisualSkinId);
+  const [aeroBackground, setAeroBackground] =
+    useState<AeroBackgroundId>(activeAeroBackgroundId);
   const [catalogueDisplayMode, setCatalogueDisplayMode] =
     useState<CatalogueDisplayMode>(getCatalogueDisplayMode());
   const [radioTheme, setRadioTheme] = useState<RadioThemeId>(activeRadioThemeId);
   const [saving, setSaving] = useState(false);
+  // themeRestartPromptV1
+  const [restartPromptVisible, setRestartPromptVisible] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState('');
   // settingsJsonDownloadV2
   const [lastExportName, setLastExportName] = useState('');
   // settingsJsonImportV1
@@ -97,19 +113,37 @@ export function ThemePickerScreen() {
   const save = async () => {
     if (saving) return;
     setSaving(true);
+    setRestartError('');
     try {
       persistAccentColor(accent);
       persistBackgroundColor(backgroundColor);
       persistVisualSkin(visualSkin);
+      persistAeroBackground(aeroBackground);
       persistCatalogueDisplayMode(catalogueDisplayMode);
       persistRadioTheme(radioTheme);
-      Alert.alert(
-        'Izgled spremljen',
-        'Boja, vizualni svijet i izgled Memory Radija su spremljeni.',
-      );
+
+      // Theme tokens are module-level values, so reload the JS runtime after
+      // confirmation. Reset saving first so backup controls never remain grey.
+      setSaving(false);
+      setRestartPromptVisible(true);
     } catch {
       setSaving(false);
-      Alert.alert('Boja nije spremljena', 'PokuĹˇajte ponovno. VaĹˇi podaci nisu promijenjeni.');
+      Alert.alert('Boja nije spremljena', 'Pokušajte ponovno. Vaši podaci nisu promijenjeni.');
+    }
+  };
+
+  const restartAfterThemeSave = async () => {
+    if (restarting) return;
+    setRestarting(true);
+    setRestartError('');
+
+    try {
+      await reloadAppAsync('theme-settings-changed');
+    } catch {
+      setRestarting(false);
+      setRestartError(
+        'Automatsko ponovno pokretanje nije uspjelo. Zatvori i ponovno otvori aplikaciju.',
+      );
     }
   };
 
@@ -283,6 +317,93 @@ export function ThemePickerScreen() {
             })}
           </View>
         </View>
+
+        {/* aeroBackgroundPickerV2 */}
+        {visualSkin === 'aero' ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>
+              Aero pozadina
+            </Text>
+
+            <Text style={styles.sectionHint}>
+              Meadow je mirniji Vista stil. Ocean zadr?ava puni Frutiger.
+            </Text>
+
+            <View style={styles.aeroBackgroundGrid}>
+              {aeroBackgrounds.map((preset) => {
+                const selected =
+                  aeroBackground === preset.id;
+
+                return (
+                  <Pressable
+                    key={preset.id}
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      checked: selected,
+                    }}
+                    onPress={() =>
+                      setAeroBackground(preset.id)
+                    }
+                    style={({ pressed }) => [
+                      styles.aeroBackgroundCard,
+                      selected &&
+                        styles.aeroBackgroundCardSelected,
+                      selected && {
+                        borderColor: accent,
+                      },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Image
+                      source={
+                        preset.id === 'meadow'
+                          ? require('../assets/aero/aero-meadow-ufo.jpeg')
+                          : require('../assets/aero/aero-world-bg2.webp')
+                      }
+                      resizeMode="cover"
+                      style={styles.aeroBackgroundPreview}
+                    />
+
+                    <View style={styles.aeroBackgroundCopy}>
+                      <View
+                        style={
+                          styles.aeroBackgroundTitleRow
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.aeroBackgroundName
+                          }
+                        >
+                          {preset.name}
+                        </Text>
+
+                        <View
+                          style={[
+                            styles.skinRadio,
+                            selected &&
+                              styles.skinRadioSelected,
+                            selected && {
+                              borderColor: accent,
+                            },
+                          ]}
+                        />
+                      </View>
+
+                      <Text
+                        style={
+                          styles.aeroBackgroundDescription
+                        }
+                      >
+                        {preset.description}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         <View style={[styles.section, styles.radioThemeSection]}>
           <Text style={styles.sectionLabel}>Izgled Memory Radija</Text>
@@ -540,7 +661,7 @@ export function ThemePickerScreen() {
                   Vrati originalnu pozadinu
                 </Text>
                 <Text style={styles.originalBackgroundValue}>
-                  #F1F1F2 ? RGB 241, 241, 242
+                  #F1F1F2 · RGB 241, 241, 242
                 </Text>
               </View>
             </Pressable>
@@ -729,6 +850,47 @@ export function ThemePickerScreen() {
         </View>
 
       </ScrollView>
+
+      {/* themeRestartPromptV1 */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={restartPromptVisible}
+        onRequestClose={() => {
+          if (!restarting) setRestartPromptVisible(false);
+        }}
+      >
+        <View style={styles.restartOverlay}>
+          <View style={styles.restartCard}>
+            <Text style={styles.restartEyebrow}>IZGLED SPREMLJEN</Text>
+            <Text style={styles.restartTitle}>Primijeni novi izgled</Text>
+            <Text style={styles.restartCopy}>
+              Nova boja i vizualni svijet učitat će se nakon brzog ponovnog pokretanja aplikacije.
+            </Text>
+
+            {restartError ? (
+              <Text style={styles.restartError}>{restartError}</Text>
+            ) : null}
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={restarting}
+              onPress={() => void restartAfterThemeSave()}
+              style={({ pressed }) => [
+                styles.restartButton,
+                { backgroundColor: accent },
+                pressed && !restarting && styles.pressed,
+              ]}
+            >
+              {restarting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.restartButtonText}>Ponovno pokreni</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -756,6 +918,14 @@ const styles = StyleSheet.create({
   skinName: { marginTop: 13, color: colors.text, fontSize: 17, fontWeight: '900' },
   skinDescription: { marginTop: 5, color: colors.textMuted, fontSize: 11, lineHeight: 16 },
   skinStatus: { marginTop: 13, color: colors.navy, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  aeroBackgroundGrid: { marginTop: 14, flexDirection: 'row', gap: 12 },
+  aeroBackgroundCard: { flex: 1, overflow: 'hidden', borderRadius: 18, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.fill },
+  aeroBackgroundCardSelected: { borderWidth: 2, backgroundColor: colors.surface },
+  aeroBackgroundPreview: { width: '100%', height: 112 },
+  aeroBackgroundCopy: { padding: 12 },
+  aeroBackgroundTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  aeroBackgroundName: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  aeroBackgroundDescription: { marginTop: 5, color: colors.textMuted, fontSize: 11, lineHeight: 16 },
   radioThemeSection: { marginTop: 15 },
   radioThemeGrid: { marginTop: 15, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 
@@ -1062,6 +1232,59 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: { color: colors.white, fontSize: 13, fontWeight: '900' },
   importNote: { marginTop: 11, color: colors.textMuted, fontSize: 10.5, lineHeight: 16 },
+  restartOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.46)',
+  },
+  restartCard: {
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
+    padding: 22,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.separator,
+  },
+  restartEyebrow: {
+    color: colors.navy,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  restartTitle: {
+    marginTop: 7,
+    color: colors.text,
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '900',
+  },
+  restartCopy: {
+    marginTop: 8,
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  restartError: {
+    marginTop: 12,
+    color: colors.danger,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  restartButton: {
+    minHeight: 52,
+    marginTop: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+  },
+  restartButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
   pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
 });
 

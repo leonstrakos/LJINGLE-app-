@@ -101,7 +101,7 @@ export async function loadStatsOverview(): Promise<StatsOverview> {
 
   const [bookRow, gameRow, entryRow, mediaRow, sessionRow] = await Promise.all([
     database.getFirstAsync<CountRow>('SELECT COUNT(*) AS count FROM books'),
-    database.getFirstAsync<CountRow>('SELECT COUNT(*) AS count FROM games'),
+    database.getFirstAsync<CountRow>("SELECT COUNT(*) AS count FROM games WHERE game_status <> 'QUIT'"),
     database.getFirstAsync<CountRow>('SELECT COUNT(*) AS count FROM entries'),
     database.getFirstAsync<MediaCountRow>(
       `SELECT

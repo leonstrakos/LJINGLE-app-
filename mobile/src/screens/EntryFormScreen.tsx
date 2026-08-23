@@ -245,7 +245,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
         } catch {
           Alert.alert(
             'Zapis je spremljen',
-            'Tekst je spremljen, ali neke slike nisu. Zapis mo?e? ponovno otvoriti i poku?ati ih dodati.',
+            'Tekst je spremljen, ali neke slike nisu. Zapis možeš ponovno otvoriti i pokušati ih dodati.',
           );
         }
       }
@@ -409,7 +409,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
               <View style={styles.imagesHeadingCopy}>
                 <Text style={styles.sectionTitle}>Slike</Text>
                 <Text style={styles.sectionCopy}>
-                  Dodaj fotografije ili slike koje ?eli? sa?uvati uz ovaj zapis.
+                  Dodaj fotografije ili slike koje želiš sačuvati uz ovaj zapis.
                 </Text>
               </View>
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,6 +13,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  catalogueStateKey,
+  mergeScreenState,
+  readScreenState,
+} from '../utils/screenStateCache';
+
 import { gameApi } from '../games/services/gameApi';
 import {
   gameStatusLabels,
@@ -25,6 +31,7 @@ import { activityAccents, colors } from '../theme/colors';
 import type { BookResponse } from '../types/book';
 import type { MediaResponse } from '../types/media';
 import type { RootStackParamList } from '../types/navigation';
+import { semanticFeedback } from '../utils/semanticFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Catalogue'>;
 
@@ -374,7 +381,161 @@ function statusMatches(
   return (aliases[wanted] ?? []).includes(actualStatus);
 }
 
+
+
+// catalogueSearchRankingV1
+
+function catalogueRankingText(raw: string) {
+  const tokens = raw
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const plain = tokens.filter((token) => {
+    const value = normalize(token);
+
+    if (value === 'jingle') {
+      return false;
+    }
+
+    if (
+      /^type:(movie|series|book|game)$/.test(
+        value,
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      /^status:(watching|reading|playing|installed|completed|planned|dropped)$/.test(
+        value,
+      )
+    ) {
+      return false;
+    }
+
+    if (/^year:\d{4}$/.test(value)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return normalize(plain.join(' '));
+}
+
+function catalogueResultRank(
+  item: CatalogueResult,
+  raw: string,
+) {
+  const query =
+    catalogueRankingText(raw);
+
+  // Pure token query:
+  // preserve the existing filter/result order exactly.
+  if (!query) {
+    return 0;
+  }
+
+  const title =
+    normalize(item.title);
+
+  // 0 — exact title
+  if (title === query) {
+    return 0;
+  }
+
+  // 1 — title begins with the full query
+  if (title.startsWith(query)) {
+    return 1;
+  }
+
+  const words = title
+    .split(
+      /[\s\-–—:;,.!?()[\]{}'"\/\\]+/,
+    )
+    .filter(Boolean);
+
+  // 2 — complete title word
+  if (
+    words.some(
+      (word) => word === query,
+    )
+  ) {
+    return 2;
+  }
+
+  // 3 — beginning of any title word
+  if (
+    words.some(
+      (word) =>
+        word.startsWith(query),
+    )
+  ) {
+    return 3;
+  }
+
+  // 4 — arbitrary title substring
+  if (title.includes(query)) {
+    return 4;
+  }
+
+  // 5 — metadata substring.
+  //
+  // Deliberately excludes internal key/id/title so an UUID
+  // can never accidentally improve relevance.
+  const metadata = normalize(
+    Object.entries(item)
+      .filter(
+        ([key, value]) =>
+          key !== 'key' &&
+          key !== 'id' &&
+          key !== 'title' &&
+          typeof value === 'string',
+      )
+      .map(([, value]) =>
+        String(value),
+      )
+      .join(' '),
+  );
+
+  if (metadata.includes(query)) {
+    return 5;
+  }
+
+  // Existing filter may have matched multiple free terms
+  // independently. Keep such valid results last.
+  return 6;
+}
+
+// catalogueHomeStatePreservationV1
+type CatalogueHomePreservedState = {
+  query: string;
+  scrollOffset: number;
+};
+
+const CATALOGUE_HOME_STATE_KEY =
+  catalogueStateKey('home');
+
 export function CatalogueHomeScreen({ navigation }: Props) {
+  // catalogueHomeStatePreservationV1
+  const initialScreenState = useRef(
+    readScreenState<CatalogueHomePreservedState>(
+      CATALOGUE_HOME_STATE_KEY,
+    ),
+  ).current;
+
+  const scrollRef =
+    useRef<ScrollView>(null);
+
+  const scrollOffsetRef = useRef(
+    initialScreenState?.scrollOffset ?? 0,
+  );
+
+  const restoreScrollRef = useRef(
+    (initialScreenState?.scrollOffset ?? 0) > 0,
+  );
+
   // catalogueHomeDiscoveryV1
   const [counts, setCounts] = useState<Counts>(initialCounts);
 
@@ -382,7 +543,9 @@ export function CatalogueHomeScreen({ navigation }: Props) {
   const [media, setMedia] = useState<MediaResponse[]>([]);
   const [games, setGames] = useState<GameResponse[]>([]);
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(
+    initialScreenState?.query ?? '',
+  );
 
   const [randomPick, setRandomPick] =
     useState<CatalogueResult | null>(null);
@@ -395,6 +558,68 @@ export function CatalogueHomeScreen({ navigation }: Props) {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // catalogueHomeStatePreservationV1
+  useEffect(() => {
+    mergeScreenState<CatalogueHomePreservedState>(
+      CATALOGUE_HOME_STATE_KEY,
+      {
+        query,
+        scrollOffset:
+          scrollOffsetRef.current,
+      },
+    );
+  }, [query]);
+
+  const rememberCatalogueScroll = (
+    offset: number,
+  ) => {
+    const safeOffset =
+      Math.max(0, offset);
+
+    scrollOffsetRef.current =
+      safeOffset;
+
+    mergeScreenState<CatalogueHomePreservedState>(
+      CATALOGUE_HOME_STATE_KEY,
+      {
+        query,
+        scrollOffset:
+          safeOffset,
+      },
+    );
+  };
+
+  const restoreCatalogueScroll = () => {
+    if (!restoreScrollRef.current) {
+      return;
+    }
+
+    const offset =
+      scrollOffsetRef.current;
+
+    if (offset <= 0) {
+      restoreScrollRef.current =
+        false;
+
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      try {
+        scrollRef.current?.scrollTo({
+          y: offset,
+          animated: false,
+        });
+
+        restoreScrollRef.current =
+          false;
+      } catch {
+        // Content may still be measuring.
+        // onContentSizeChange can retry.
+      }
+    });
+  };
 
   const loadCatalogue = useCallback(async () => {
     setLoading(true);
@@ -573,7 +798,25 @@ export function CatalogueHomeScreen({ navigation }: Props) {
       .sort((a, b) =>
         a.title.localeCompare(b.title)
       )
-      .slice(0, 18);
+      .slice(0, 18)
+      // catalogueSearchRankingV1
+      .sort((left, right) => {
+        const leftRank =
+          catalogueResultRank(
+            left,
+            query,
+          );
+
+        const rightRank =
+          catalogueResultRank(
+            right,
+            query,
+          );
+
+        // Stable sort keeps the previous catalogue ordering
+        // for equal relevance and for pure structured queries.
+        return leftRank - rightRank;
+      });
   }, [books, games, media, query]);
 
   const searchTerms = useMemo(
@@ -811,6 +1054,8 @@ export function CatalogueHomeScreen({ navigation }: Props) {
 
     if (!picked) return;
 
+    // semanticRandomPickFeedbackV1
+    void semanticFeedback.randomPick();
     setRandomPick(picked);
     setRandomMessage('');
     setSeenRandomKeys([
@@ -825,9 +1070,19 @@ export function CatalogueHomeScreen({ navigation }: Props) {
       edges={['left', 'right', 'bottom']}
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onScroll={(event) => {
+          rememberCatalogueScroll(
+            event.nativeEvent.contentOffset.y,
+          );
+        }}
+        scrollEventThrottle={100}
+        onContentSizeChange={
+          restoreCatalogueScroll
+        }
       >
         <View style={styles.hero}>
           <Text style={styles.heading}>
@@ -865,7 +1120,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
               autoCapitalize="none"
               autoCorrect={false}
               onChangeText={setQuery}
-              placeholder="Naslov ili npr. type:movie · jingle · year:2024"
+              placeholder="Naslov · type:movie · jingle · year:2024"
               placeholderTextColor={colors.textMuted}
               returnKeyType="search"
               style={styles.searchInput}

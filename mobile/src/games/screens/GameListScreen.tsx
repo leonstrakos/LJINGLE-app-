@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedbackView } from '../../components/FeedbackView';
 import { colors } from '../../theme/colors';
+import { registerUndo } from '../../utils/undoManager';
+import { semanticFeedback } from '../../utils/semanticFeedback';
 import {
   catalogueStateKey,
   mergeScreenState,
@@ -203,6 +205,8 @@ export function GameListScreen({ navigation }: Props) {
       delete payload.modifiedAt;
 
       await gameApi.update(game.gameId, payload as any);
+      // semanticJingleFeedbackV1
+      void semanticFeedback.jingle();
 
       setGames((current) => {
         if (status === 'JINGLE' && !next) {
@@ -214,6 +218,58 @@ export function GameListScreen({ navigation }: Props) {
             ? { ...row, favourite: next }
             : row
         );
+      });
+
+      // jingleUniversalUndoV1
+      registerUndo({
+        label: next
+          ? `Dodano u Jingle: ${game.title}`
+          : `Maknuto iz Jingle: ${game.title}`,
+
+        undo: async () => {
+          const undoPayload = {
+            ...game,
+            favourite: game.favourite,
+          } as Record<string, unknown>;
+
+          delete undoPayload.gameId;
+          delete undoPayload.createdAt;
+          delete undoPayload.modifiedAt;
+
+          const reverted = await gameApi.update(
+            game.gameId,
+            undoPayload as any,
+          );
+
+          setGames((current) => {
+            const exists = current.some(
+              (row) => row.gameId === reverted.gameId,
+            );
+
+            if (
+              status === 'JINGLE' &&
+              reverted.favourite &&
+              !exists
+            ) {
+              return [reverted, ...current];
+            }
+
+            if (
+              status === 'JINGLE' &&
+              !reverted.favourite
+            ) {
+              return current.filter(
+                (row) => row.gameId !== reverted.gameId,
+              );
+            }
+
+            return current.map((row) =>
+              row.gameId === reverted.gameId
+                ? reverted
+                : row,
+            );
+          });
+        },
       });
     } catch (caught) {
       setError(

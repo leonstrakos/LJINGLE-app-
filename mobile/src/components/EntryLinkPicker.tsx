@@ -3,12 +3,12 @@ import {
   FlatList,
   Modal,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
 import type { EntryLinkOption } from '../types/entry';
@@ -79,8 +79,8 @@ export function EntryLinkPicker({
         <Text style={styles.chevron}>›</Text>
       </Pressable>
 
-      <Modal animationType="slide" onRequestClose={close} visible={visible}>
-        <SafeAreaView style={styles.modalSafeArea}>
+      <Modal animationType="slide" onRequestClose={close} statusBarTranslucent={false} visible={visible}>
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'left', 'right', 'bottom']}>
           <View style={styles.modalHeader}>
             <View>
               <Text style={styles.modalEyebrow}>Neobavezna poveznica</Text>

@@ -56,7 +56,7 @@ export function SessionNotePrompt() {
     } catch {
       Alert.alert(
         'Napomena nije spremljena',
-        'Timer je spremljen, ali napomena nije. Poku?aj ponovno.',
+        'Timer je spremljen, ali napomena nije. Pokušaj ponovno.',
       );
     } finally {
       setSaving(false);
@@ -80,12 +80,12 @@ export function SessionNotePrompt() {
         />
 
         <View style={styles.card}>
-          <Text style={styles.eyebrow}>SESSION ZAVR?EN</Text>
+          <Text style={styles.eyebrow}>SESSION ZAVRŠEN</Text>
 
           <Text style={styles.title}>Šta si radio?</Text>
 
           <Text style={styles.copy}>
-            Neobavezno ? kratka bilje?ka koja ?e ostati u Povijesti.
+            Neobavezno · kratka bilješka koja će ostati u Povijesti.
           </Text>
 
           <TextInput
@@ -94,7 +94,7 @@ export function SessionNotePrompt() {
             maxLength={240}
             onChangeText={setNote}
             onSubmitEditing={() => void save()}
-            placeholder="chapters 4?6, boss fight, research..."
+            placeholder="chapters 4–6, boss fight, research..."
             placeholderTextColor={colors.textMuted}
             returnKeyType="done"
             style={styles.input}
@@ -110,7 +110,7 @@ export function SessionNotePrompt() {
                 pressed && styles.pressed,
               ]}
             >
-              <Text style={styles.skipText}>Presko?i</Text>
+              <Text style={styles.skipText}>Preskoči</Text>
             </Pressable>
 
             <Pressable

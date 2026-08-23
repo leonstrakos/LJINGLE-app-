@@ -19,6 +19,7 @@ import { MediaFeedbackView } from '../components/MediaFeedbackView';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { mediaApi } from '../services/mediaApi';
 import { colors } from '../theme/colors';
+import { semanticFeedback } from '../utils/semanticFeedback';
 import {
   mediaEnjoymentLabels,
   mediaEnjoymentOptions,
@@ -182,6 +183,10 @@ export function MediaFormScreen({ route, navigation }: Props) {
             <ChipRow>
               {watchStatuses.map((value) => (
                 <ChoiceChip key={value} label={watchStatusLabels[value]} active={watchStatus === value} onPress={() => {
+                  if (value === 'COMPLETED' && watchStatus !== 'COMPLETED') {
+                    // semanticCompletionFeedbackV1
+                    void semanticFeedback.complete();
+                  }
                   setWatchStatus(value);
                   if (value === 'COMPLETED') setProgress('100');
                 }} />

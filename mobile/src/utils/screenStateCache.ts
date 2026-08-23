@@ -1,4 +1,4 @@
-// screenStatePreservationV1
+﻿// screenStatePreservationV1
 //
 // Ephemeral navigation-state memory.
 //
@@ -115,7 +115,8 @@ export function catalogueStateKey(
     | 'media'
     | 'books'
     | 'games'
-    | 'collections',
+    | 'collections'
+    | 'home',
 ) {
   return `catalogue:${catalogue}`;
 }
@@ -125,3 +126,4 @@ export function collectionStateKey(
 ) {
   return `collection:${collectionId}`;
 }
+

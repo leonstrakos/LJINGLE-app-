@@ -208,7 +208,7 @@ export async function loadCatalogueSnapshot(
     );
 
   if (!snapshotRow) {
-    throw new Error('Snapshot vi?e ne postoji.');
+    throw new Error('Snapshot više ne postoji.');
   }
 
   const rows =

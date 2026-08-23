@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   NavigationContainer,
   DefaultTheme,
   useNavigationContainerRef,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StatusBar } from 'react-native';
+import { StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BookDetailsScreen } from './src/screens/BookDetailsScreen';
@@ -24,7 +24,9 @@ import { MemoryRadioScreen } from './src/screens/MemoryRadioScreen';
 import { GamesNavigator } from './src/games';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { SessionNotePrompt } from './src/components/SessionNotePrompt';
+import { GlobalUndoToast } from './src/components/GlobalUndoToast';
 import { StatsScreen } from './src/screens/StatsScreen';
+import { ReconstructionScreen } from './src/screens/ReconstructionScreen';
 import { MediaNavigator } from './src/navigation/MediaNavigator';
 import { ParentBackButton } from './src/components/ParentBackButton';
 import { CommandPalette } from './src/components/CommandPalette';
@@ -34,6 +36,7 @@ import { ThemePickerScreen } from './src/screens/ThemePickerScreen';
 import { TopicDetailsScreen } from './src/screens/TopicDetailsScreen';
 import { TopicListScreen } from './src/screens/TopicListScreen';
 import { colors } from './src/theme/colors';
+import { semanticFeedback } from './src/utils/semanticFeedback';
 import type { RootStackParamList } from './src/types/navigation';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -58,11 +61,82 @@ export default function App() {
   const [paletteOpenSignal, setPaletteOpenSignal] =
     useState(0);
 
+  // commandPaletteGlobalLongHoldV1
+  const globalHoldTimer =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const globalHoldStart =
+    useRef<{ x: number; y: number } | null>(null);
+
+  const cancelGlobalHold = () => {
+    if (globalHoldTimer.current) {
+      clearTimeout(globalHoldTimer.current);
+      globalHoldTimer.current = null;
+    }
+
+    globalHoldStart.current = null;
+  };
+
+  const touchPoint = (event: any) => {
+    const touch =
+      event.nativeEvent?.touches?.[0] ??
+      event.nativeEvent?.changedTouches?.[0] ??
+      event.nativeEvent;
+
+    return {
+      x: Number(touch?.pageX ?? 0),
+      y: Number(touch?.pageY ?? 0),
+    };
+  };
+
+  const beginGlobalHold = (event: any) => {
+    cancelGlobalHold();
+
+    if (
+      event.nativeEvent?.touches &&
+      event.nativeEvent.touches.length !== 1
+    ) {
+      return;
+    }
+
+    globalHoldStart.current = touchPoint(event);
+
+    globalHoldTimer.current = setTimeout(() => {
+      globalHoldTimer.current = null;
+      globalHoldStart.current = null;
+
+      void semanticFeedback.gestureThreshold();
+      setPaletteOpenSignal(
+        (current) => current + 1,
+      );
+    }, 480);
+  };
+
+  const moveGlobalHold = (event: any) => {
+    const start = globalHoldStart.current;
+    if (!start) return;
+
+    const point = touchPoint(event);
+    const dx = point.x - start.x;
+    const dy = point.y - start.y;
+
+    // Normal scroll/swipe cancels the long hold.
+    if (Math.hypot(dx, dy) > 14) {
+      cancelGlobalHold();
+    }
+  };
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
 
       <MemoryAudioProvider>
+      <View
+        style={{ flex: 1 }}
+        onTouchStart={beginGlobalHold}
+        onTouchMove={moveGlobalHold}
+        onTouchEnd={cancelGlobalHold}
+        onTouchCancel={cancelGlobalHold}
+      >
       <SessionNotePrompt />
       <NavigationContainer
         ref={navigationRef}
@@ -146,6 +220,12 @@ export default function App() {
           />
 
           <Stack.Screen
+            name="Reconstruction"
+            component={ReconstructionScreen}
+            options={{ title: 'Osobni arhiv' }}
+          />
+
+          <Stack.Screen
             name="Entries"
             component={EntryListScreen}
             options={{ title: 'Zapisi' }}
@@ -211,6 +291,9 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
 
+        {/* globalUndoToastV1 */}
+        <GlobalUndoToast />
+
       <CommandPaletteEdgeGesture
         onOpen={() => {
           setPaletteOpenSignal(
@@ -223,6 +306,7 @@ export default function App() {
         navigation={navigationRef}
         openSignal={paletteOpenSignal}
       />
+      </View>
       </MemoryAudioProvider>
     </SafeAreaProvider>
   );

@@ -1,3 +1,5 @@
+// jingleReasonV1
+import { JingleReasonCard } from '../../components/JingleReasonCard';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,6 +9,13 @@ import { CatalogueCoverDisplay, CatalogueCoverOverrideControls } from '../../com
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { FeedbackView } from '../../components/FeedbackView';
 import { EntityRelationsPanel } from '../../components/EntityRelationsPanel';
+// aroundSameTimeV1
+import { AroundSameTimeSection } from '../../components/AroundSameTimeSection';
+// backdatedSessionsV1
+import { BackdatedSessionCard } from '../../components/BackdatedSessionCard';
+// uncertaintyDatesV1
+import { ApproximateDateCard } from '../../components/ApproximateDateCard';
+
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
 import type { ActivityTimerResponse } from '../../types/activity';
@@ -187,6 +196,13 @@ export function GameDetailsScreen({ route, navigation }: Props) {
           entityId={gameId}
         />
 
+        {game.favourite ? (
+          <JingleReasonCard
+            entityType="GAME"
+            entityId={game.gameId}
+          />
+        ) : null}
+
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressLabel}>Napredak</Text>
@@ -206,7 +222,25 @@ export function GameDetailsScreen({ route, navigation }: Props) {
           />
         ) : null}
 
+        {/* backdatedSessionsV1 */}
+        <BackdatedSessionCard
+          entityType="GAME"
+          entityId={gameId}
+        />
+
+        {/* uncertaintyDatesV1 */}
+        <ApproximateDateCard
+          entityType="GAME"
+          entityId={gameId}
+        />
+
         <EntityRelationsPanel entityType="GAME" entityId={gameId} title={game.title} />
+
+        {/* aroundSameTimeV1 */}
+        <AroundSameTimeSection
+          entityType="GAME"
+          entityId={gameId}
+        />
 
         <View style={styles.detailsCard}>
           <DetailRow label="Platforma" value={game.platform} />

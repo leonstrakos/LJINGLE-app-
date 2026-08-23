@@ -100,7 +100,7 @@ async function blobToDataUri(blob: Blob): Promise<string> {
     const reader = new FileReader();
 
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('Slika se nije mogla u?itati.'));
+    reader.onerror = () => reject(reader.error ?? new Error('Slika se nije mogla učitati.'));
     reader.readAsDataURL(blob);
   });
 }
@@ -114,7 +114,7 @@ async function persistImage(pending: PendingEntryImage) {
     const response = await fetch(pending.sourceUri);
 
     if (!response.ok) {
-      throw new Error('Slika se nije mogla u?itati.');
+      throw new Error('Slika se nije mogla učitati.');
     }
 
     return blobToDataUri(await response.blob());

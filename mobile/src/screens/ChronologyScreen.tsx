@@ -251,11 +251,13 @@ export function ChronologyScreen() {
   }, []);
 
   useEffect(() => {
+    const latestYear = years[0]?.year;
+
     if (
       selectedYear === null &&
-      years.length
+      latestYear !== undefined
     ) {
-      setSelectedYear(years[0].year);
+      setSelectedYear(latestYear);
     }
   }, [selectedYear, years]);
 

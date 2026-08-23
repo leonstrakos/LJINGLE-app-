@@ -1,3 +1,5 @@
+// jingleReasonV1
+import { JingleReasonCard } from '../components/JingleReasonCard';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,6 +9,13 @@ import { CatalogueCoverDisplay, CatalogueCoverOverrideControls } from '../compon
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { MediaFeedbackView } from '../components/MediaFeedbackView';
 import { EntityRelationsPanel } from '../components/EntityRelationsPanel';
+// aroundSameTimeV1
+import { AroundSameTimeSection } from '../components/AroundSameTimeSection';
+// backdatedSessionsV1
+import { BackdatedSessionCard } from '../components/BackdatedSessionCard';
+// uncertaintyDatesV1
+import { ApproximateDateCard } from '../components/ApproximateDateCard';
+
 import { MediaPoster } from '../components/MediaPoster';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SeriesTracker } from '../components/SeriesTracker';
@@ -162,6 +171,13 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
           entityId={item.mediaId}
         />
 
+        {item.favourite ? (
+          <JingleReasonCard
+            entityType="MEDIA"
+            entityId={item.mediaId}
+          />
+        ) : null}
+
         {item.mediaType === 'MOVIE' ? <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
             <Text style={styles.sectionLabel}>Napredak</Text>
@@ -187,7 +203,25 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
           />
         ) : null}
 
+        {/* backdatedSessionsV1 */}
+        <BackdatedSessionCard
+          entityType="MEDIA"
+          entityId={mediaId}
+        />
+
+        {/* uncertaintyDatesV1 */}
+        <ApproximateDateCard
+          entityType="MEDIA"
+          entityId={mediaId}
+        />
+
         <EntityRelationsPanel entityType="MEDIA" entityId={mediaId} title={item.title} />
+
+        {/* aroundSameTimeV1 */}
+        <AroundSameTimeSection
+          entityType="MEDIA"
+          entityId={mediaId}
+        />
 
         {item.overview ? (
           <View style={styles.card}>

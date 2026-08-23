@@ -913,7 +913,9 @@ async function handleGames(database: SQLiteDatabase, url: URL, method: string, o
           'SELECT * FROM games WHERE game_status=? ORDER BY title COLLATE NOCASE',
           status,
         )
-      : await database.getAllAsync<SqlRow>('SELECT * FROM games ORDER BY title COLLATE NOCASE');
+      : await database.getAllAsync<SqlRow>(
+          "SELECT * FROM games WHERE game_status <> 'QUIT' ORDER BY title COLLATE NOCASE",
+        );
     return rows.map(mapGame);
   }
   if (!match && method === 'POST') {
@@ -1213,6 +1215,13 @@ async function localEntityReference(
 }
 
 async function localEntityReferences(database: SQLiteDatabase, search: string) {
+  const normalized =
+    search.trim().toLocaleLowerCase('hr');
+
+  if (normalized.length < 2) {
+    return [];
+  }
+
   const references: EntityReference[] = [];
   const books = await database.getAllAsync<SqlRow>('SELECT * FROM books ORDER BY title COLLATE NOCASE');
   books.forEach((row) => references.push({ entityType: 'BOOK', entityId: String(row.book_id), title: String(row.title), subtitle: String(row.author) }));
@@ -1225,7 +1234,6 @@ async function localEntityReferences(database: SQLiteDatabase, search: string) {
   const entries = await database.getAllAsync<SqlRow>('SELECT * FROM entries ORDER BY modified_at DESC');
   entries.forEach((row) => references.push({ entityType: 'ENTRY', entityId: String(row.entry_id), title: localEntryTitle(row), subtitle: String(row.entry_type) }));
 
-  const normalized = search.trim().toLocaleLowerCase('hr');
   return references
     .filter((item) => !normalized || `${item.title} ${item.subtitle ?? ''} ${item.entityType}`.toLocaleLowerCase('hr').includes(normalized))
     .sort((left, right) => left.title.localeCompare(right.title, 'hr'))

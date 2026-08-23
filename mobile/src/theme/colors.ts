@@ -208,7 +208,7 @@ const accentSoft = pixelMode
     ? mixHex(activeAccentColor, activeBackgroundColor, 0.72)
     : mixHex(activeAccentColor, '#FFFFFF', 0.82);
 
-const text = darkBackground ? '#F5F5F7' : '#1D1D1F';
+const text = pixelMode ? '#111111' : darkBackground ? '#F5F5F7' : activeAccentColor;
 const textMuted = pixelMode
   ? '#3A3A3A'
   : darkBackground

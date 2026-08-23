@@ -1,18 +1,37 @@
-const { getDefaultConfig } = require('expo/metro-config');
+﻿const { getDefaultConfig } = require('expo/metro-config');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-// expo-sqlite koristi WebAssembly u pregledniku.
+// sqliteWebSharedArrayBufferV2
+// expo-sqlite Web uses WASM + SharedArrayBuffer.
+
 if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
 
-// SharedArrayBuffer koji koristi SQLite WASM zahtijeva izolirani web kontekst.
-config.server.enhanceMiddleware = (middleware) => (request, response, next) => {
-  response.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-  response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  return middleware(request, response, next);
+config.server = {
+  ...config.server,
+
+  enhanceMiddleware: (middleware) => {
+    return (request, response, next) => {
+      response.setHeader(
+        'Cross-Origin-Opener-Policy',
+        'same-origin',
+      );
+
+      response.setHeader(
+        'Cross-Origin-Embedder-Policy',
+        'credentialless',
+      );
+
+      return middleware(
+        request,
+        response,
+        next,
+      );
+    };
+  },
 };
 
 module.exports = config;

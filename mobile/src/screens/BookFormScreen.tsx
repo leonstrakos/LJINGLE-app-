@@ -18,6 +18,7 @@ import { FeedbackView } from '../components/FeedbackView';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { bookApi } from '../services/bookApi';
 import { colors } from '../theme/colors';
+import { semanticFeedback } from '../utils/semanticFeedback';
 import {
   enjoymentLabels,
   enjoymentOptions,
@@ -270,7 +271,17 @@ export function BookFormScreen({ route, navigation }: Props) {
                   <Pressable
                     key={status}
                     accessibilityRole="button"
-                    onPress={() => setReadingStatus(status)}
+                    onPress={() => {
+                      if (
+                        status === 'COMPLETED' &&
+                        readingStatus !== 'COMPLETED'
+                      ) {
+                        // semanticCompletionFeedbackV1
+                        void semanticFeedback.complete();
+                      }
+
+                      setReadingStatus(status);
+                    }}
                     style={[styles.choice, readingStatus === status && styles.choiceSelected]}
                   >
                     <Text style={[styles.choiceText, readingStatus === status && styles.choiceTextSelected]}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -21,6 +21,7 @@ import { activityApi } from '../services/activityApi';
 import { entryApi } from '../services/entryApi';
 import { statsApi } from '../services/statsApi';
 import { colors } from '../theme/colors';
+import { activeAeroBackgroundId } from '../theme/aeroBackground';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { activeRadioThemeId } from '../theme/radioTheme';
 import type { ActivityTimerResponse } from '../types/activity';
@@ -28,27 +29,32 @@ import type { Entry } from '../types/entry';
 import type { RootStackParamList } from '../types/navigation';
 import type { DailyTimeResponse } from '../types/stats';
 import { formatDuration } from '../utils/activityTime';
+import { semanticFeedback } from '../utils/semanticFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Today'>;
 
 const pixelMode = activeVisualSkinId === 'pixel';
 const aeroMode = activeVisualSkinId === 'aero';
 const radioInverted = activeRadioThemeId === 'inverted';
+const aeroOcean =
+  aeroMode && activeAeroBackgroundId === 'ocean';
+const aeroMeadow =
+  aeroMode && activeAeroBackgroundId === 'meadow';
 
 const dayNames = [
   'nedjelja',
   'ponedjeljak',
   'utorak',
   'srijeda',
-  'ÄŤetvrtak',
+  'četvrtak',
   'petak',
   'subota',
 ];
 
 const monthNames = [
-  'sijeÄŤnja',
-  'veljaÄŤe',
-  'oĹľujka',
+  'siječnja',
+  'veljače',
+  'ožujka',
   'travnja',
   'svibnja',
   'lipnja',
@@ -282,7 +288,13 @@ function AeroReflection({
   );
 }
 
+const aeroWorldBackgroundSource =
+  activeAeroBackgroundId === 'ocean'
+    ? require('../assets/aero/aero-world-bg2.webp')
+    : require('../assets/aero/aero-meadow-ufo.jpeg');
+
 export function TodayScreen({ navigation }: Props) {
+  const oceanAero = aeroMode && activeAeroBackgroundId === 'ocean';
   const [timers, setTimers] = useState<ActivityTimerResponse[]>([]);
   const [recentActivities, setRecentActivities] = useState<ActivityTimerResponse[]>([]);
   const [dailyTime, setDailyTime] = useState<DailyTimeResponse | null>(null);
@@ -354,6 +366,8 @@ export function TodayScreen({ navigation }: Props) {
 
     try {
       await activityApi.stop(activityId);
+      // semanticTimerFeedbackV1
+      void semanticFeedback.timerStop();
       await loadActiveTimers(true);
     } catch (caught) {
       setError(
@@ -377,6 +391,7 @@ export function TodayScreen({ navigation }: Props) {
 
     try {
       await activityApi.start(activityId);
+      void semanticFeedback.timerStart();
       await loadActiveTimers(true);
     } catch (caught) {
       setError(
@@ -400,7 +415,7 @@ export function TodayScreen({ navigation }: Props) {
   const header = (
     <>
       <View style={[styles.hero, aeroMode && styles.aeroHero]}>
-        {aeroMode ? <AeroAquarium /> : null}
+        {oceanAero ? <AeroAquarium /> : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Otvori postavke"
@@ -445,20 +460,20 @@ export function TodayScreen({ navigation }: Props) {
         ) : null}
         <View style={[
           styles.globalSearchIcon,
-          aeroMode && styles.aeroSearchIcon,
-          aeroMode && styles.aeroOrbShell,
-          aeroMode && styles.aeroBubbleHostClean,
+          oceanAero && styles.aeroSearchIcon,
+          oceanAero && styles.aeroOrbShell,
+          oceanAero && styles.aeroBubbleHostClean,
         ]}>
-          {aeroMode ? (
+          {aeroOcean ? (
             <Image
               
               source={require('../assets/aero/bubble.png')}
               resizeMode="contain"
-              style={styles.aeroBubbleAsset}
+              style={[styles.aeroBubbleAsset, !oceanAero && { display: 'none' }]}
             />
           ) : null}
-          <Text style={[styles.globalSearchIconText, aeroMode && styles.aeroSearchIconText,
-              aeroMode && styles.aeroSearchMagnifierGray,
+          <Text style={[styles.globalSearchIconText, aeroOcean && styles.aeroSearchIconText,
+              aeroOcean && styles.aeroSearchMagnifierGray,
             ]}>⌕</Text></View>
         <View style={styles.globalSearchCopy}>
           <Text style={styles.globalSearchTitle}>Pretraži cijeli katalog</Text>
@@ -477,12 +492,27 @@ export function TodayScreen({ navigation }: Props) {
           <AeroReflection variant="catalogue" />
         ) : null}
         {aeroMode ? (
-          <View style={styles.aeroCatalogueIconHost}>
+          <View
+            style={[
+              styles.aeroCatalogueIconHost,
+              aeroMeadow && styles.aeroMeadowCatalogueIconHost,
+            ]}
+          >
             <Image
               
-              source={require('../assets/aero/katalog.png')}
+              source={
+                aeroMeadow
+                  ? require('../assets/aero/katalog-meadow.png')
+                  : require('../assets/aero/katalog.png')
+              }
               resizeMode="contain"
-              style={[styles.aeroCatalogueIconImage, aeroMode && Platform.OS !== 'web' && styles.aeroCatalogueIconMobileFix]}
+              style={[
+                styles.aeroCatalogueIconImage,
+                aeroMeadow && styles.aeroMeadowCatalogueIconImage,
+                aeroOcean &&
+                  Platform.OS !== 'web' &&
+                  styles.aeroCatalogueIconMobileFix,
+              ]}
             />
           </View>
         ) : (
@@ -514,9 +544,17 @@ export function TodayScreen({ navigation }: Props) {
         >
           <Image
             
-            source={require('../assets/aero/radio.png')}
-            resizeMode="stretch"
-            style={styles.aeroRadioImage}
+            source={
+              aeroMeadow
+                ? require('../assets/aero/radio-meadow.png')
+                : require('../assets/aero/radio.png')
+            }
+            resizeMode={aeroMeadow ? 'contain' : 'stretch'}
+            style={[
+              styles.aeroRadioImage,
+              aeroMeadow && styles.aeroMeadowRadioImage,
+              aeroMeadow && styles.aeroMeadowRadioImageFinal,
+            ]}
           />
         </Pressable>
       ) : (
@@ -526,6 +564,9 @@ export function TodayScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('MemoryRadio')}
         style={({ pressed }) => [
           styles.memoryRadioCard,
+          !pixelMode &&
+            Platform.OS !== 'web' &&
+            styles.classicMobileRadioCompact,
           radioInverted && {
             backgroundColor: colors.surface,
             borderColor: colors.navy,
@@ -627,7 +668,13 @@ export function TodayScreen({ navigation }: Props) {
             
             source={require('../assets/aero/timer.png')}
             resizeMode="cover"
-            style={[styles.aeroTimerMeadowImage, aeroMode && Platform.OS !== 'web' && styles.aeroTimerBackgroundMobileFix]}
+            style={[
+              Platform.OS === 'web'
+                ? styles.aeroTimerMeadowImage
+                : styles.aeroTimerMeadowImageMobile,
+              aeroMeadow &&
+                styles.aeroTimerMeadowSubtleFinal,
+            ]}
           />
         ) : null}
 
@@ -638,27 +685,41 @@ export function TodayScreen({ navigation }: Props) {
               {formatDuration(liveDailyTotal)}
             </Text>
           </View>
-          <View style={[
-            styles.dailyMark,
-            aeroMode && styles.aeroBlueOrbShell,
-            aeroMode && styles.aeroBlueOrbHost,
-          ]}>
-            
-            {aeroMode ? (
+          <View
+            style={[
+              styles.dailyMark,
+              aeroOcean && styles.aeroBlueOrbShell,
+              aeroOcean && styles.aeroBlueOrbHost,
+              aeroMeadow && styles.aeroMeadow24HostFinal,
+            ]}
+          >
+            {aeroMeadow ? (
               <Image
-                
+                source={require('../assets/aero/24-meadow.png')}
+                resizeMode="contain"
+                style={styles.aeroMeadow24ImageFinal}
+              />
+            ) : aeroOcean ? (
+              <Image
                 source={require('../assets/aero/aero-blue-orb.png')}
                 resizeMode="contain"
-                style={[styles.aeroBlueOrbImage, aeroMode && Platform.OS !== 'web' && styles.aeroDailyOrbMobileFix]}
+                style={[
+                  styles.aeroBlueOrbImage,
+                  Platform.OS !== 'web' &&
+                    styles.aeroDailyOrbMobileFix,
+                ]}
               />
             ) : null}
 
             <Text
               style={[
                 styles.dailyMarkText,
-                aeroMode && styles.aeroBlueOrbText,
+                aeroOcean && styles.aeroBlueOrbText,
+                aeroMeadow && styles.aeroMeadow24TextFinal,
               ]}
-            >24</Text>
+            >
+              24
+            </Text>
           </View>
         </View>
 
@@ -690,17 +751,14 @@ export function TodayScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('Topics')}
           style={({ pressed }) => [styles.quickCard, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed]}
         >
-          {aeroMode ? (
-            <AeroReflection variant="left" />
-          ) : null}
-          {aeroMode ? (
-          <View style={[styles.aeroTopicOrb, styles.aeroBubbleHostClean]}>
+          {aeroOcean ? (
+          <View style={[oceanAero ? styles.aeroTopicOrb : styles.aeroPlainIconHost, oceanAero && styles.aeroBubbleHostClean]}>
             
             <Image
               
               source={require('../assets/aero/bubble.png')}
               resizeMode="contain"
-              style={styles.aeroBubbleAsset}
+              style={[styles.aeroBubbleAsset, !oceanAero && { display: 'none' }]}
             />
             <Image
               
@@ -721,21 +779,18 @@ export function TodayScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('Entries')}
           style={({ pressed }) => [styles.quickCard, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed]}
         >
-          {aeroMode ? (
-            <AeroReflection variant="right" />
-          ) : null}
-          {aeroMode ? (
+          {aeroOcean ? (
           <View style={[
-            styles.aeroPenOrb,
-            styles.aeroOrbShell,
-            styles.aeroBubbleHostClean,
+            oceanAero ? styles.aeroPenOrb : styles.aeroPlainIconHost,
+            oceanAero && styles.aeroOrbShell,
+            oceanAero && styles.aeroBubbleHostClean,
           ]}>
             
             <Image
               
               source={require('../assets/aero/bubble.png')}
               resizeMode="contain"
-              style={styles.aeroBubbleAsset}
+              style={[styles.aeroBubbleAsset, !oceanAero && { display: 'none' }]}
             />
             <Image
               
@@ -762,7 +817,6 @@ export function TodayScreen({ navigation }: Props) {
             pressed && styles.quickPressed,
           ]}
         >
-          {aeroMode ? <AeroReflection variant="left" /> : null}
           <Text style={styles.quickSymbol}>{'\u21BA'}</Text>
           <Text style={styles.quickTitle}>Povijest</Text>
           <Text style={styles.quickSubtitle}>Sesije i vremenska crta</Text>
@@ -777,15 +831,14 @@ export function TodayScreen({ navigation }: Props) {
             pressed && styles.quickPressed,
           ]}
         >
-          {aeroMode ? <AeroReflection variant="right" /> : null}
           <Text style={styles.quickSymbol}>{'\u25A5'}</Text>
           <Text style={styles.quickTitle}>Statistika</Text>
           <Text style={styles.quickSubtitle}>Vrijeme, gledanje i trendovi</Text>
         </Pressable>
       </View>
 
-      {/* Katalog sadrĹľava knjige, filmove/serije i igre; Teme i Zapisi ostaju
-          zasebni jer se mogu povezati sa svim vrstama sadrĹľaja. */}
+      {/* Katalog sadržava knjige, filmove/serije i igre; Teme i Zapisi ostaju
+          zasebni jer se mogu povezati sa svim vrstama sadržaja. */}
 
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Aktivno sada</Text>
@@ -803,7 +856,7 @@ export function TodayScreen({ navigation }: Props) {
           style={styles.errorBanner}
         >
           <Text style={styles.errorText}>{error}</Text>
-          <Text style={styles.retryText}>PokuĹˇaj ponovno</Text>
+          <Text style={styles.retryText}>Pokušaj ponovno</Text>
         </Pressable>
       ) : null}
     </>
@@ -878,14 +931,14 @@ export function TodayScreen({ navigation }: Props) {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.errorState}>
           <Text style={styles.errorMark}>!</Text>
-          <Text style={styles.errorTitle}>Danas se nije uÄŤitao</Text>
+          <Text style={styles.errorTitle}>Danas se nije učitao</Text>
           <Text style={styles.errorStateMessage}>{error}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => void loadActiveTimers()}
             style={({ pressed }) => [styles.retryButton, pressed && styles.retryPressed]}
           >
-            <Text style={styles.retryButtonText}>PokuĹˇaj ponovno</Text>
+            <Text style={styles.retryButtonText}>Pokušaj ponovno</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -904,8 +957,8 @@ export function TodayScreen({ navigation }: Props) {
       {aeroMode ? (
         <>
           <Image
-            source={require('../assets/aero/aero-world-bg.webp')}
-            resizeMode={Platform.OS === 'web' ? 'stretch' : 'cover'}
+            source={aeroWorldBackgroundSource}
+            resizeMode="cover"
             style={styles.aeroWorldBackground}
           />
           <View
@@ -915,7 +968,7 @@ export function TodayScreen({ navigation }: Props) {
         </>
       ) : null}
 
-      {aeroMode ? <AeroScreenBubbles /> : null}
+      {oceanAero ? <AeroScreenBubbles /> : null}
       <FlatList
         data={timers}
         keyExtractor={(item) => item.activityId ?? item.activeSessionId ?? item.label}
@@ -1007,16 +1060,10 @@ const styles = StyleSheet.create({
   // Classic / Pixel / Aero web stay untouched.
   // ----------------------------------------------------------
 
-  aeroTimerBackgroundMobileFix: {
-    position: 'absolute',
-
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-
-    width: '100%',
-    height: '100%',
+  aeroTimerMeadowImageMobile: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.38,
+    zIndex: 0,
   },
 
   aeroCatalogueIconMobileFix: {
@@ -1314,7 +1361,7 @@ const styles = StyleSheet.create({
   },
 
   aeroSearchMagnifierGray: {
-    color: '#032E61',
+    color: colors.navy,
 
     fontSize:
       Platform.OS === 'web'
@@ -1357,7 +1404,7 @@ const styles = StyleSheet.create({
       ? '168%'
       : '152%',
 
-    opacity: 0.18,
+    opacity: 0.34,
 
     zIndex: 0,
   },
@@ -1404,6 +1451,189 @@ const styles = StyleSheet.create({
             'drop-shadow(0 7px 9px rgba(0,124,216,0.22)) drop-shadow(0 0 7px rgba(111,240,255,0.32))',
         } as any)
       : {}),
+  },
+
+
+
+  // meadowAssetPolishV2
+  aeroMeadowCatalogueIconHost: {
+    width: Platform.OS === 'web' ? 112 : 82,
+    height: Platform.OS === 'web' ? 88 : 72,
+
+    flexShrink: 0,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginLeft: Platform.OS === 'web' ? 5 : 1,
+    marginRight: Platform.OS === 'web' ? 13 : 8,
+
+    overflow: 'visible',
+  },
+
+  aeroMeadowCatalogueIconImage: {
+    width: Platform.OS === 'web' ? 84 : 68,
+    height: Platform.OS === 'web' ? 84 : 68,
+
+    ...(Platform.OS === 'web'
+      ? ({
+          filter: 'none',
+        } as any)
+      : {}),
+  },
+
+  aeroMeadowRadioImage: {
+    position: 'absolute',
+
+    width: '90%',
+    height: '90%',
+
+    top: '5%',
+    left: '5%',
+  },
+
+  aeroMeadow24Host: {
+    position: 'relative',
+
+    width: Platform.OS === 'web' ? 36 : 32,
+    height: Platform.OS === 'web' ? 36 : 32,
+
+    borderRadius: Platform.OS === 'web' ? 18 : 16,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    overflow: 'visible',
+
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  // 24-meadow.png has large transparent padding.
+  // Large image canvas -> small visible metal button.
+  aeroMeadow24Image: {
+    position: 'absolute',
+
+    width: '345%',
+    height: '345%',
+
+    top: '-122.5%',
+    left: '-122.5%',
+
+    zIndex: 0,
+  },
+
+  aeroMeadow24Text: {
+    position: 'relative',
+    zIndex: 2,
+
+    color: '#232323',
+
+    fontSize: Platform.OS === 'web' ? 12 : 11,
+    fontWeight: '800',
+
+    textShadowColor: 'transparent',
+    textShadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    textShadowRadius: 0,
+  },
+
+
+  // meadowFinalPolishV3
+  aeroMeadow24HostFinal: {
+    position: 'relative',
+
+    width: Platform.OS === 'web' ? 34 : 32,
+    height: Platform.OS === 'web' ? 34 : 32,
+
+    borderRadius:
+      Platform.OS === 'web' ? 17 : 16,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    backgroundColor: 'transparent',
+
+    borderWidth: 0,
+    borderColor: 'transparent',
+
+    overflow: 'visible',
+
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  // PNG has a lot of transparent canvas around the metal button.
+  aeroMeadow24ImageFinal: {
+    position: 'absolute',
+
+    width: '390%',
+    height: '390%',
+
+    top: '-145%',
+    left: '-145%',
+
+    zIndex: 0,
+  },
+
+  aeroMeadow24TextFinal: {
+    position: 'relative',
+    zIndex: 2,
+
+    color: '#26302A',
+
+    fontSize:
+      Platform.OS === 'web' ? 11 : 10,
+
+    lineHeight:
+      Platform.OS === 'web' ? 13 : 12,
+
+    fontWeight: '800',
+
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
+
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  aeroMeadowRadioImageFinal: {
+    position: 'absolute',
+
+    width: '106%',
+    height: '106%',
+
+    top: '-3%',
+    left: '-3%',
+  },
+
+  aeroTimerMeadowSubtleFinal: {
+    opacity: Platform.OS === 'web'
+      ? 0.09
+      : 0.11,
   },
 
   aeroBlueOrbHost: {
@@ -1492,6 +1722,14 @@ const styles = StyleSheet.create({
             textShadowRadius: 3,
           }),
     } as any),},
+
+  aeroPlainIconHost: {
+    width: Platform.OS === 'web' ? 58 : 52,
+    height: Platform.OS === 'web' ? 58 : 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
 
   aeroBubbleHostClean: {
     backgroundColor: 'transparent',
@@ -1844,14 +2082,14 @@ const styles = StyleSheet.create({
       borderRadius: Platform.OS === 'web' ? 30 : 27,
     } as any),},
   aeroSearchIconText: {
-    color: '#087D99',
+    color: colors.navy,
   },
   globalSearchCopy: {
     flex: 1,
     marginLeft: 13,
   },
   globalSearchTitle: {
-    color: '#123d7c',
+    color: colors.navy,
     fontSize: 18,
     fontFamily: pixelMode ? 'monospace' : undefined,
     fontWeight: '700',
@@ -1863,14 +2101,14 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#073D72',
+      color: colors.navy,
       fontSize: 17,
       fontWeight: '700',
       letterSpacing: -0.25,
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: '#0A3E78',
+      color: colors.navy,
 
       fontFamily:
         Platform.select({
@@ -1895,7 +2133,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -1914,7 +2152,7 @@ const styles = StyleSheet.create({
     } : {}),},
   globalSearchSubtitle: {
     marginTop: 3,
-    color: 'rgba(18,61,124,0.78)',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 15,
     fontFamily: pixelMode ? 'monospace' : undefined,
@@ -1926,7 +2164,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: 'rgba(7,61,114,0.68)',
+      color: colors.textMuted,
       fontWeight: '400',
       letterSpacing: 0,
     } : {}),
@@ -1961,7 +2199,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: '#35658B',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -1990,16 +2228,16 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: '#084B82',
+      color: colors.navy,
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: '#0A477D',
+      color: colors.navy,
       opacity: 0.92,
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
       opacity: 0.90,
     } : {}),},
   aeroScreenBubbleLayer: { ...StyleSheet.absoluteFillObject, zIndex: 40, overflow: 'hidden', pointerEvents: 'none' },
@@ -2162,17 +2400,18 @@ const styles = StyleSheet.create({
   aeroFishEye: { position: 'absolute', right: 6, top: 7, width: 5, height: 5, borderRadius: 3, backgroundColor: '#132B38' },
   aeroGlassCard: {
     borderRadius: 30,
+    overflow: 'hidden',
 
-    backgroundColor: 'rgba(255,255,255,0.40)',
+    backgroundColor: 'rgba(248,253,255,0.34)',
 
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderColor: 'rgba(255,255,255,0.96)',
 
-    shadowColor: '#9DEBFF',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.14,
-    shadowRadius: 22,
-    elevation: 8,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 5,
 
     ...(Platform.OS === 'web'
       ? ({
@@ -2269,7 +2508,7 @@ const styles = StyleSheet.create({
   themeButtonIcon: { color: colors.black, fontSize: 22, fontWeight: '800' ,
     // aeroBreathingRoomV1
     ...(aeroMode ? {
-      color: '#073E78',
+      color: colors.navy,
 
       fontSize:
         Platform.OS === 'web'
@@ -2304,13 +2543,13 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: 'rgba(5,55,98,0.72)',
+      color: colors.textMuted,
       fontWeight: '600',
       letterSpacing: 0.7,
     } : {}),
     // aeroBreathingRoomV1
     ...(aeroMode ? {
-      color: '#0A477D',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2350,7 +2589,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: '#0A477D',
+      color: colors.navy,
 
       fontFamily:
         Platform.select({
@@ -2390,7 +2629,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: '#063A72',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2429,7 +2668,7 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerDateTuneV1
-    color: '#073B76',
+    color: colors.navy,
     fontSize: Platform.OS === 'web' ? 20 : 16,
     lineHeight: Platform.OS === 'web' ? 24 : 20,
     fontWeight: '800',
@@ -2447,7 +2686,7 @@ const styles = StyleSheet.create({
 
       textAlign: 'center',
 
-      color: '#06366C',
+      color: colors.navy,
 
       fontSize:
         Platform.OS === 'web'
@@ -2510,7 +2749,7 @@ const styles = StyleSheet.create({
   
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: '#7C239D',
+      color: colors.navy,
 
       fontFamily:
         Platform.select({
@@ -2548,7 +2787,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: '#7B238D',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2580,7 +2819,7 @@ const styles = StyleSheet.create({
       textShadowRadius: 2,
     } : {}),
     // frutigerQuoteMarkTuneV1
-    color: '#8A2396',
+    color: colors.navy,
     fontSize: Platform.OS === 'web' ? 34 : 28,
     lineHeight: Platform.OS === 'web' ? 36 : 30,
     fontWeight: '800',
@@ -2603,13 +2842,13 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#063B70',
+      color: colors.navy,
       fontWeight: '700',
       letterSpacing: -0.25,
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: '#0A3E78',
+      color: colors.navy,
 
       fontFamily:
         Platform.select({
@@ -2649,7 +2888,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2688,7 +2927,7 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerQuoteTuneV1
-    color: '#073B76',
+    color: colors.navy,
     fontSize: Platform.OS === 'web' ? 28 : 22,
     lineHeight: Platform.OS === 'web' ? 34 : 28,
     fontWeight: '700',
@@ -2779,7 +3018,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#073D72',
+      color: colors.navy,
       fontSize: 18,
       lineHeight: 22,
       fontWeight: '700',
@@ -2798,7 +3037,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: 'rgba(7,61,114,0.68)',
+      color: colors.textMuted,
       fontWeight: '400',
       letterSpacing: 0,
     } : {}),},
@@ -2812,7 +3051,7 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: '#084B82',
+      color: colors.navy,
     } : {}),},
   dailyCard: {
     marginTop: 14,
@@ -2860,13 +3099,13 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#0B5187',
+      color: colors.navy,
       fontWeight: '700',
       letterSpacing: 1.5,
     } : {}),
     // aeroTimerRefTune
     ...(aeroMode ? {
-      color: '#0A4C80',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2899,7 +3138,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#063B70',
+      color: colors.navy,
       fontWeight: '700',
       letterSpacing: -1.1,
     } : {}),
@@ -2907,7 +3146,7 @@ const styles = StyleSheet.create({
     ...(aeroMode ? {
       marginTop: 8,
 
-      color: '#063B70',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2931,7 +3170,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   
     // aeroTimerRefTune
-    ...(aeroMode ? {
+    ...(aeroOcean ? {
       width: Platform.OS === 'web' ? 58 : 50,
       height: Platform.OS === 'web' ? 58 : 50,
 
@@ -3007,7 +3246,7 @@ const styles = StyleSheet.create({
   dailyLabel: {
     flex: 1,
     marginRight: 12,
-    color: 'rgba(18,61,124,0.86)',
+    color: colors.textMuted,
     fontSize: 15,
   
     // aeroV3Override
@@ -3017,14 +3256,14 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: 'rgba(7,61,114,0.72)',
+      color: colors.textMuted,
       fontWeight: '400',
     } : {}),
     // aeroTimerRefTune
     ...(aeroMode ? {
       marginRight: 18,
 
-      color: 'rgba(6,55,105,0.80)',
+      color: colors.textMuted,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3039,7 +3278,7 @@ const styles = StyleSheet.create({
       letterSpacing: 0.1,
     } : {}),},
   dailyValue: {
-    color: '#123d7c',
+    color: colors.navy,
     fontSize: 15,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
@@ -3053,12 +3292,12 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#073D72',
+      color: colors.navy,
       fontWeight: '700',
     } : {}),
     // aeroTimerRefTune
     ...(aeroMode ? {
-      color: '#063B70',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3082,7 +3321,7 @@ const styles = StyleSheet.create({
   
     // aeroTimerRefTune
     ...(aeroMode ? {
-      color: 'rgba(6,55,105,0.62)',
+      color: colors.textMuted,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3155,6 +3394,13 @@ const styles = StyleSheet.create({
     shadowRadius: pixelMode ? 0 : 18,
     elevation: 4,
   },
+  // classicMobileRadioCompactV1
+  classicMobileRadioCompact: {
+    transform: [{ scale: 0.90 }],
+    marginTop: 18,
+    marginBottom: -10,
+  },
+
   radioAntenna: {
     position: 'absolute',
     top: -17,
@@ -3294,7 +3540,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#073D72',
+      color: colors.navy,
       fontSize: 16,
       fontWeight: '700',
       letterSpacing: -0.15,
@@ -3309,7 +3555,7 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: '#084B82',
+      color: colors.navy,
     } : {}),},
   quickPressed: {
     opacity: 0.7,
@@ -3324,11 +3570,11 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: '#084B82',
+      color: colors.navy,
     } : {}),},
   quickTitle: {
     marginTop: 11,
-    color: '#123d7c',
+    color: colors.navy,
     fontSize: 18,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
@@ -3341,14 +3587,14 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: '#073D72',
+      color: colors.navy,
       fontSize: 16,
       fontWeight: '700',
       letterSpacing: -0.15,
     } : {}),},
   quickSubtitle: {
     marginTop: 3,
-    color: 'rgba(18,61,124,0.78)',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 18,
   
@@ -3359,7 +3605,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: 'rgba(7,61,114,0.68)',
+      color: colors.textMuted,
       fontWeight: '400',
       letterSpacing: 0,
     } : {}),},
@@ -3390,7 +3636,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: '#0A3C78',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3406,7 +3652,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 23 : 21,
       lineHeight: Platform.OS === 'web' ? 29 : 27,
@@ -3426,7 +3672,7 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerRecentTitleTuneV1
-    color: '#083D79',
+    color: colors.navy,
     fontSize: Platform.OS === 'web' ? 24 : 20,
     lineHeight: Platform.OS === 'web' ? 28 : 24,
     fontWeight: '800',
@@ -3523,7 +3769,7 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: '#075B87',
+      color: colors.navy,
     } : {}),},
   emptyTitle: {
     marginTop: 16,
@@ -3546,7 +3792,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: '#0A3C78',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3562,7 +3808,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 20 : 18,
       lineHeight: 25,
@@ -3582,7 +3828,7 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: 'rgba(7,59,112,0.62)',
+      color: colors.textMuted,
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
         android: 'sans-serif',
@@ -3592,7 +3838,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: 'rgba(18,76,138,0.68)',
+      color: colors.textMuted,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3606,7 +3852,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#376E99',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 14 : 13,
       lineHeight: 21,
@@ -3627,7 +3873,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   
     // aeroBottomTune
-    ...(aeroMode ? {
+    ...(aeroOcean ? {
       backgroundColor: '#0784A6',
       borderWidth: 1,
       borderColor: 'rgba(255,255,255,0.92)',
@@ -3637,7 +3883,7 @@ const styles = StyleSheet.create({
       shadowRadius: 9,
     } : {}),
     // aeroBottomTypeV3
-    ...(aeroMode ? {
+    ...(aeroOcean ? {
       backgroundColor: '#078BAD',
 
       borderWidth: 1,
@@ -3656,8 +3902,8 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // aeroBottomVisibilityV1
-    ...(aeroMode ? {
-      backgroundColor: '#078FD1',
+    ...(aeroOcean ? {
+      backgroundColor: colors.black,
 
       minHeight: Platform.OS === 'web' ? 46 : 44,
 
@@ -3667,7 +3913,7 @@ const styles = StyleSheet.create({
       borderWidth: 1,
       borderColor: 'rgba(226,252,255,0.98)',
 
-      shadowColor: '#51D9FF',
+      shadowColor: colors.black,
       shadowOffset: { width: 0, height: 7 },
       shadowOpacity: 0.34,
       shadowRadius: 12,
@@ -3678,7 +3924,8 @@ const styles = StyleSheet.create({
               '0 6px 14px rgba(0,116,195,0.24), 0 0 12px rgba(169,244,255,0.66), inset 0 1px 0 rgba(255,255,255,0.72)',
           } as any)
         : {}),
-    } : {}),},
+    } : {}),},    // meadowNoGlowV1
+
   emptyButtonPressed: {
     opacity: 0.78,
   },
@@ -3814,7 +4061,7 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: 'rgba(7,59,112,0.62)',
+      color: colors.textMuted,
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
         android: 'sans-serif',
@@ -3823,7 +4070,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: 'rgba(6,77,129,0.72)',
+      color: colors.textMuted,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3837,7 +4084,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#07558C',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 11 : 10,
       lineHeight: 14,
@@ -3877,7 +4124,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: '#0A3C78',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3893,7 +4140,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 23 : 21,
       lineHeight: Platform.OS === 'web' ? 28 : 26,
@@ -3913,7 +4160,7 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerRecentTitleTuneV1
-    color: '#083D79',
+    color: colors.navy,
     fontSize: Platform.OS === 'web' ? 24 : 20,
     lineHeight: Platform.OS === 'web' ? 28 : 24,
     fontWeight: '800',
@@ -3930,7 +4177,7 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: 'rgba(7,59,112,0.62)',
+      color: colors.textMuted,
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
         android: 'sans-serif',
@@ -3939,7 +4186,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: 'rgba(18,76,138,0.67)',
+      color: colors.textMuted,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3953,7 +4200,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#175B8F',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 13 : 12,
       lineHeight: 18,
@@ -3972,7 +4219,7 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerRecentTitleTuneV1
-    color: '#083D79',
+    color: colors.navy,
     fontSize: Platform.OS === 'web' ? 24 : 20,
     lineHeight: Platform.OS === 'web' ? 28 : 24,
     fontWeight: '800',
@@ -4024,11 +4271,11 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: '#075B87',
+      color: colors.navy,
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: '#0A3C78',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -4040,7 +4287,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
       fontSize: 12,
       fontWeight: '800',
     } : {}),},
@@ -4055,4 +4302,5 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 });
+
 

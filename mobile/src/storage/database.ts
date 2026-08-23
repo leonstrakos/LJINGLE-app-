@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { importGamesNotesOnce } from './gamesNotesImport';
 import { importTvTimeOnce } from './tvTimeImport';
 import { repairTvTimeOnce } from './tvTimeRepair';
-import { getDatabaseConnection } from './databaseConnection'; // sqliteSingleConnectionV1
+import { getDatabaseConnectionAsync } from './databaseConnection'; // sqlitePlatformConnectionV2
 
 const DATABASE_VERSION = 4;
 
@@ -271,8 +271,8 @@ async function migrate(database: SQLite.SQLiteDatabase) {
 
 export function getDatabase() {
   if (!databasePromise) {
-    // sqliteSingleConnectionV1
-    databasePromise = Promise.resolve(getDatabaseConnection()).then(async (database) => {
+    // sqlitePlatformConnectionV2
+    databasePromise = getDatabaseConnectionAsync().then(async (database) => {
       await migrate(database);
       // tvTimeImportV1 — one-time idempotent TV Time migration
       await importTvTimeOnce(database);

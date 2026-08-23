@@ -19,6 +19,22 @@ import { MemoryPlayer } from '../components/MemoryPlayer';
 import { ClipEditor } from '../components/ClipEditor';
 import { entryApi } from '../services/entryApi';
 import { memoryRadioApi, pickLocalAudio } from '../services/memoryRadioApi';
+// memoryRadioContextModesV1
+import {
+  loadMemoryRadioContexts,
+  type MemoryRadioContext,
+} from '../storage/memoryRadioContext';
+import {
+  buildMemoryRadioStation,
+  memoryRadioModes,
+  type MemoryRadioMode,
+} from '../intelligence/memoryRadioModes';
+
+// memoryArchaeologyV1
+import {
+  loadLostSignal,
+  type LostSignal,
+} from '../storage/memoryArchaeology';
 import { colors } from '../theme/colors';
 import type { Entry } from '../types/entry';
 import type { ImportedAudio, MemoryTrack } from '../types/memoryRadio';
@@ -32,9 +48,41 @@ function entryLabel(entry: Entry) {
   return entry.title?.trim() || entry.content.replace(/[\n*=[\]>-]+/g, ' ').trim().slice(0, 42) || 'Zapis';
 }
 
+function blurWebFrequencyEditor() {
+  if (
+    Platform.OS !== 'web' ||
+    typeof document === 'undefined'
+  ) {
+    return;
+  }
+
+  const active =
+    document.activeElement;
+
+  if (
+    active &&
+    active instanceof HTMLElement
+  ) {
+    active.blur();
+  }
+}
+
+// frequencyEditorUiFixV1
 export function MemoryRadioScreen() {
   const audio = useMemoryAudio();
   const [memories, setMemories] = useState<MemoryTrack[]>([]);
+  const [mode, setMode] = useState<MemoryRadioMode>('MEMORY');
+
+  // memoryArchaeologyV1
+  const [lostSignal, setLostSignal] =
+    useState<LostSignal | null>(null);
+
+  const [
+    lostSignalLoading,
+    setLostSignalLoading,
+  ] = useState(false);
+  const [memoryContexts, setMemoryContexts] =
+    useState<Map<string, MemoryRadioContext>>(new Map());
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [anchorText, setAnchorText] = useState<string | null>(null);
@@ -48,6 +96,19 @@ export function MemoryRadioScreen() {
   // memoryRadioUnlinkDeleteV3
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [confirmDeleteTrackId, setConfirmDeleteTrackId] = useState<string | null>(null);
+
+  // memoryFrequencyEditV2
+  const [editingTrackId, setEditingTrackId] =
+    useState<string | null>(null);
+
+  const [editTrackTitle, setEditTrackTitle] =
+    useState('');
+
+  const [editTrackArtist, setEditTrackArtist] =
+    useState('');
+
+  const [savingTrackMetadata, setSavingTrackMetadata] =
+    useState(false);
   const [error, setError] = useState<string | null>(null);
   const bass = useRef(new Animated.Value(0)).current;
 
@@ -55,18 +116,54 @@ export function MemoryRadioScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [nextMemories, nextEntries] = await Promise.all([
+      const [
+        nextMemories,
+        nextEntries,
+        nextContexts,
+      ] = await Promise.all([
         memoryRadioApi.getAll(),
         entryApi.getAll(),
+        loadMemoryRadioContexts(),
       ]);
+
       setMemories(nextMemories);
       setEntries(nextEntries);
+      setMemoryContexts(nextContexts);
       setSelectedEntryId((current) => current ?? nextEntries[0]?.entryId ?? null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Memory Radio se nije učitao.');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // memoryArchaeologyV1
+  const refreshLostSignal =
+    useCallback(async () => {
+      if (lostSignalLoading) {
+        return;
+      }
+
+      setLostSignalLoading(true);
+
+      try {
+        setLostSignal(
+          await loadLostSignal(),
+        );
+      } catch (caught) {
+        console.warn(
+          'Lost Signal archaeology unavailable',
+          caught,
+        );
+
+        setLostSignal(null);
+      } finally {
+        setLostSignalLoading(false);
+      }
+    }, [lostSignalLoading]);
+
+  useEffect(() => {
+    void refreshLostSignal();
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -78,8 +175,98 @@ export function MemoryRadioScreen() {
     () => selectedEntry ? boldFragments(selectedEntry.content) : [],
     [selectedEntry],
   );
-  const featured = audio.current ?? memories.find((memory) => memory.linkId !== null) ?? memories[0] ?? null;
-  const bassActive = Boolean(featured && audio.current?.trackId === featured.trackId && audio.playing);
+  const baseStation = useMemo(
+    () =>
+      buildMemoryRadioStation({
+        mode,
+        memories,
+        contexts: memoryContexts,
+        currentTrackId: audio.current?.trackId ?? null,
+      }),
+    [
+      audio.current?.trackId,
+      memories,
+      memoryContexts,
+      mode,
+    ],
+  );
+
+  const station = useMemo(() => {
+    if (
+      mode !== 'LOST_SIGNAL'
+    ) {
+      return baseStation;
+    }
+
+    const allowed =
+      new Set(
+        lostSignal?.nearbyTrackIds ??
+        [],
+      );
+
+    const pool =
+      memories.filter(
+        (memory) =>
+          allowed.has(
+            memory.trackId,
+          ),
+      );
+
+    return {
+      ...baseStation,
+
+      pool,
+
+      count:
+        pool.length,
+
+      contextLabel:
+        lostSignal
+          ? lostSignal.item.dormantDays +
+            ' dana bez signala'
+          : null,
+
+      emptyText:
+        lostSignal
+          ? 'Arheološki signal je pronađen, ali uz taj period nema spremljene audio frekvencije.'
+          : 'Još nema dovoljno stare aktivnosti za Lost Signal.',
+    };
+  }, [
+    baseStation,
+    lostSignal,
+    memories,
+    mode,
+  ]);
+
+  // archaeologyTypeFixV1
+  const lostSignalTrack =
+    station.pool[0] ?? null;
+
+  const stationTrackIds = useMemo(
+    () =>
+      new Set(
+        station.pool.map(
+          (memory) => memory.trackId
+        ),
+      ),
+    [station.pool],
+  );
+
+  const featured =
+    audio.current &&
+    stationTrackIds.has(audio.current.trackId)
+      ? audio.current
+      : station.pool.find(
+          (memory) => memory.linkId !== null,
+        ) ??
+        lostSignalTrack ??
+        null;
+
+  const bassActive = Boolean(
+    featured &&
+    audio.current?.trackId === featured.trackId &&
+    audio.playing,
+  );
 
   useEffect(() => {
     if (!bassActive) {
@@ -178,6 +365,109 @@ export function MemoryRadioScreen() {
     }
   };
 
+  // memoryFrequencyEditV2
+  const beginEditFrequency = (
+    memory: MemoryTrack,
+  ) => {
+    setConfirmDeleteTrackId(null);
+
+    setEditingTrackId(
+      memory.trackId
+    );
+
+    setEditTrackTitle(
+      memory.trackTitle
+    );
+
+    setEditTrackArtist(
+      memory.artist ?? ''
+    );
+  };
+
+  const cancelEditFrequency = () => {
+    if (savingTrackMetadata) {
+      return;
+    }
+
+    blurWebFrequencyEditor();
+
+    setEditingTrackId(null);
+    setEditTrackTitle('');
+    setEditTrackArtist('');
+  };
+
+  const saveFrequencyMetadata =
+    async (
+      memory: MemoryTrack,
+    ) => {
+      if (savingTrackMetadata) {
+        return;
+      }
+
+      const nextTitle =
+        editTrackTitle.trim();
+
+      const nextArtist =
+        editTrackArtist.trim();
+
+      if (!nextTitle) {
+        setError(
+          'Naziv frekvencije ne može biti prazan.',
+        );
+
+        return;
+      }
+
+      setSavingTrackMetadata(true);
+      setError(null);
+
+      try {
+        await memoryRadioApi.updateTrackMetadata({
+          trackId:
+            memory.trackId,
+          title:
+            nextTitle,
+          artist:
+            nextArtist || null,
+        });
+
+        audio.updateMetadata(
+          memory.trackId,
+          nextTitle,
+          nextArtist || null,
+        );
+
+        setMemories((current) =>
+          current.map((item) =>
+            item.trackId === memory.trackId
+              ? {
+                  ...item,
+                  trackTitle: nextTitle,
+                  artist:
+                    nextArtist || null,
+                }
+              : item
+          )
+        );
+
+        blurWebFrequencyEditor();
+
+        setEditingTrackId(null);
+        setEditTrackTitle('');
+        setEditTrackArtist('');
+
+        await load();
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : 'Frekvencija se nije mogla urediti.',
+        );
+      } finally {
+        setSavingTrackMetadata(false);
+      }
+    };
+
   const deleteFrequency = async (memory: MemoryTrack) => {
     if (busyTrackId) return;
     if (confirmDeleteTrackId !== memory.trackId) {
@@ -200,11 +490,31 @@ export function MemoryRadioScreen() {
   };
 
   const shuffle = () => {
-    if (memories.length === 0) return;
-    const choices = memories.filter((memory) => memory.trackId !== audio.current?.trackId);
-    const pool = choices.length > 0 ? choices : memories;
-    const next = pool[Math.floor(Math.random() * pool.length)];
-    if (next) audio.play(next);
+    if (station.pool.length === 0) return;
+
+    const choices =
+      station.pool.filter(
+        (memory) =>
+          memory.trackId !==
+          audio.current?.trackId,
+      );
+
+    const pool =
+      choices.length > 0
+        ? choices
+        : station.pool;
+
+    const next =
+      pool[
+        Math.floor(
+          Math.random() *
+            pool.length
+        )
+      ];
+
+    if (next) {
+      audio.play(next);
+    }
   };
 
   if (loading && memories.length === 0) {
@@ -224,6 +534,258 @@ export function MemoryRadioScreen() {
           <Text style={styles.intro}>Misli koje si spremio vraćaju se sa zvukom koji im pripada.</Text>
         </View>
 
+        {/* memoryRadioContextModesV1 */}
+        <View style={styles.stationPanel}>
+          <Text style={styles.stationEyebrow}>
+            TUNE THE ARCHIVE
+          </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.stationChips}
+          >
+            {memoryRadioModes.map((candidate) => {
+              const active =
+                candidate.id === mode;
+
+              return (
+                <Pressable
+                  key={candidate.id}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: active,
+                  }}
+                  onPress={() =>
+                    setMode(candidate.id)
+                  }
+                  style={({ pressed }) => [
+                    styles.stationChip,
+                    active &&
+                      styles.stationChipActive,
+                    pressed &&
+                      styles.pressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stationChipText,
+                      active &&
+                        styles.stationChipTextActive,
+                    ]}
+                  >
+                    {candidate.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.stationInfo}>
+            <View style={styles.stationInfoCopy}>
+              <Text style={styles.stationDescription}>
+                {station.description}
+              </Text>
+
+              {station.contextLabel ? (
+                <Text style={styles.stationContext}>
+                  {station.contextLabel}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={styles.stationCount}>
+              <Text style={styles.stationCountValue}>
+                {station.count}
+              </Text>
+              <Text style={styles.stationCountLabel}>
+                SIGNAL
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {mode === 'LOST_SIGNAL' ? (
+          <View style={styles.archaeologyCard}>
+            <Text style={styles.archaeologyKicker}>
+              LOST SIGNAL / ARCHAEOLOGY
+            </Text>
+
+            {lostSignalLoading &&
+            !lostSignal ? (
+              <View style={styles.archaeologyLoading}>
+                <ActivityIndicator
+                  color={colors.navy}
+                />
+                <Text style={styles.archaeologyMuted}>
+                  Kopam po starim slojevima…
+                </Text>
+              </View>
+            ) : lostSignal ? (
+              <>
+                <Text style={styles.archaeologyAge}>
+                  PRONAENO NAKON{' '}
+                  {lostSignal.item.dormantDays}{' '}
+                  DANA
+                </Text>
+
+                <Text style={styles.archaeologyTitle}>
+                  {lostSignal.item.title}
+                </Text>
+
+                <Text style={styles.archaeologyMeta}>
+                  {lostSignal.item.kind}
+                  {' · '}
+                  signal{' '}
+                  {lostSignal.item.forgottenScore}
+                  /100
+                </Text>
+
+                {lostSignal.item.reasons
+                  .slice(0, 2)
+                  .map((reason, index) => (
+                    <Text
+                      key={
+                        reason +
+                        String(index)
+                      }
+                      style={styles.archaeologyReason}
+                    >
+                      {reason}
+                    </Text>
+                  ))}
+
+                {lostSignal.jingleReason ? (
+                  <View style={styles.archaeologyMeaning}>
+                    <Text style={styles.archaeologyMeaningLabel}>
+                      ZATO JE ZNAILO
+                    </Text>
+
+                    <Text style={styles.archaeologyMeaningText}>
+                      “{lostSignal.jingleReason}”
+                    </Text>
+                  </View>
+                ) : null}
+
+                {(lostSignal.nearbyTitles.length >
+                  0 ||
+                  lostSignal.reconstructionLines.length >
+                    0) ? (
+                  <View style={styles.archaeologyAround}>
+                    <Text style={styles.archaeologyAroundLabel}>
+                      AROUND THAT TIME
+                    </Text>
+
+                    {lostSignal.nearbyTitles
+                      .slice(0, 4)
+                      .map((title) => (
+                        <Text
+                          key={title}
+                          style={styles.archaeologyAroundItem}
+                        >
+                          · {title}
+                        </Text>
+                      ))}
+
+                    {lostSignal.reconstructionLines
+                      .slice(0, 3)
+                      .map((line) => (
+                        <Text
+                          key={line}
+                          style={styles.archaeologyContext}
+                        >
+                          {line}
+                        </Text>
+                      ))}
+                  </View>
+                ) : null}
+
+                <View style={styles.archaeologyActions}>
+                  {lostSignalTrack ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        audio.play(
+                          lostSignalTrack
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.archaeologyTune,
+                        pressed &&
+                          styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.archaeologyTuneText}>
+                        TUNE IN
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={
+                      lostSignalLoading
+                    }
+                    onPress={() =>
+                      void refreshLostSignal()
+                    }
+                    style={({ pressed }) => [
+                      styles.archaeologyNext,
+                      pressed &&
+                        styles.pressed,
+                      lostSignalLoading &&
+                        styles.disabled,
+                    ]}
+                  >
+                    <Text style={styles.archaeologyNextText}>
+                      {lostSignalLoading
+                        ? 'TRAIM…'
+                        : 'DRUGI SIGNAL'}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {lostSignal.nearbyTrackIds.length >
+                0 ? (
+                  <Text style={styles.archaeologyAudioMeta}>
+                    {
+                      lostSignal.nearbyTrackIds
+                        .length
+                    } audio frekvencija pronađeno u tom sloju.
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.archaeologyTitle}>
+                  Još nema izgubljenog signala
+                </Text>
+
+                <Text style={styles.archaeologyMuted}>
+                  Lost Signal traži stvari koje nisu aktivne najmanje 60 dana i za koje postoji dokaz da su nekad stvarno zauzimale vrijeme ili značenje.
+                </Text>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    void refreshLostSignal()
+                  }
+                  style={({ pressed }) => [
+                    styles.archaeologyNext,
+                    styles.archaeologySoloButton,
+                    pressed &&
+                      styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.archaeologyNextText}>
+                    POKUAJ PONOVNO
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : null}
+
         <View style={styles.broadcast}>
           <Animated.View
             style={[
@@ -234,7 +796,9 @@ export function MemoryRadioScreen() {
               },
             ]}
           />
-          <Text style={styles.broadcastLabel}>{featured ? 'NOW REMEMBERING' : 'RADIO IS QUIET'}</Text>
+          <Text style={styles.broadcastLabel}>
+            {featured ? station.eyebrow : 'RADIO IS QUIET'}
+          </Text>
           {featured ? (
             <>
               <Text style={styles.memoryTitle}>{featured.entryTitle || featured.trackTitle}</Text>
@@ -249,7 +813,11 @@ export function MemoryRadioScreen() {
               </Pressable>
             </>
           ) : (
-            <Text style={styles.emptyBroadcast}>Poveži prvu pjesmu sa zapisom i radio će se probuditi.</Text>
+            <Text style={styles.emptyBroadcast}>
+              {memories.length === 0
+                ? 'Poveži prvu pjesmu sa zapisom i radio će se probuditi.'
+                : station.emptyText}
+            </Text>
           )}
         </View>
 
@@ -330,7 +898,21 @@ export function MemoryRadioScreen() {
                     onPress={() => audio.play(memory)}
                     style={({ pressed }) => [styles.memoryRowCopy, pressed && styles.pressed]}
                   >
-                    <Text numberOfLines={1} style={styles.rowTitle}>{memory.trackTitle}</Text>
+                    <Text
+                        numberOfLines={1}
+                        style={styles.rowTitle}
+                      >
+                        {memory.trackTitle}
+                      </Text>
+
+                      {memory.artist ? (
+                        <Text
+                          numberOfLines={1}
+                          style={styles.rowArtist}
+                        >
+                          {memory.artist}
+                        </Text>
+                      ) : null}
                     <Text numberOfLines={1} style={styles.rowCopy}>
                       {memory.linkId
                         ? `${memory.entryTitle || 'Bez naslova'}${memory.anchorText ? ` · ${memory.anchorText}` : ''}`
@@ -338,9 +920,96 @@ export function MemoryRadioScreen() {
                     </Text>
                   </Pressable>
 
-                  <View style={styles.rowActions}>
+                  {editingTrackId === memory.trackId ? (
+                    <View style={styles.frequencyEditor}>
+                      <Text style={styles.frequencyEditLabel}>
+                        NAZIV FREKVENCIJE
+                      </Text>
+
+                      <TextInput
+                        value={editTrackTitle}
+                        onChangeText={setEditTrackTitle}
+                        placeholder="Naziv"
+                        placeholderTextColor={colors.textMuted}
+                        style={styles.frequencyEditInput}
+                      />
+
+                      <Text style={styles.frequencyEditLabel}>
+                        AUTOR / IZVOA
+                      </Text>
+
+                      <TextInput
+                        value={editTrackArtist}
+                        onChangeText={setEditTrackArtist}
+                        placeholder="Neobavezno"
+                        placeholderTextColor={colors.textMuted}
+                        style={styles.frequencyEditInput}
+                      />
+
+                      <View style={styles.frequencyEditActions}>
+                        <Pressable
+                          disabled={savingTrackMetadata}
+                          onPress={() =>
+                            void saveFrequencyMetadata(
+                              memory
+                            )
+                          }
+                          style={({ pressed }) => [
+                            styles.frequencyEditSave,
+                            pressed && styles.pressed,
+                            savingTrackMetadata &&
+                              styles.disabled,
+                          ]}
+                        >
+                          <Text style={styles.frequencyEditSaveText}>
+                            {savingTrackMetadata
+                              ? 'SPREMAM…'
+                              : 'SPREMI'}
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          disabled={savingTrackMetadata}
+                          onPress={cancelEditFrequency}
+                          style={({ pressed }) => [
+                            styles.frequencyEditCancel,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={styles.frequencyEditCancelText}>
+                            ODUSTANI
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {editingTrackId !== memory.trackId ? (
+                    <View style={styles.rowActions}>
                     <Pressable disabled={busy} onPress={() => audio.play(memory)} style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}>
                       <Text style={styles.rowPlay}>PLAY</Text>
+                    </Pressable>
+
+                    <Pressable
+                      disabled={
+                        busy ||
+                        savingTrackMetadata
+                      }
+                      onPress={() =>
+                        beginEditFrequency(memory)
+                      }
+                      style={({ pressed }) => [
+                        styles.rowAction,
+                        editingTrackId ===
+                          memory.trackId &&
+                          styles.rowActionActive,
+                        pressed &&
+                          styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.rowActionText}>
+                        UREDI
+                      </Text>
                     </Pressable>
                     {memory.linkId ? (
                       <Pressable disabled={busy} onPress={() => void unlinkMemory(memory)} style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}>
@@ -359,6 +1028,7 @@ export function MemoryRadioScreen() {
                       <Text style={styles.rowDeleteText}>{confirming ? 'POTVRDI' : 'OBRIŠI'}</Text>
                     </Pressable>
                   </View>
+                  ) : null}
                 </View>
               );
             })}
@@ -406,9 +1076,100 @@ const styles = StyleSheet.create({
   library: { marginTop: 35 },
   memoryRow: { marginTop: 11, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.separator, borderRadius: 20, backgroundColor: colors.surface, padding: 17 },
   memoryRowCopy: { flex: 1, minWidth: 0, marginRight: 12, paddingVertical: 4 },
-  rowTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
+  rowTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  rowArtist: {
+    marginTop: 2,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  frequencyEditor: {
+    width: '100%',
+    minWidth: 0,
+    marginTop: 14,
+    marginBottom: 12,
+    paddingTop: 14,
+    borderTopWidth:
+      StyleSheet.hairlineWidth,
+    borderTopColor:
+      colors.separator,
+  },
+
+  frequencyEditLabel: {
+    marginTop: 8,
+    marginBottom: 6,
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+
+  frequencyEditInput: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 12,
+    backgroundColor: colors.fill,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    color: colors.text,
+    fontSize: 14,
+  },
+
+  frequencyEditActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  frequencyEditSave: {
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: colors.navy,
+    paddingHorizontal: 16,
+  },
+
+  frequencyEditSaveText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  frequencyEditCancel: {
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: colors.fill,
+    paddingHorizontal: 16,
+  },
+
+  frequencyEditCancelText: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  rowActionActive: {
+    backgroundColor: colors.fillStrong,
+  },
   rowCopy: { marginTop: 4, color: colors.textMuted, fontSize: 12 },
-  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+    flexShrink: 1,
+  },
   rowAction: { minHeight: 34, justifyContent: 'center', borderRadius: 10, backgroundColor: colors.fill, paddingHorizontal: 10 },
   rowActionText: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.45 },
   rowDeleteAction: { backgroundColor: colors.dangerSoft },
@@ -416,5 +1177,265 @@ const styles = StyleSheet.create({
   rowPlay: { color: colors.navy, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
   emptyText: { color: colors.textMuted, fontSize: 14 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  archaeologyCard: {
+    marginBottom: 14,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 26,
+    backgroundColor: colors.surface,
+  },
+
+  archaeologyKicker: {
+    color: colors.navy,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.25,
+  },
+
+  archaeologyLoading: {
+    minHeight: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  archaeologyAge: {
+    marginTop: 15,
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+
+  archaeologyTitle: {
+    marginTop: 7,
+    color: colors.text,
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+  },
+
+  archaeologyMeta: {
+    marginTop: 5,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  archaeologyReason: {
+    marginTop: 8,
+    color: colors.text,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  archaeologyMeaning: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: colors.fillStrong,
+  },
+
+  archaeologyMeaningLabel: {
+    color: colors.textMuted,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+  },
+
+  archaeologyMeaningText: {
+    marginTop: 6,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+
+  archaeologyAround: {
+    marginTop: 17,
+    paddingTop: 15,
+    borderTopWidth:
+      StyleSheet.hairlineWidth,
+    borderTopColor:
+      colors.separator,
+  },
+
+  archaeologyAroundLabel: {
+    color: colors.textMuted,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+  },
+
+  archaeologyAroundItem: {
+    marginTop: 7,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  archaeologyContext: {
+    marginTop: 6,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+
+  archaeologyActions: {
+    marginTop: 18,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  archaeologyTune: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.navy,
+    paddingHorizontal: 16,
+  },
+
+  archaeologyTuneText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  archaeologyNext: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.fill,
+    paddingHorizontal: 16,
+  },
+
+  archaeologySoloButton: {
+    alignSelf: 'flex-start',
+    marginTop: 16,
+  },
+
+  archaeologyNextText: {
+    color: colors.text,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.45,
+  },
+
+  archaeologyAudioMeta: {
+    marginTop: 10,
+    color: colors.textMuted,
+    fontSize: 10,
+  },
+
+  archaeologyMuted: {
+    marginTop: 9,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  stationPanel: {
+    marginBottom: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+  },
+
+  stationEyebrow: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.25,
+  },
+
+  stationChips: {
+    paddingTop: 12,
+    paddingRight: 10,
+  },
+
+  stationChip: {
+    marginRight: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+  },
+
+  stationChipActive: {
+    borderColor: colors.navy,
+    backgroundColor: colors.navy,
+  },
+
+  stationChipText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  stationChipTextActive: {
+    color: colors.white,
+  },
+
+  stationInfo: {
+    marginTop: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  stationInfoCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 14,
+  },
+
+  stationDescription: {
+    color: colors.text,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+
+  stationContext: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 10,
+    lineHeight: 15,
+  },
+
+  stationCount: {
+    minWidth: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 13,
+    backgroundColor: colors.fillStrong,
+  },
+
+  stationCountValue: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+
+  stationCountLabel: {
+    marginTop: 1,
+    color: colors.textMuted,
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+
   pressed: { opacity: 0.72 },
 });

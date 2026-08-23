@@ -179,7 +179,7 @@ export function LatelyStatsSection() {
             size="small"
           />
           <Text style={styles.stateText}>
-            ?itam zadnjih {period} dana...
+            Čitam zadnjih {period} dana...
           </Text>
         </View>
       ) : error && !data ? (
@@ -192,7 +192,7 @@ export function LatelyStatsSection() {
             {error}
           </Text>
           <Text style={styles.retryText}>
-            Poku?aj ponovno
+            Pokušaj ponovno
           </Text>
         </Pressable>
       ) : data ? (
@@ -235,11 +235,11 @@ export function LatelyStatsSection() {
               label="završenih stvari"
               detail={
                 data.completedMovies +
-                ' filmova ? ' +
+                ' filmova · ' +
                 data.completedSeries +
-                ' serija ? ' +
+                ' serija · ' +
                 data.completedBooks +
-                ' knjiga ? ' +
+                ' knjiga · ' +
                 data.completedGames +
                 ' igara'
               }
@@ -261,7 +261,7 @@ export function LatelyStatsSection() {
                   data.topActivity.activityType
                 ] ??
                   data.topActivity.activityType}
-                {' ? '}
+                {' · '}
                 {formatTime(
                   data.topActivity.seconds,
                 )}
@@ -275,7 +275,7 @@ export function LatelyStatsSection() {
 
               <View style={styles.topicCopy}>
                 <Text style={styles.focusLabel}>
-                  TEMA KOJOJ SE VRA?A?
+                  TEMA KOJOJ SE VRAĆAŠ
                 </Text>
 
                 <Text style={styles.topicTitle}>

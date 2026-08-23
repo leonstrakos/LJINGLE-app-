@@ -216,12 +216,12 @@ export function CatalogueCoverOverrideControls({
 
           <Text style={styles.heading}>
             {customUri
-              ? 'Koristi? svoju naslovnicu'
+              ? 'Koristiš svoju naslovnicu'
               : 'Originalna naslovnica'}
           </Text>
 
           <Text style={styles.copy}>
-            Ru?na slika ne mijenja originalne
+            Ručna slika ne mijenja originalne
             podatke iz online izvora.
           </Text>
         </View>

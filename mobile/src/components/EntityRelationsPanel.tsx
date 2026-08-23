@@ -4,13 +4,13 @@ import {
   FlatList,
   Modal,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { collectionApi } from '../services/collectionApi';
 import { colors } from '../theme/colors';
@@ -112,6 +112,12 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
 
   const searchReferences = async (value: string) => {
     setSearch(value);
+
+    if (value.trim().length < 2) {
+      setReferences([]);
+      return;
+    }
+
     try {
       const found = await collectionApi.searchReferences(value);
       setReferences(found.filter((item) => !(item.entityType === entityType && item.entityId === entityId)));
@@ -211,8 +217,8 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Modal animationType="slide" visible={collectionModal} onRequestClose={() => setCollectionModal(false)}>
-        <SafeAreaView style={styles.modalSafe}>
+      <Modal animationType="slide" presentationStyle="fullScreen" statusBarTranslucent={false} visible={collectionModal} onRequestClose={() => setCollectionModal(false)}>
+        <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalSafe}>
           <View style={styles.modalHeader}>
             <Pressable
               accessibilityRole="button"
@@ -250,8 +256,8 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
         </SafeAreaView>
       </Modal>
 
-      <Modal animationType="slide" visible={linkModal} onRequestClose={() => setLinkModal(false)}>
-        <SafeAreaView style={styles.modalSafe}>
+      <Modal animationType="slide" presentationStyle="fullScreen" statusBarTranslucent={false} visible={linkModal} onRequestClose={() => setLinkModal(false)}>
+        <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalSafe}>
           <View style={styles.modalHeader}>
             <Pressable
               accessibilityRole="button"
@@ -291,7 +297,7 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
                 </Pressable>
               ))}
             </View>
-            <Text style={styles.fieldLabel}>Pove?i s</Text>
+            <Text style={styles.fieldLabel}>Poveži s</Text>
             {selected ? (
               <Pressable onPress={() => setSelected(null)} style={styles.selectedReference}>
                 <View style={styles.selectedCopy}><Text style={styles.selectedTitle}>{selected.title}</Text><Text style={styles.selectedSubtitle}>{entityTypeLabels[selected.entityType]} · tap to change</Text></View><Text style={styles.check}>✓</Text>
@@ -314,7 +320,7 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
                 />
               </>
             )}
-            <Text style={styles.fieldLabel}>Bilje?ka ? neobavezno</Text>
+            <Text style={styles.fieldLabel}>Bilješka · neobavezno</Text>
             <TextInput value={note} onChangeText={setNote} placeholder="Zašto su povezani?" placeholderTextColor={colors.textMuted} style={styles.noteInput} />
             <Pressable disabled={!selected || linkSaving} onPress={() => void saveLink()} style={[styles.saveLink, (!selected || linkSaving) && styles.disabled]}>
               {linkSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveLinkText}>Spremi poveznicu</Text>}

@@ -16,6 +16,8 @@ import { BookCard } from '../components/BookCard';
 import { FeedbackView } from '../components/FeedbackView';
 import { bookApi } from '../services/bookApi';
 import { colors } from '../theme/colors';
+import { registerUndo } from '../utils/undoManager';
+import { semanticFeedback } from '../utils/semanticFeedback';
 import {
   catalogueStateKey,
   mergeScreenState,
@@ -160,6 +162,8 @@ export function BookListScreen({ navigation }: Props) {
       delete payload.modifiedAt;
 
       await bookApi.update(book.bookId, payload as any);
+      // semanticJingleFeedbackV1
+      void semanticFeedback.jingle();
 
       setBooks((current) =>
         current.map((row) =>
@@ -168,6 +172,37 @@ export function BookListScreen({ navigation }: Props) {
             : row
         )
       );
+
+      // jingleUniversalUndoV1
+      registerUndo({
+        label: next
+          ? `Dodano u Jingle: ${book.title}`
+          : `Maknuto iz Jingle: ${book.title}`,
+
+        undo: async () => {
+          const undoPayload = {
+            ...book,
+            favourite: book.favourite,
+          } as Record<string, unknown>;
+
+          delete undoPayload.bookId;
+          delete undoPayload.createdAt;
+          delete undoPayload.modifiedAt;
+
+          const reverted = await bookApi.update(
+            book.bookId,
+            undoPayload as any,
+          );
+
+          setBooks((current) =>
+            current.map((row) =>
+              row.bookId === book.bookId
+                ? reverted
+                : row,
+            ),
+          );
+        },
+      });
     } catch (caught) {
       setError(
         caught instanceof Error

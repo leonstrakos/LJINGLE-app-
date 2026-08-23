@@ -8,6 +8,7 @@ export type RootStackParamList = {
   TopicDetails: { topicId: string };
   History: undefined;
   Stats: undefined;
+  Reconstruction: undefined;
   Entries: undefined;
   EntryForm: { entryId?: string } | undefined;
   MemoryRadio: undefined;

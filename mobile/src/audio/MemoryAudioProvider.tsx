@@ -21,6 +21,13 @@ type MemoryAudioValue = {
   pause: () => void;
   toggle: (memory: MemoryTrack) => void;
   clear: () => void;
+
+  // memoryFrequencyEditV2
+  updateMetadata: (
+    trackId: string,
+    title: string,
+    artist: string | null,
+  ) => void;
 };
 
 const MemoryAudioContext = createContext<MemoryAudioValue | null>(null);
@@ -73,10 +80,52 @@ export function MemoryAudioProvider({ children }: { children: ReactNode }) {
 
   // memoryRadioUnlinkDeleteV3
   const clear = useCallback(() => {
+    // memoryRadioClearSdk54FixV1
+    // expo-audio SDK 54 rejects replace(null). Pausing and clearing our
+    // logical current track is enough; the next play() replaces the source.
     player.pause();
-    player.replace(null);
     setCurrent(null);
   }, [player]);
+
+  // memoryFrequencyEditV2
+  const updateMetadata = useCallback(
+    (
+      trackId: string,
+      title: string,
+      artist: string | null,
+    ) => {
+      setCurrent((memory) => {
+        if (
+          !memory ||
+          memory.trackId !== trackId
+        ) {
+          return memory;
+        }
+
+        const next = {
+          ...memory,
+          trackTitle: title,
+          artist,
+        };
+
+        player.setActiveForLockScreen(
+          true,
+          {
+            title: next.trackTitle,
+            artist:
+              next.artist ??
+              'LJingle Memory Radio',
+            albumTitle:
+              next.entryTitle ??
+              'Memory Radio',
+          },
+        );
+
+        return next;
+      });
+    },
+    [player],
+  );
 
   const toggle = useCallback((memory: MemoryTrack) => {
     if (current?.trackId === memory.trackId && status.playing) pause();
@@ -92,7 +141,18 @@ export function MemoryAudioProvider({ children }: { children: ReactNode }) {
     pause,
     toggle,
     clear,
-  }), [clear, current, pause, play, status.currentTime, status.duration, status.playing, toggle]);
+    updateMetadata,
+  }), [
+    clear,
+    current,
+    pause,
+    play,
+    status.currentTime,
+    status.duration,
+    status.playing,
+    toggle,
+    updateMetadata,
+  ]);
 
   return <MemoryAudioContext.Provider value={value}>{children}</MemoryAudioContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import {
-  Image,  FlatList,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,11 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MediaCard } from '../components/MediaCard';
 import { MediaFeedbackView } from '../components/MediaFeedbackView';
+import { JingleBellIcon } from '../components/JingleBellIcon';
 import { mediaApi } from '../services/mediaApi';
 import { hydrateMovieMetadata } from '../services/movieMetadataHydrator';
 // catalogueQuietModeV1
 import { getCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
 import { colors } from '../theme/colors';
+import { registerUndo } from '../utils/undoManager';
+import { semanticFeedback } from '../utils/semanticFeedback';
 import {
   catalogueStateKey,
   mergeScreenState,
@@ -187,11 +190,56 @@ export function MediaListScreen({ navigation }: Props) {
     setJingleBusy(item.mediaId);
     try {
       const updated = await mediaApi.setFavourite(item.mediaId, !item.favourite);
+      // semanticJingleFeedbackV1
+      void semanticFeedback.jingle();
       setItems((current) =>
         statusFilter === 'JINGLE' && !updated.favourite
           ? current.filter((row) => row.mediaId !== updated.mediaId)
           : current.map((row) => row.mediaId === updated.mediaId ? updated : row),
       );
+
+      // jingleUniversalUndoV1
+      registerUndo({
+        label: updated.favourite
+          ? `Dodano u Jingle: ${item.title}`
+          : `Maknuto iz Jingle: ${item.title}`,
+
+        undo: async () => {
+          const reverted = await mediaApi.setFavourite(
+            item.mediaId,
+            item.favourite,
+          );
+
+          setItems((current) => {
+            const exists = current.some(
+              (row) => row.mediaId === reverted.mediaId,
+            );
+
+            if (
+              statusFilter === 'JINGLE' &&
+              reverted.favourite &&
+              !exists
+            ) {
+              return [reverted, ...current];
+            }
+
+            if (
+              statusFilter === 'JINGLE' &&
+              !reverted.favourite
+            ) {
+              return current.filter(
+                (row) => row.mediaId !== reverted.mediaId,
+              );
+            }
+
+            return current.map((row) =>
+              row.mediaId === reverted.mediaId
+                ? reverted
+                : row,
+            );
+          });
+        },
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Jingle se nije mogao promijeniti.');
     } finally {
@@ -270,7 +318,7 @@ export function MediaListScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('MediaForm')}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Text style={styles.actionIcon}>＋</Text>
+            <Text style={styles.actionIcon}>+</Text>
             <Text style={styles.actionLabel}>Ručni unos</Text>
           </Pressable>
         </View>
@@ -339,10 +387,10 @@ export function MediaListScreen({ navigation }: Props) {
                 onPress={() => void toggleJingle(item)}
                 style={({ pressed }) => [styles.jingleButton, pressed && styles.jingleButtonPressed]}
               >
-                <Image
-                  source={require('../assets/aero/fav.png')}
-                  resizeMode="contain"
-                  style={[styles.jingleIcon, !item.favourite && styles.jingleIconInactive]}
+                <JingleBellIcon
+                  active={item.favourite}
+                  inactiveOpacity={0.5}
+                  style={styles.jingleIcon}
                 />
               </Pressable>
             </View>
@@ -389,13 +437,13 @@ const styles = StyleSheet.create({
   // jingleCatalogueV3
   jingleRow: { position: 'relative' },
   jingleButton: {
-    // mobileStabilityUiPolishV1
+    // mediaJingleMatchesGamesV1
     position: 'absolute',
-    top: 7,
-    right: 7,
+    top: 2,
+    right: 2,
     zIndex: 40,
-    width: 48,
-    height: 56,
+    width: 76,
+    height: 80,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
@@ -403,8 +451,8 @@ const styles = StyleSheet.create({
   },
   jingleButtonPressed: { opacity: 0.72, transform: [{ scale: 0.95 }] },
   jingleIcon: {
-    width: 42,
-    height: 50,
+    width: 62,
+    height: 74,
   },
   jingleIconInactive: { opacity: 0.22 },
   safeArea: { flex: 1, backgroundColor: colors.background },
@@ -449,3 +497,4 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.white },
   list: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 35 },
 });
+

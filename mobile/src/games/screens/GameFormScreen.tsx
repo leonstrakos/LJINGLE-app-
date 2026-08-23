@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FeedbackView } from '../../components/FeedbackView';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
+import { semanticFeedback } from '../../utils/semanticFeedback';
 import { gameApi } from '../services/gameApi';
 import {
   enjoymentLabels,
@@ -263,7 +264,17 @@ export function GameFormScreen({ route, navigation }: Props) {
                 {gameStatuses.map((option) => (
                   <Pressable
                     key={option}
-                    onPress={() => setGameStatus(option)}
+                    onPress={() => {
+                      if (
+                        option === 'COMPLETED' &&
+                        gameStatus !== 'COMPLETED'
+                      ) {
+                        // semanticCompletionFeedbackV1
+                        void semanticFeedback.complete();
+                      }
+
+                      setGameStatus(option);
+                    }}
                     style={[styles.choice, gameStatus === option && styles.choiceSelected]}
                   >
                     <Text style={[styles.choiceText, gameStatus === option && styles.choiceTextSelected]}>

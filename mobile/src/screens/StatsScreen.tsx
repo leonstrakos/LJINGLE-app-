@@ -1,13 +1,17 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -17,6 +21,8 @@ import {
 } from '../storage/statsOverview';
 import { CatalogueSnapshotsSection } from '../components/CatalogueSnapshotsSection';
 import { LatelyStatsSection } from '../components/LatelyStatsSection';
+// temporalStatsV1
+import { TemporalStatsSection } from '../components/TemporalStatsSection';
 import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 
@@ -93,6 +99,7 @@ function Ranking({
 }
 
 export function StatsScreen() {
+  const navigation = useNavigation<any>();
   const [data, setData] = useState<StatsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -161,6 +168,43 @@ export function StatsScreen() {
         <Text style={styles.intro}>
           Povijesno gledanje iz TV Timea i vrijeme koje Life Catalogue mjeri od sada nadalje.
         </Text>
+{/* reconstructionEntryV1 */}
+<Pressable
+  onPress={() =>
+    navigation.navigate('Reconstruction')
+  }
+  style={[
+    styles.heroCard,
+    aeroMode && styles.aeroGlass,
+    { marginTop: 18 },
+  ]}
+>
+  <Text style={styles.heroLabel}>
+    OSOBNI ARHIV
+  </Text>
+
+  <Text
+    style={{
+      marginTop: 7,
+      fontSize: 20,
+      fontWeight: '900',
+        color: '#111',
+    }}
+  >
+    Rekonstrukcija vremena →
+  </Text>
+
+  <Text
+    style={[
+      styles.muted,
+      { marginTop: 6 },
+    ]}
+  >
+    Vrati se na mjesec ili dan i vidi što si
+    tada čitao, gledao, igrao i radio.
+  </Text>
+</Pressable>
+
 
         <View style={[styles.heroCard, aeroMode && styles.aeroGlass]}>
           <Text style={styles.heroLabel}>UKUPNO VRIJEME GLEDANJA · TV TIME</Text>
@@ -247,6 +291,7 @@ export function StatsScreen() {
           Nebitno je isključeno iz prikazanih library brojki i rang-lista.
         </Text>
         <LatelyStatsSection />
+          <TemporalStatsSection />
           <CatalogueSnapshotsSection />
         </ScrollView>
     </SafeAreaView>

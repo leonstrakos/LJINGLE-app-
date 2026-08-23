@@ -183,6 +183,38 @@ export const memoryRadioApi = {
     });
   },
 
+  // memoryFrequencyEditV2
+  async updateTrackMetadata(request: {
+    trackId: string;
+    title: string;
+    artist?: string | null;
+  }) {
+    const title =
+      request.title.trim();
+
+    const artist =
+      request.artist?.trim() || null;
+
+    if (!title) {
+      throw new Error(
+        'Naziv frekvencije ne može biti prazan.'
+      );
+    }
+
+    const database =
+      await getDatabase();
+
+    await database.runAsync(
+      `UPDATE audio_tracks
+       SET title = ?,
+           artist = ?
+       WHERE track_id = ?`,
+      title,
+      artist,
+      request.trackId,
+    );
+  },
+
   async deleteTrack(trackId: string) {
     const database = await getDatabase();
     const row = await database.getFirstAsync<Row>(

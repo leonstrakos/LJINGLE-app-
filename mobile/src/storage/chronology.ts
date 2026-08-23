@@ -292,8 +292,9 @@ export async function loadChronology(options?: {
         started_on,
         finished_on
       FROM games
-      WHERE started_on IS NOT NULL
-         OR finished_on IS NOT NULL
+      WHERE game_status <> 'QUIT'
+        AND (started_on IS NOT NULL
+         OR finished_on IS NOT NULL)
       `,
     ),
   ]);

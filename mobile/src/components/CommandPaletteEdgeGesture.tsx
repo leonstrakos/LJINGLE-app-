@@ -2,6 +2,7 @@ import {
   Animated,
   PanResponder,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -12,6 +13,9 @@ import {
 } from 'react';
 
 import { colors } from '../theme/colors';
+import { semanticFeedback } from '../utils/semanticFeedback';
+import { semanticSpring } from '../utils/semanticMotion';
+import { useReducedMotion } from '../utils/useReducedMotion';
 
 type Props = {
   onOpen: () => void;
@@ -24,31 +28,46 @@ const FLICK_THRESHOLD = 0.72;
 export function CommandPaletteEdgeGesture({
   onOpen,
 }: Props) {
+  const reducedMotion = useReducedMotion();
+
   const progress =
     useRef(new Animated.Value(0)).current;
 
   const progressValue = useRef(0);
   const active = useRef(false);
+  const thresholdFeedbackPlayed = useRef(false);
 
   const reset = () => {
     active.current = false;
     progressValue.current = 0;
+    thresholdFeedbackPlayed.current = false;
   };
 
   const animateBack = () => {
+    if (reducedMotion) {
+      progress.setValue(0);
+      reset();
+      return;
+    }
+
     Animated.spring(progress, {
       toValue: 0,
-      tension: 180,
-      friction: 19,
+      ...semanticSpring.peek,
       useNativeDriver: true,
     }).start(reset);
   };
 
   const completeGesture = () => {
+    if (reducedMotion) {
+      progress.setValue(0);
+      reset();
+      onOpen();
+      return;
+    }
+
     Animated.spring(progress, {
       toValue: 1,
-      tension: 210,
-      friction: 20,
+      ...semanticSpring.peek,
       useNativeDriver: true,
     }).start(() => {
       progress.setValue(0);
@@ -87,6 +106,7 @@ export function CommandPaletteEdgeGesture({
 
         onPanResponderGrant: () => {
           active.current = true;
+          thresholdFeedbackPlayed.current = false;
         },
 
         onPanResponderMove: (
@@ -120,6 +140,15 @@ export function CommandPaletteEdgeGesture({
           progressValue.current =
             nextProgress;
 
+          if (
+            nextProgress >= OPEN_THRESHOLD &&
+            !thresholdFeedbackPlayed.current
+          ) {
+            thresholdFeedbackPlayed.current = true;
+            // semanticPaletteFeedbackV1
+            void semanticFeedback.gestureThreshold();
+          }
+
           progress.setValue(
             nextProgress,
           );
@@ -152,7 +181,7 @@ export function CommandPaletteEdgeGesture({
         onPanResponderTerminationRequest:
           () => false,
       }),
-    [onOpen, progress],
+    [onOpen, progress, reducedMotion],
   );
 
   if (Platform.OS === 'web') {
@@ -221,8 +250,10 @@ export function CommandPaletteEdgeGesture({
         </View>
       </Animated.View>
 
-      <View
+      <Pressable
         {...responder.panHandlers}
+        accessibilityLabel="Povuci za pretragu"
+        accessibilityRole="button"
         collapsable={false}
         style={styles.edgeZone}
       />
@@ -234,12 +265,13 @@ const styles = StyleSheet.create({
   edgeZone: {
     position: 'absolute',
 
-    // Slightly inside Android's own system edge.
-    right: 5,
-    bottom: 30,
+    // Inset from Android's back-gesture edge so both
+    // diagonal swipe and long-press remain reachable.
+    right: 24,
+    bottom: 34,
 
-    width: 34,
-    height: 156,
+    width: 32,
+    height: 174,
 
     zIndex: 9997,
   },

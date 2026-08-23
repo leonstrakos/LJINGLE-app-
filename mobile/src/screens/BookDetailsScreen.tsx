@@ -1,3 +1,5 @@
+// jingleReasonV1
+import { JingleReasonCard } from '../components/JingleReasonCard';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -6,6 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CatalogueCoverDisplay, CatalogueCoverOverrideControls } from '../components/CatalogueCoverOverride';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { EntityRelationsPanel } from '../components/EntityRelationsPanel';
+// aroundSameTimeV1
+import { AroundSameTimeSection } from '../components/AroundSameTimeSection';
+// backdatedSessionsV1
+import { BackdatedSessionCard } from '../components/BackdatedSessionCard';
+// uncertaintyDatesV1
+import { ApproximateDateCard } from '../components/ApproximateDateCard';
+
 import { FeedbackView } from '../components/FeedbackView';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ReadingTimerCard } from '../components/ReadingTimerCard';
@@ -163,6 +172,13 @@ export function BookDetailsScreen({ route, navigation }: Props) {
           {book.favourite ? <Text accessibilityLabel="Favorit" style={styles.favourite}>★ Favorit</Text> : null}
         </View>
 
+        {book.favourite ? (
+          <JingleReasonCard
+            entityType="BOOK"
+            entityId={book.bookId}
+          />
+        ) : null}
+
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressLabel}>Napredak</Text>
@@ -182,7 +198,25 @@ export function BookDetailsScreen({ route, navigation }: Props) {
           />
         ) : null}
 
+        {/* backdatedSessionsV1 */}
+        <BackdatedSessionCard
+          entityType="BOOK"
+          entityId={bookId}
+        />
+
+        {/* uncertaintyDatesV1 */}
+        <ApproximateDateCard
+          entityType="BOOK"
+          entityId={bookId}
+        />
+
         <EntityRelationsPanel entityType="BOOK" entityId={bookId} title={book.title} />
+
+        {/* aroundSameTimeV1 */}
+        <AroundSameTimeSection
+          entityType="BOOK"
+          entityId={bookId}
+        />
 
         <View style={styles.detailsCard}>
           <DetailRow label="Autor" value={book.author} />

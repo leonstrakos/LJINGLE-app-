@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   createCatalogueSnapshot,
@@ -134,17 +135,17 @@ function SnapshotRow({
 
       <View style={styles.smallMetrics}>
         <Text style={styles.smallMetric}>
-          ? {snapshot.jingleCount} Jingle
+          • {snapshot.jingleCount} Jingle
         </Text>
 
         {snapshot.nebitnoCount > 0 ? (
           <Text style={styles.smallMetric}>
-            ? {snapshot.nebitnoCount} Nebitno
+            • {snapshot.nebitnoCount} Nebitno
           </Text>
         ) : null}
 
         <Text style={styles.smallMetric}>
-          ? {snapshot.activeCount} aktivnih
+          • {snapshot.activeCount} aktivnih
         </Text>
       </View>
 
@@ -170,7 +171,7 @@ function SnapshotRow({
             style={styles.confirmDelete}
           >
             <Text style={styles.confirmDeleteText}>
-              Obri?i
+              Obriši
             </Text>
           </Pressable>
         </View>
@@ -206,7 +207,7 @@ function SnapshotRow({
             ]}
           >
             <Text style={styles.deleteButtonText}>
-              Obri?i
+              Obriši
             </Text>
           </Pressable>
         </View>
@@ -226,10 +227,14 @@ function SnapshotViewer({
     <Modal
       animationType="slide"
       onRequestClose={onClose}
+      statusBarTranslucent={false}
       visible={details !== null}
     >
       {details ? (
-        <View style={styles.viewer}>
+        <SafeAreaView
+          edges={['top', 'left', 'right', 'bottom']}
+          style={styles.viewer}
+        >
           <View style={styles.viewerHeader}>
             <View style={styles.viewerHeadingCopy}>
               <Text style={styles.viewerEyebrow}>
@@ -292,7 +297,7 @@ function SnapshotViewer({
                   <Text style={styles.itemMeta}>
                     {entityLabel(item.entityType)}
                     {item.subtitle
-                      ? ' ? ' + item.subtitle
+                      ? ' · ' + item.subtitle
                       : ''}
                   </Text>
 
@@ -303,19 +308,19 @@ function SnapshotViewer({
 
                     {item.progress > 0 ? (
                       <Text style={styles.itemProgress}>
-                        ? {item.progress}%
+                        · {item.progress}%
                       </Text>
                     ) : null}
 
                     {item.jingle ? (
                       <Text style={styles.itemJingle}>
-                        ? Jingle
+                        · Jingle
                       </Text>
                     ) : null}
 
                     {item.nebitno ? (
                       <Text style={styles.itemNebitno}>
-                        ? Nebitno
+                        · Nebitno
                       </Text>
                     ) : null}
                   </View>
@@ -324,7 +329,7 @@ function SnapshotViewer({
             )}
             showsVerticalScrollIndicator={false}
           />
-        </View>
+        </SafeAreaView>
       ) : null}
     </Modal>
   );
@@ -363,7 +368,7 @@ export function CatalogueSnapshotsSection() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Ere kataloga nisu se mogle u?itati.',
+          : 'Ere kataloga nisu se mogle učitati.',
       );
     } finally {
       setLoading(false);
@@ -518,7 +523,7 @@ export function CatalogueSnapshotsSection() {
             />
 
             <Text style={styles.loadingText}>
-              U?itavam ere...
+              Učitavam ere...
             </Text>
           </View>
         ) : snapshots.length === 0 ? (

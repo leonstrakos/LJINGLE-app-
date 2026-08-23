@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   
     // aeroRecentTypeV3
     ...(aeroMode ? {
-      color: '#087C9D',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroRecentVisibilityV1
     ...(aeroMode ? {
-      color: '#067B9E',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 11 : 10,
       lineHeight: 15,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   
     // aeroRecentTypeV3
     ...(aeroMode ? {
-      color: '#0A3C78',
+      color: colors.navy,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroRecentVisibilityV1
     ...(aeroMode ? {
-      color: '#073B76',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 16 : 15,
       lineHeight: 21,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   
     // aeroRecentTypeV3
     ...(aeroMode ? {
-      color: 'rgba(18,76,138,0.67)',
+      color: colors.textMuted,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroRecentVisibilityV1
     ...(aeroMode ? {
-      color: '#35698F',
+      color: colors.navy,
 
       fontSize: Platform.OS === 'web' ? 12 : 11,
       lineHeight: 16,
