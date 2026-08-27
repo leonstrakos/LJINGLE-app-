@@ -90,3 +90,31 @@ Thumbs.db
 *.p12
 *.mobileprovision
 mobile/.env.local
+
+# LJingle local development artifacts
+_recovery/
+mobile/_recovery/
+mobile/.k13-backup-*/
+mobile/audits/
+mobile/ljingle-sound-pack-v1/
+
+*.bak
+*.before-*
+**/*.before-*
+*PRE-CLEAN*
+
+# Terminal patch/install artifacts
+_*.cjs
+audit-*.cjs
+install_profile_*.ps1
+mobile/*.cjs
+
+# Local source snapshots
+src3.zip
+mobile/src3.zip
+
+# Local unrelated artifacts
+IKI_Strakos_server_30k_final_2026-08-23.docx
+6dc8c447-4f50-4c78-8830-6de1de86c6d4.png
+ovo-je-bitno-ljingle-card.svg
+upscalemedia-transformed.png
