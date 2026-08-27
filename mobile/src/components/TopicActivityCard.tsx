@@ -1,9 +1,10 @@
+// forkDTopicsV1
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import {
   activityTypeLabels,
-  activityTypeMarks,
   type TopicActivityResponse,
   type TopicActivityTimerResponse,
 } from '../types/topic';
@@ -12,6 +13,11 @@ import {
   getTopicSessionSeconds,
   getTopicTotalSeconds,
 } from '../utils/topicActivityTime';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkN2CelestialCollectionsTopicsV2
+const celestialMode = activeVisualSkinId === 'classic';
+const CELESTIAL_GOLD = celestial.gold;
 
 type Props = {
   activity: TopicActivityResponse;
@@ -27,29 +33,22 @@ export function TopicActivityCard({ activity, timer, now, busy, onToggle }: Prop
   const totalSeconds = timer ? getTopicTotalSeconds(timer, now) : 0;
 
   return (
-    <View style={[styles.card, running && styles.cardRunning]}>
-      <View style={styles.topRow}>
-        <View style={[styles.mark, running && styles.markRunning]}>
-          <Text style={[styles.markText, running && styles.markTextRunning]}>
-            {activityTypeMarks[activity.activityType]}
-          </Text>
-        </View>
-
-        <View style={styles.headingCopy}>
-          <Text style={[styles.type, running && styles.typeRunning]}>
-            {activityTypeLabels[activity.activityType]}
-          </Text>
-          <Text numberOfLines={2} style={[styles.label, running && styles.labelRunning]}>
-            {activity.label}
-          </Text>
-        </View>
-
-        <View style={[styles.stateBadge, running && styles.stateBadgeRunning]}>
-          {running ? <View style={styles.liveDot} /> : null}
-          <Text style={[styles.stateText, running && styles.stateTextRunning]}>
-            {running ? 'Aktivno' : 'Spremno'}
-          </Text>
-        </View>
+    <View
+      style={[
+        styles.card,
+        celestialMode && styles.cardCelestial,
+        running && styles.cardRunning,
+        celestialMode && running && styles.cardRunningCelestial,
+      ]}
+    >
+      {celestialMode ? <Text pointerEvents="none" style={styles.cardStar}>✦</Text> : null}
+      <View style={styles.headingCopy}>
+        <Text style={[styles.type, celestialMode && styles.typeCelestial]}>
+          {activityTypeLabels[activity.activityType]}
+        </Text>
+        <Text numberOfLines={2} style={styles.label}>
+          {activity.label}
+        </Text>
       </View>
 
       {running ? (
@@ -61,12 +60,18 @@ export function TopicActivityCard({ activity, timer, now, busy, onToggle }: Prop
           >
             {formatTopicDuration(sessionSeconds)}
           </Text>
-          <Text style={styles.total}>Ukupno {formatTopicDuration(totalSeconds)}</Text>
+          <Text style={styles.total}>
+            Ukupno {formatTopicDuration(totalSeconds)}
+          </Text>
         </View>
       ) : timer && totalSeconds > 0 ? (
-        <Text style={styles.idleTotal}>Ukupno praćeno {formatTopicDuration(totalSeconds)}</Text>
+        <Text style={styles.idleTotal}>
+          Ukupno praćeno {formatTopicDuration(totalSeconds)}
+        </Text>
       ) : (
-        <Text style={styles.idleHint}>Pokreni kada započneš ovu aktivnost.</Text>
+        <Text style={styles.idleHint}>
+          Pokreni kada započneš ovu aktivnost.
+        </Text>
       )}
 
       <Pressable
@@ -76,20 +81,18 @@ export function TopicActivityCard({ activity, timer, now, busy, onToggle }: Prop
         onPress={onToggle}
         style={({ pressed }) => [
           styles.button,
+          celestialMode && styles.buttonCelestial,
           running && styles.stopButton,
           pressed && !busy && styles.buttonPressed,
           busy && styles.buttonDisabled,
         ]}
       >
         {busy ? (
-          <ActivityIndicator color={running ? colors.black : colors.white} />
+          <ActivityIndicator color={running ? colors.text : colors.white} />
         ) : (
-          <>
-            <View style={[styles.buttonIcon, running && styles.stopIcon]} />
-            <Text style={[styles.buttonText, running && styles.stopButtonText]}>
-              {running ? 'Zaustavi i spremi' : 'Pokreni aktivnost'}
-            </Text>
-          </>
+          <Text style={[styles.buttonText, running && styles.stopButtonText]}>
+            {running ? 'Zaustavi i spremi' : 'Pokreni aktivnost'}
+          </Text>
         )}
       </Pressable>
     </View>
@@ -106,40 +109,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   cardRunning: {
-    borderColor: colors.black,
-    backgroundColor: colors.black,
-    shadowColor: colors.black,
+    borderColor: colors.success,
+    backgroundColor: colors.successSoft,
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 14,
-    elevation: 5,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  mark: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 13,
-    backgroundColor: colors.fillStrong,
-  },
-  markRunning: {
-    backgroundColor: '#2C2C2E',
-  },
-  markText: {
-    color: colors.black,
-    fontSize: 21,
-    fontWeight: '600',
-  },
-  markTextRunning: {
-    color: colors.white,
+    elevation: 4,
   },
   headingCopy: {
-    flex: 1,
-    paddingHorizontal: 12,
+    minWidth: 0,
   },
   type: {
     color: colors.textMuted,
@@ -148,9 +127,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
-  typeRunning: {
-    color: '#8E8E93',
-  },
   label: {
     marginTop: 3,
     color: colors.text,
@@ -158,50 +134,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '800',
   },
-  labelRunning: {
-    color: colors.white,
-  },
-  stateBadge: {
-    minHeight: 25,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    borderRadius: 999,
-    backgroundColor: colors.fill,
-  },
-  stateBadgeRunning: {
-    backgroundColor: '#1C1C1E',
-  },
-  liveDot: {
-    width: 7,
-    height: 7,
-    marginRight: 6,
-    borderRadius: 4,
-    backgroundColor: '#30D158',
-  },
-  stateText: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  stateTextRunning: {
-    color: '#D1D1D6',
-  },
   timerBlock: {
-    marginTop: 19,
-    paddingTop: 16,
+    marginTop: 18,
+    paddingTop: 15,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#38383A',
+    borderTopColor: colors.separator,
   },
   timerLabel: {
-    color: '#8E8E93',
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '700',
   },
   timer: {
     marginTop: 2,
-    color: colors.white,
+    color: colors.text,
     fontSize: 36,
     lineHeight: 43,
     fontWeight: '300',
@@ -210,7 +156,7 @@ const styles = StyleSheet.create({
   },
   total: {
     marginTop: 2,
-    color: '#AEAEB2',
+    color: colors.textMuted,
     fontSize: 12,
     fontVariant: ['tabular-nums'],
   },
@@ -228,14 +174,15 @@ const styles = StyleSheet.create({
   button: {
     minHeight: 47,
     marginTop: 16,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
     backgroundColor: colors.black,
   },
   stopButton: {
-    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.surface,
   },
   buttonPressed: {
     opacity: 0.78,
@@ -244,30 +191,41 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.55,
   },
-  buttonIcon: {
-    width: 0,
-    height: 0,
-    marginRight: 9,
-    borderTopWidth: 6,
-    borderBottomWidth: 6,
-    borderLeftWidth: 10,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: colors.white,
-  },
-  stopIcon: {
-    width: 10,
-    height: 10,
-    borderWidth: 0,
-    borderRadius: 2,
-    backgroundColor: colors.black,
-  },
   buttonText: {
     color: colors.white,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   stopButtonText: {
-    color: colors.black,
+    color: colors.text,
+  },
+  cardCelestial: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderColor: celestialAlpha(celestial.gold, 0.36),
+    shadowColor: celestial.night,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  cardRunningCelestial: {
+    borderColor: CELESTIAL_GOLD,
+  },
+  cardStar: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    color: CELESTIAL_GOLD,
+    fontSize: 9,
+    opacity: 0.66,
+  },
+  typeCelestial: {
+    color: CELESTIAL_GOLD,
+    letterSpacing: 1.15,
+  },
+  buttonCelestial: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.68),
   },
 });

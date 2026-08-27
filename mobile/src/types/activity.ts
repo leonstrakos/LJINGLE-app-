@@ -6,7 +6,8 @@ export type ActivityType =
   | 'RESEARCH'
   | 'WORK'
   | 'EXERCISE'
-  | 'CUSTOM';
+  | 'CUSTOM'
+  | 'GLOBAL';
 
 export type ActivityTimerResponse = {
   activityId: string | null;
@@ -27,4 +28,21 @@ export type TimeSessionResponse = {
   endedAt: string | null;
   durationSeconds: number;
   running: boolean;
+};
+
+
+// architectureBatchA_v1
+export type GlobalTimerStopResponse = {
+  timer: ActivityTimerResponse;
+  sessionId: string | null;
+};
+
+export type SessionContextReference = {
+  contextId: string;
+  sessionId: string;
+  entityType: 'BOOK' | 'MEDIA' | 'GAME' | 'TOPIC' | 'ENTRY' | 'FREQUENCY';
+  entityId: string;
+  title: string;
+  subtitle: string | null;
+  createdAt: string;
 };

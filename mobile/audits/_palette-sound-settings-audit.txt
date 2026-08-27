@@ -1,0 +1,1777 @@
+LJINGLE — Palette direct :note + sound settings audit
+====================================================
+
+### src/screens/ThemePickerScreen.tsx
+
+-- lines 1-39 --
+   1 | import { useEffect, useMemo, useState } from 'react';
+   2 | import {
+   3 |   ActivityIndicator,
+   4 |   Alert,
+   5 |   GestureResponderEvent,
+   6 |   Image,
+   7 |   Modal,
+   8 |   Platform,
+   9 |   Pressable,
+  10 |   ScrollView,
+  11 |   TextInput,
+  12 |   StyleSheet,
+  13 |   Text,
+  14 |   View,
+  15 | } from 'react-native';
+  16 | import { SafeAreaView } from 'react-native-safe-area-context';
+  17 | import { reloadAppAsync } from 'expo';
+  18 | 
+  19 | import {
+  20 |   activeAccentColor,
+  21 |   activeBackgroundColor,
+  22 |   colors,
+  23 |   hexToHsl,
+  24 |   hslToHex,
+  25 |   persistAccentColor,
+  26 |   persistBackgroundColor,
+  27 | } from '../theme/colors';
+  28 | import { exportLocalData, importLocalData, inspectLocalBackup, type BackupInspection } from '../storage/backup';
+  29 | import * as DocumentPicker from 'expo-document-picker';
+  30 | import { File, Paths } from 'expo-file-system';
+  31 | import { PortableImportPanel } from '../components/PortableImportPanel';
+  32 | import {
+  33 |   deleteCloudSnapshot,
+  34 |   getCloudSyncState,
+  35 |   listCloudSnapshots,
+  36 |   restoreCloudSnapshot,
+  37 |   runCloudSync,
+  38 |   type CloudSnapshotMeta,
+  39 |   type CloudSyncState,
+
+-- lines 79-129 --
+  79 |   const [accent, setAccent] = useState(activeAccentColor);
+  80 |   const [backgroundColor, setBackgroundColor] = useState(activeBackgroundColor);
+  81 |   const [colorTarget, setColorTarget] = useState<'accent' | 'background'>('accent');
+  82 |   const [visualSkin, setVisualSkin] = useState<VisualSkinId>(activeVisualSkinId);
+  83 |   const [aeroBackground, setAeroBackground] =
+  84 |     useState<AeroBackgroundId>(activeAeroBackgroundId);
+  85 |   const [catalogueDisplayMode, setCatalogueDisplayMode] =
+  86 |     useState<CatalogueDisplayMode>(getCatalogueDisplayMode());
+  87 |   const [radioTheme, setRadioTheme] = useState<RadioThemeId>(activeRadioThemeId);
+  88 |   const [saving, setSaving] = useState(false);
+  89 |   // themeRestartPromptV1
+  90 |   const [restartPromptVisible, setRestartPromptVisible] = useState(false);
+  91 |   const [restarting, setRestarting] = useState(false);
+  92 |   const [restartError, setRestartError] = useState('');
+  93 |   // settingsJsonDownloadV2
+  94 |   const [lastExportName, setLastExportName] = useState('');
+  95 |   // settingsJsonImportV1
+  96 |   const [restoreBusy, setRestoreBusy] = useState(false);
+  97 |   const [selectedBackupJson, setSelectedBackupJson] = useState('');
+  98 |   const [selectedBackupName, setSelectedBackupName] = useState('');
+  99 |   const [backupInspection, setBackupInspection] = useState<BackupInspection | null>(null);
+ 100 | 
+ 101 |   // cloudSyncSettingsV1
+ 102 |   const [cloudBusy, setCloudBusy] = useState(false);
+ 103 |   const [cloudState, setCloudState] =
+ 104 |     useState<CloudSyncState | null>(null);
+ 105 | 
+ 106 |   const [cloudHistoryBusy, setCloudHistoryBusy] =
+ 107 |     useState(false);
+ 108 | 
+ 109 |   const [cloudSnapshots, setCloudSnapshots] =
+ 110 |     useState<CloudSnapshotMeta[]>([]);
+ 111 | 
+ 112 |   const refreshCloudHistory = async () => {
+ 113 |     setCloudHistoryBusy(true);
+ 114 | 
+ 115 |     try {
+ 116 |       const snapshots =
+ 117 |         await listCloudSnapshots(30);
+ 118 | 
+ 119 |       setCloudSnapshots(snapshots);
+ 120 |     } finally {
+ 121 |       setCloudHistoryBusy(false);
+ 122 |     }
+ 123 |   };
+ 124 | 
+ 125 |   useEffect(() => {
+ 126 |     void getCloudSyncState()
+ 127 |       .then(setCloudState)
+ 128 |       .catch(() => {});
+ 129 | 
+
+-- lines 170-212 --
+ 170 |       setSaving(false);
+ 171 |       setRestartPromptVisible(true);
+ 172 |     } catch {
+ 173 |       setSaving(false);
+ 174 |       Alert.alert('Boja nije spremljena', 'Pokušajte ponovno. Vaši podaci nisu promijenjeni.');
+ 175 |     }
+ 176 |   };
+ 177 | 
+ 178 |   const restartAfterThemeSave = async () => {
+ 179 |     if (restarting) return;
+ 180 |     setRestarting(true);
+ 181 |     setRestartError('');
+ 182 | 
+ 183 |     try {
+ 184 |       await reloadAppAsync('theme-settings-changed');
+ 185 |     } catch {
+ 186 |       setRestarting(false);
+ 187 |       setRestartError(
+ 188 |         'Automatsko ponovno pokretanje nije uspjelo. Zatvori i ponovno otvori aplikaciju.',
+ 189 |       );
+ 190 |     }
+ 191 |   };
+ 192 | 
+ 193 |   const syncNow = async () => {
+ 194 |     if (cloudBusy) return;
+ 195 | 
+ 196 |     setCloudBusy(true);
+ 197 | 
+ 198 |     try {
+ 199 |       const result = await runCloudSync({
+ 200 |         reason: 'MANUAL',
+ 201 |       });
+ 202 | 
+ 203 |       setCloudState(result.state);
+ 204 |       await refreshCloudHistory();
+ 205 | 
+ 206 |       const messages: Record<string, string> = {
+ 207 |         uploaded: 'Lokalni podaci spremljeni su u cloud.',
+ 208 |         synced: 'Lokalni i cloud podaci već su usklađeni.',
+ 209 |         offline: 'Nema internetske veze.',
+ 210 |         'wifi-only': 'Cloud Sync je dopušten samo preko Wi-Fi veze.',
+ 211 |         'cloud-newer':
+ 212 |           'Cloud sadrži noviju verziju. Lokalni podaci nisu promijenjeni.',
+
+-- lines 298-373 --
+ 298 |       ],
+ 299 |     );
+ 300 |   };
+ 301 | 
+ 302 |   const exportData = async () => {
+ 303 |     if (saving || restoreBusy) return;
+ 304 | 
+ 305 |     setSaving(true);
+ 306 |     try {
+ 307 |       const text = await exportLocalData();
+ 308 |       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+ 309 |       const filename = `ljingle-backup-${stamp}.json`;
+ 310 | 
+ 311 |       if (Platform.OS === 'web') {
+ 312 |         // settingsJsonDownloadV2 — do NOT render this large string in React.
+ 313 |         const web = globalThis as unknown as {
+ 314 |           Blob?: new (parts: unknown[], options?: { type?: string }) => unknown;
+ 315 |           URL?: {
+ 316 |             createObjectURL: (value: unknown) => string;
+ 317 |             revokeObjectURL: (value: string) => void;
+ 318 |           };
+ 319 |           document?: {
+ 320 |             body?: { appendChild: (node: unknown) => void };
+ 321 |             createElement: (tag: string) => {
+ 322 |               href: string;
+ 323 |               download: string;
+ 324 |               click: () => void;
+ 325 |               remove: () => void;
+ 326 |             };
+ 327 |           };
+ 328 |         };
+ 329 | 
+ 330 |         if (!web.Blob || !web.URL || !web.document) {
+ 331 |           throw new Error('Browser ne podržava sigurno preuzimanje backupa.');
+ 332 |         }
+ 333 | 
+ 334 |         const blob = new web.Blob([text], { type: 'application/json;charset=utf-8' });
+ 335 |         const href = web.URL.createObjectURL(blob);
+ 336 |         const anchor = web.document.createElement('a');
+ 337 |         anchor.href = href;
+ 338 |         anchor.download = filename;
+ 339 |         web.document.body?.appendChild(anchor);
+ 340 |         anchor.click();
+ 341 |         anchor.remove();
+ 342 |         setTimeout(() => web.URL?.revokeObjectURL(href), 0);
+ 343 |       } else {
+ 344 |         const file = new File(Paths.document, filename);
+ 345 |         file.create({ overwrite: true, intermediates: true });
+ 346 |         file.write(text);
+ 347 |       }
+ 348 | 
+ 349 |       setLastExportName(filename);
+ 350 |     } catch (caught) {
+ 351 |       Alert.alert(
+ 352 |         'Izvoz nije uspio',
+ 353 |         caught instanceof Error ? caught.message : 'Podaci nisu promijenjeni. Pokušaj ponovno.',
+ 354 |       );
+ 355 |     } finally {
+ 356 |       setSaving(false);
+ 357 |     }
+ 358 |   };
+ 359 | 
+ 360 |   const chooseBackupFile = async () => {
+ 361 |     if (saving || restoreBusy) return;
+ 362 |     try {
+ 363 |       const result = await DocumentPicker.getDocumentAsync({
+ 364 |         type: ['application/json', 'text/json', 'text/plain'],
+ 365 |         copyToCacheDirectory: true,
+ 366 |         multiple: false,
+ 367 |       });
+ 368 |       if (result.canceled || !result.assets[0]) return;
+ 369 | 
+ 370 |       const asset = result.assets[0];
+ 371 |       const text = await new File(asset.uri).text();
+ 372 |       const inspection = inspectLocalBackup(text);
+ 373 | 
+
+-- lines 713-755 --
+ 713 |               ]}
+ 714 |             >
+ 715 |               <View style={styles.displayModeTop}>
+ 716 |                 <Text style={styles.displayModeTitle}>Mirni prikaz</Text>
+ 717 |                 <View
+ 718 |                   style={[
+ 719 |                     styles.skinRadio,
+ 720 |                     catalogueDisplayMode === 'compact' && styles.skinRadioSelected,
+ 721 |                   ]}
+ 722 |                 />
+ 723 |               </View>
+ 724 |               <Text style={styles.displayModeCopy}>
+ 725 |                 Bez covera i postera u listama. Čisti tileovi, manje buke i više sadržaja na ekranu.
+ 726 |               </Text>
+ 727 |               <Text style={styles.displayModeNote}>
+ 728 |                 Detaljni ekran i dalje može prikazati sliku.
+ 729 |               </Text>
+ 730 |             </Pressable>
+ 731 |           </View>
+ 732 |         </View>
+ 733 | 
+ 734 |         <View style={styles.section}>
+ 735 |           <View style={styles.sectionHeading}>
+ 736 |             <View>
+ 737 |               <Text style={styles.sectionLabel}>
+ 738 |                 {colorTarget === 'accent' ? 'Boja naglaska' : 'Boja pozadine'}
+ 739 |               </Text>
+ 740 |               <Text style={styles.sectionHint}>Klikni ili povuci po mapi</Text>
+ 741 |             </View>
+ 742 |             <View style={[styles.colorChip, { backgroundColor: editingColor }]}>
+ 743 |               <Text style={styles.colorChipText}>{editingColor}</Text>
+ 744 |             </View>
+ 745 |           </View>
+ 746 | 
+ 747 |           <View style={styles.colorTargetRow}>
+ 748 |             <Pressable
+ 749 |               accessibilityRole="button"
+ 750 |               onPress={() => setColorTarget('accent')}
+ 751 |               style={[
+ 752 |                 styles.colorTargetButton,
+ 753 |                 colorTarget === 'accent' && styles.colorTargetButtonSelected,
+ 754 |                 colorTarget === 'accent' && { borderColor: accent },
+ 755 |               ]}
+
+-- lines 1052-1095 --
+1052 |               {backupInspection.legacy ? (
+1053 |                 <Text style={styles.importWarning}>Stari V1 backup — vraćaju se samo tablice koje taj backup sadrži.</Text>
+1054 |               ) : null}
+1055 |               <Pressable
+1056 |                 accessibilityRole="button"
+1057 |                 disabled={restoreBusy || saving}
+1058 |                 onPress={restoreSelectedBackup}
+1059 |                 style={({ pressed }) => [styles.restoreButton, pressed && styles.pressed]}
+1060 |               >
+1061 |                 <Text style={styles.restoreButtonText}>Vrati ovaj backup</Text>
+1062 |               </Pressable>
+1063 |             </View>
+1064 |           ) : null}
+1065 | 
+1066 |           <Text style={styles.importNote}>
+1067 |             Memory Radio audio datoteke nisu ugrađene u JSON; backup čuva njihove zapise i veze, ali ne i same MP3/M4A/WAV bajtove.
+1068 |           </Text>
+1069 |         </View>
+1070 | 
+1071 |       </ScrollView>
+1072 | 
+1073 |       {/* themeRestartPromptV1 */}
+1074 |       <Modal
+1075 |         animationType="fade"
+1076 |         transparent
+1077 |         visible={restartPromptVisible}
+1078 |         onRequestClose={() => {
+1079 |           if (!restarting) setRestartPromptVisible(false);
+1080 |         }}
+1081 |       >
+1082 |         <View style={styles.restartOverlay}>
+1083 |           <View style={styles.restartCard}>
+1084 |             <Text style={styles.restartEyebrow}>IZGLED SPREMLJEN</Text>
+1085 |             <Text style={styles.restartTitle}>Primijeni novi izgled</Text>
+1086 |             <Text style={styles.restartCopy}>
+1087 |               Nova boja i vizualni svijet učitat će se nakon brzog ponovnog pokretanja aplikacije.
+1088 |             </Text>
+1089 | 
+1090 |             {restartError ? (
+1091 |               <Text style={styles.restartError}>{restartError}</Text>
+1092 |             ) : null}
+1093 | 
+1094 |             <Pressable
+1095 |               accessibilityRole="button"
+
+-- lines 1103-1145 --
+1103 |             >
+1104 |               {restarting ? (
+1105 |                 <ActivityIndicator color="#FFFFFF" />
+1106 |               ) : (
+1107 |                 <Text style={styles.restartButtonText}>Ponovno pokreni</Text>
+1108 |               )}
+1109 |             </Pressable>
+1110 |           </View>
+1111 |         </View>
+1112 |       </Modal>
+1113 |     </SafeAreaView>
+1114 |   );
+1115 | }
+1116 | 
+1117 | const styles = StyleSheet.create({
+1118 |   safeArea: { flex: 1, backgroundColor: colors.background },
+1119 |   content: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 20, paddingBottom: 48 },
+1120 |   hero: { paddingHorizontal: 3, paddingBottom: 24 },
+1121 |   eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
+1122 |   heading: { color: colors.text, fontSize: 38, lineHeight: 45, fontWeight: '900', letterSpacing: -1, marginTop: 4 },
+1123 |   intro: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: 8, maxWidth: 500 },
+1124 |   section: { padding: 16, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+1125 |   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+1126 |   sectionLabel: { color: colors.text, fontSize: 18, fontWeight: '900' },
+1127 |   sectionHint: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
+1128 |   skinGrid: { marginTop: 15, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+1129 |   skinCard: { flexGrow: 1, flexBasis: 210, minHeight: 170, padding: 16, borderRadius: 18, backgroundColor: colors.fill, borderWidth: 1, borderColor: colors.separator },
+1130 |   skinCardSelected: { borderWidth: 2, borderColor: colors.navy, backgroundColor: colors.surface },
+1131 |   skinTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+1132 |   skinCode: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+1133 |   skinCodeSelected: { color: colors.navy },
+1134 |   skinRadio: { width: 15, height: 15, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+1135 |   skinRadioSelected: { borderWidth: 5, borderColor: colors.navy },
+1136 |   skinSpecimen: { marginTop: 17, color: colors.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
+1137 |   skinName: { marginTop: 13, color: colors.text, fontSize: 17, fontWeight: '900' },
+1138 |   skinDescription: { marginTop: 5, color: colors.textMuted, fontSize: 11, lineHeight: 16 },
+1139 |   skinStatus: { marginTop: 13, color: colors.navy, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+1140 |   aeroBackgroundGrid: { marginTop: 14, flexDirection: 'row', gap: 12 },
+1141 |   aeroBackgroundCard: { flex: 1, overflow: 'hidden', borderRadius: 18, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.fill },
+1142 |   aeroBackgroundCardSelected: { borderWidth: 2, backgroundColor: colors.surface },
+1143 |   aeroBackgroundPreview: { width: '100%', height: 112 },
+1144 |   aeroBackgroundCopy: { padding: 12 },
+1145 |   aeroBackgroundTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+
+-- lines 1256-1298 --
+1256 |     borderColor: colors.separator,
+1257 |   },
+1258 |   displayModeCardSelected: {
+1259 |     borderWidth: 2,
+1260 |     borderColor: colors.navy,
+1261 |     backgroundColor: colors.surface,
+1262 |   },
+1263 |   displayModeTop: {
+1264 |     flexDirection: 'row',
+1265 |     alignItems: 'center',
+1266 |     justifyContent: 'space-between',
+1267 |   },
+1268 |   displayModeTitle: { color: colors.text, fontSize: 15, fontWeight: '900' },
+1269 |   displayModeCopy: { marginTop: 5, color: colors.textMuted, fontSize: 11.5, lineHeight: 17 },
+1270 |   displayModeNote: { marginTop: 7, color: colors.navy, fontSize: 10, fontWeight: '800' },
+1271 |   originalBackgroundButton: {
+1272 |     minHeight: 54,
+1273 |     flexDirection: 'row',
+1274 |     alignItems: 'center',
+1275 |     paddingHorizontal: 13,
+1276 |     marginBottom: 14,
+1277 |     borderWidth: 1,
+1278 |     borderColor: colors.border,
+1279 |     borderRadius: 14,
+1280 |     backgroundColor: colors.surface,
+1281 |   },
+1282 |   originalBackgroundSwatch: {
+1283 |     width: 30,
+1284 |     height: 30,
+1285 |     borderRadius: 9,
+1286 |     borderWidth: 1,
+1287 |     borderColor: colors.separator,
+1288 |     marginRight: 11,
+1289 |   },
+1290 |   originalBackgroundCopy: {
+1291 |     flex: 1,
+1292 |   },
+1293 |   originalBackgroundTitle: {
+1294 |     color: colors.text,
+1295 |     fontSize: 13,
+1296 |     fontWeight: '700',
+1297 |   },
+1298 |   originalBackgroundValue: {
+
+-- lines 1373-1415 --
+1373 |   backupBox: {
+1374 |     marginTop: 12,
+1375 |     padding: 14,
+1376 |     borderRadius: 18,
+1377 |     backgroundColor: colors.surface,
+1378 |     borderWidth: 1,
+1379 |     borderColor: colors.separator,
+1380 |   },
+1381 |   backupLabel: {
+1382 |     color: colors.textMuted,
+1383 |     fontSize: 11,
+1384 |     fontWeight: '900',
+1385 |     letterSpacing: 0.8,
+1386 |   },
+1387 |   backupInput: {
+1388 |     minHeight: 220,
+1389 |     marginTop: 10,
+1390 |     padding: 12,
+1391 |     borderRadius: 12,
+1392 |     backgroundColor: colors.fill,
+1393 |     color: colors.text,
+1394 |     fontSize: 11,
+1395 |     lineHeight: 16,
+1396 |     textAlignVertical: 'top',
+1397 |   },
+1398 |   copyButton: {
+1399 |     minHeight: 48,
+1400 |     marginTop: 10,
+1401 |     alignItems: 'center',
+1402 |     justifyContent: 'center',
+1403 |     borderRadius: 13,
+1404 |     backgroundColor: colors.black,
+1405 |   },
+1406 |   copyButtonText: { color: colors.white, fontSize: 14, fontWeight: '900' },
+1407 |   exportSuccess: {
+1408 |     marginTop: 12,
+1409 |     padding: 14,
+1410 |     borderRadius: 16,
+1411 |     backgroundColor: colors.fill,
+1412 |     borderWidth: 1,
+1413 |     borderColor: colors.separator,
+1414 |   },
+1415 |   exportSuccessTitle: { color: colors.navy, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+
+-- lines 1439-1481 --
+1439 |   importButtonText: { color: colors.text, fontSize: 14, fontWeight: '900' },
+1440 |   importSelected: { marginTop: 12, padding: 13, borderRadius: 14, backgroundColor: colors.fill },
+1441 |   importFilename: { color: colors.text, fontSize: 13, fontWeight: '900' },
+1442 |   importMeta: { marginTop: 4, color: colors.textMuted, fontSize: 11, lineHeight: 16 },
+1443 |   importWarning: { marginTop: 7, color: colors.danger, fontSize: 11, lineHeight: 16 },
+1444 |   restoreButton: {
+1445 |     minHeight: 48,
+1446 |     marginTop: 11,
+1447 |     alignItems: 'center',
+1448 |     justifyContent: 'center',
+1449 |     borderRadius: 12,
+1450 |     backgroundColor: colors.black,
+1451 |   },
+1452 |   restoreButtonText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+1453 |   importNote: { marginTop: 11, color: colors.textMuted, fontSize: 10.5, lineHeight: 16 },
+1454 |   restartOverlay: {
+1455 |     flex: 1,
+1456 |     justifyContent: 'center',
+1457 |     padding: 24,
+1458 |     backgroundColor: 'rgba(0,0,0,0.46)',
+1459 |   },
+1460 |   restartCard: {
+1461 |     width: '100%',
+1462 |     maxWidth: 430,
+1463 |     alignSelf: 'center',
+1464 |     padding: 22,
+1465 |     borderRadius: 22,
+1466 |     backgroundColor: colors.surface,
+1467 |     borderWidth: 1,
+1468 |     borderColor: colors.separator,
+1469 |   },
+1470 |   restartEyebrow: {
+1471 |     color: colors.navy,
+1472 |     fontSize: 10,
+1473 |     fontWeight: '900',
+1474 |     letterSpacing: 1.1,
+1475 |   },
+1476 |   restartTitle: {
+1477 |     marginTop: 7,
+1478 |     color: colors.text,
+1479 |     fontSize: 24,
+1480 |     lineHeight: 29,
+1481 |     fontWeight: '900',
+
+### src/screens/SettingsScreen.tsx
+
+MISSING
+
+### src/components/CommandPalette.tsx
+
+-- lines 1-172 --
+   1 | import {
+   2 |   useEffect,
+   3 |   useMemo,
+   4 |   useRef,
+   5 |   useState,
+   6 | } from 'react';
+   7 | import {
+   8 |   ActivityIndicator,
+   9 |   Modal,
+  10 |   Platform,
+  11 |   Pressable,
+  12 |   ScrollView,
+  13 |   StyleSheet,
+  14 |   Text,
+  15 |   TextInput,
+  16 |   View,
+  17 | } from 'react-native';
+  18 | 
+  19 | import { gameApi } from '../games/services/gameApi';
+  20 | import type { GameResponse } from '../games/types/game';
+  21 | import { bookApi } from '../services/bookApi';
+  22 | import { mediaApi } from '../services/mediaApi';
+  23 | import { colors } from '../theme/colors';
+  24 | import { entityLinksApi } from '../services/entityLinksApi';
+  25 | import type { EntityReference } from '../types/collection';
+  26 | import { entryApi } from '../services/entryApi';
+  27 | import { memoryRadioApi } from '../services/memoryRadioApi';
+  28 | import type { Entry } from '../types/entry';
+  29 | import type { MemoryTrack } from '../types/memoryRadio';
+  30 | import type { BookResponse } from '../types/book';
+  31 | import type { MediaResponse } from '../types/media';
+  32 | 
+  33 | type Props = {
+  34 |   navigation: any;
+  35 |   openSignal?: number;
+  36 | };
+  37 | 
+  38 | type SearchEntity = {
+  39 |   key: string;
+  40 |   kind: 'BOOK' | 'MEDIA' | 'GAME' | 'ENTRY' | 'FREQUENCY';
+  41 |   id: string;
+  42 |   title: string;
+  43 |   typeLabel: string;
+  44 |   meta: string;
+  45 |   favourite: boolean;
+  46 | };
+  47 | 
+  48 | type PaletteCommand = {
+  49 |   key: string;
+  50 |   label: string;
+  51 |   detail: string;
+  52 |   aliases: string;
+  53 |   action: () => void;
+  54 | };
+  55 | 
+  56 | type PaletteItem =
+  57 |   | {
+  58 |       itemType: 'command';
+  59 |       command: PaletteCommand;
+  60 |     }
+  61 |   | {
+  62 |       itemType: 'entity';
+  63 |       entity: SearchEntity;
+  64 |     };
+  65 | 
+  66 | function normalize(value: unknown) {
+  67 |   return String(value ?? '')
+  68 |     .toLocaleLowerCase()
+  69 |     .normalize('NFD')
+  70 |     .replace(/[\u0300-\u036f]/g, '');
+  71 | }
+  72 | 
+  73 | // commandPaletteRecentsV2
+  74 | const RECENT_SEARCHES_KEY = 'tracking_command_palette_recent_searches';
+  75 | const RECENT_ITEMS_KEY = 'tracking_command_palette_recent_items';
+  76 | 
+  77 | function readStoredArray<T>(key: string): T[] {
+  78 |   if (Platform.OS !== 'web') return [];
+  79 | 
+  80 |   try {
+  81 |     const raw = (globalThis as any).localStorage?.getItem(key);
+  82 | 
+  83 |     if (!raw) return [];
+  84 | 
+  85 |     const parsed = JSON.parse(raw);
+  86 |     return Array.isArray(parsed) ? parsed : [];
+  87 |   } catch {
+  88 |     return [];
+  89 |   }
+  90 | }
+  91 | 
+  92 | function writeStoredArray(
+  93 |   key: string,
+  94 |   value: unknown[],
+  95 | ) {
+  96 |   if (Platform.OS !== 'web') return;
+  97 | 
+  98 |   try {
+  99 |     (globalThis as any).localStorage?.setItem(
+ 100 |       key,
+ 101 |       JSON.stringify(value),
+ 102 |     );
+ 103 |   } catch {
+ 104 |     // Recents are optional; palette must keep working.
+ 105 |   }
+ 106 | }
+ 107 | 
+ 108 | export function CommandPalette({
+ 109 |   navigation,
+ 110 |   openSignal = 0,
+ 111 | }: Props) {
+ 112 |   // commandPaletteV1
+ 113 |   // commandPalettePeekGestureV1
+ 114 |   const inputRef = useRef<TextInput>(null);
+ 115 | 
+ 116 |   const [visible, setVisible] = useState(false);
+ 117 |   const [query, setQuery] = useState('');
+ 118 |   const [selectedIndex, setSelectedIndex] = useState(0);
+ 119 | 
+ 120 |   const [books, setBooks] = useState<BookResponse[]>([]);
+ 121 |   const [media, setMedia] = useState<MediaResponse[]>([]);
+ 122 |   const [games, setGames] = useState<GameResponse[]>([]);
+ 123 |   const [entries, setEntries] = useState<Entry[]>([]);
+ 124 |   const [frequencies, setFrequencies] = useState<MemoryTrack[]>([]);
+ 125 | 
+ 126 |   const [loading, setLoading] = useState(false);
+ 127 | 
+ 128 |   // brutusPaletteExtendedEntitiesV1
+ 129 |   useEffect(() => {
+ 130 |     if (!visible) return;
+ 131 | 
+ 132 |     let cancelled = false;
+ 133 | 
+ 134 |     void Promise.all([
+ 135 |       entryApi.getAll(),
+ 136 |       memoryRadioApi.getAll(),
+ 137 |     ])
+ 138 |       .then(([nextEntries, nextFrequencies]) => {
+ 139 |         if (cancelled) return;
+ 140 |         setEntries(nextEntries);
+ 141 |         setFrequencies(nextFrequencies);
+ 142 |       })
+ 143 |       .catch(() => {
+ 144 |         // Extended search is additive. Existing palette stays usable.
+ 145 |       });
+ 146 | 
+ 147 |     return () => {
+ 148 |       cancelled = true;
+ 149 |     };
+ 150 |   }, [visible]);
+ 151 | 
+ 152 |   const [recentSearches, setRecentSearches] =
+ 153 |     useState<string[]>([]);
+ 154 | 
+ 155 |   const [recentEntities, setRecentEntities] =
+ 156 |     useState<SearchEntity[]>([]);
+ 157 | 
+ 158 |   const [jingleGraph, setJingleGraph] =
+ 159 |     useState<EntityReference[]>([]);
+ 160 | 
+ 161 |   // brutusJingleGraphV2
+ 162 |   useEffect(() => {
+ 163 |     if (!visible) return;
+ 164 | 
+ 165 |     let cancelled = false;
+ 166 | 
+ 167 |     void entityLinksApi
+ 168 |       .jingleReferences()
+ 169 |       .then((items) => {
+ 170 |         if (!cancelled) setJingleGraph(items);
+ 171 |       })
+ 172 |       .catch(() => {
+
+-- lines 232-442 --
+ 232 |         ),
+ 233 |       ].slice(0, 5);
+ 234 | 
+ 235 |       writeStoredArray(
+ 236 |         RECENT_ITEMS_KEY,
+ 237 |         next,
+ 238 |       );
+ 239 | 
+ 240 |       return next;
+ 241 |     });
+ 242 |   };
+ 243 | 
+ 244 |   const close = () => {
+ 245 |     setVisible(false);
+ 246 |     setQuery('');
+ 247 |     setSelectedIndex(0);
+ 248 |   };
+ 249 | 
+ 250 |   const navigate = (
+ 251 |     route: string,
+ 252 |     params?: unknown,
+ 253 |   ) => {
+ 254 |     if (!navigation?.isReady?.()) return;
+ 255 | 
+ 256 |     if (params === undefined) {
+ 257 |       navigation.navigate(route);
+ 258 |     } else {
+ 259 |       navigation.navigate(route, params);
+ 260 |     }
+ 261 | 
+ 262 |     close();
+ 263 |   };
+ 264 | 
+ 265 |   const openEntity = (entity: SearchEntity) => {
+ 266 |     rememberEntity(entity);
+ 267 |     rememberSearch(query);
+ 268 | 
+ 269 |     if (entity.kind === 'BOOK') {
+ 270 |       navigate('BookDetails', {
+ 271 |         bookId: entity.id,
+ 272 |       });
+ 273 |       return;
+ 274 |     }
+ 275 | 
+ 276 |     if (entity.kind === 'MEDIA') {
+ 277 |       navigate('Media', {
+ 278 |         screen: 'MediaDetails',
+ 279 |         params: {
+ 280 |           mediaId: entity.id,
+ 281 |         },
+ 282 |       });
+ 283 |       return;
+ 284 |     }
+ 285 | 
+ 286 |     if (entity.kind === 'ENTRY') {
+ 287 |       navigate('EntryForm', {
+ 288 |         entryId: entity.id,
+ 289 |       });
+ 290 |       return;
+ 291 |     }
+ 292 | 
+ 293 |     if (entity.kind === 'FREQUENCY') {
+ 294 |       navigate('MemoryRadio');
+ 295 |       return;
+ 296 |     }
+ 297 | 
+ 298 |     navigate('Games', {
+ 299 |       screen: 'GameDetails',
+ 300 |       params: {
+ 301 |         gameId: entity.id,
+ 302 |       },
+ 303 |     });
+ 304 |   };
+ 305 | 
+ 306 |   const commands = useMemo<PaletteCommand[]>(
+ 307 |     () => [
+ 308 |       {
+ 309 |         key: 'catalogue',
+ 310 |         label: 'Katalog',
+ 311 |         detail: 'Otvori cijeli katalog',
+ 312 |         aliases: 'catalogue katalog library biblioteka',
+ 313 |         action: () => navigate('Catalogue'),
+ 314 |       },
+ 315 |       {
+ 316 |         key: 'entries',
+ 317 |         label: 'Zapisi',
+ 318 |         detail: 'Otvori i pretraži spremljene zapise',
+ 319 |         aliases: 'zapisi entries biljeske bilješke citati notes',
+ 320 |         action: () => navigate('Entries'),
+ 321 |       },
+ 322 |       {
+ 323 |         key: 'new-entry',
+ 324 |         label: 'Novi zapis',
+ 325 |         detail: 'Dodaj novi zapis',
+ 326 |         aliases: 'zapis entry note dodaj novi',
+ 327 |         action: () => navigate('EntryForm'),
+ 328 |       },
+ 329 |       {
+ 330 |         key: 'today',
+ 331 |         label: 'Danas / Timeri',
+ 332 |         detail: 'Vrati se na početni ekran i aktivnosti',
+ 333 |         aliases: 'danas today timer activity aktivnost',
+ 334 |         action: () => navigate('Today'),
+ 335 |       },
+ 336 |       {
+ 337 |         key: 'history',
+ 338 |         label: 'Povijest',
+ 339 |         detail: 'Otvori povijest aktivnosti',
+ 340 |         aliases: 'history povijest sessions aktivnosti',
+ 341 |         action: () => navigate('History'),
+ 342 |       },
+ 343 |       {
+ 344 |         key: 'stats',
+ 345 |         label: 'Statistika',
+ 346 |         detail: 'Otvori statistiku',
+ 347 |         aliases: 'stats statistics statistika',
+ 348 |         action: () => navigate('Stats'),
+ 349 |       },
+ 350 |       {
+ 351 |         key: 'radio',
+ 352 |         label: 'Memory Radio',
+ 353 |         detail: 'Otvori Memory Radio',
+ 354 |         aliases: 'radio memory audio glazba',
+ 355 |         action: () => navigate('MemoryRadio'),
+ 356 |       },
+ 357 |       {
+ 358 |         key: 'settings',
+ 359 |         label: 'Postavke',
+ 360 |         detail: 'Izgled, boje i postavke',
+ 361 |         aliases: 'settings postavke theme tema izgled',
+ 362 |         action: () => navigate('ThemePicker'),
+ 363 |       },
+ 364 |       {
+ 365 |         key: 'jingle',
+ 366 |         label: 'Jingle',
+ 367 |         detail: 'Prikaži sve Jingle naslove',
+ 368 |         aliases: 'jingle favourite favorite bell zvono',
+ 369 |         action: () => {
+ 370 |           setQuery('jingle');
+ 371 |           setSelectedIndex(0);
+ 372 |         },
+ 373 |       },
+ 374 |     ],
+ 375 |     [navigation],
+ 376 |   );
+ 377 | 
+ 378 |   useEffect(() => {
+ 379 |     if (Platform.OS !== 'web') return;
+ 380 | 
+ 381 |     const target = globalThis as any;
+ 382 | 
+ 383 |     const onKeyDown = (event: any) => {
+ 384 |       const key = String(event.key ?? '').toLocaleLowerCase();
+ 385 | 
+ 386 |       if (
+ 387 |         (event.ctrlKey || event.metaKey) &&
+ 388 |         key === 'k'
+ 389 |       ) {
+ 390 |         event.preventDefault();
+ 391 |         setVisible((current) => !current);
+ 392 |         return;
+ 393 |       }
+ 394 | 
+ 395 |       if (!visible) return;
+ 396 | 
+ 397 |       if (key === 'escape') {
+ 398 |         event.preventDefault();
+ 399 |         close();
+ 400 |       }
+ 401 |     };
+ 402 | 
+ 403 |     target.addEventListener?.('keydown', onKeyDown);
+ 404 | 
+ 405 |     return () => {
+ 406 |       target.removeEventListener?.('keydown', onKeyDown);
+ 407 |     };
+ 408 |   }, [visible]);
+ 409 | 
+ 410 |   useEffect(() => {
+ 411 |     if (!visible) return;
+ 412 | 
+ 413 |     const timer = setTimeout(() => {
+ 414 |       inputRef.current?.focus();
+ 415 |     }, 30);
+ 416 | 
+ 417 |     return () => clearTimeout(timer);
+ 418 |   }, [visible]);
+ 419 | 
+ 420 |   useEffect(() => {
+ 421 |     if (!visible) return;
+ 422 | 
+ 423 |     let cancelled = false;
+ 424 | 
+ 425 |     setLoading(true);
+ 426 | 
+ 427 |     Promise.all([
+ 428 |       bookApi.getAll(),
+ 429 |       mediaApi.getAll(),
+ 430 |       gameApi.getAll(),
+ 431 |     ])
+ 432 |       .then(([loadedBooks, loadedMedia, loadedGames]) => {
+ 433 |         if (cancelled) return;
+ 434 | 
+ 435 |         setBooks(loadedBooks);
+ 436 |         setMedia(loadedMedia);
+ 437 |         setGames(loadedGames);
+ 438 |       })
+ 439 |       .finally(() => {
+ 440 |         if (!cancelled) {
+ 441 |           setLoading(false);
+ 442 |         }
+
+-- lines 503-846 --
+ 503 |           game.developer,
+ 504 |           game.releaseYear,
+ 505 |         ]
+ 506 |           .filter(Boolean)
+ 507 |           .join(' · '),
+ 508 |         favourite: Boolean(game.favourite),
+ 509 |       })),
+ 510 |       ...entries.map((entry) => ({
+ 511 |         key: 'ENTRY:' + entry.entryId,
+ 512 |         kind: 'ENTRY' as const,
+ 513 |         id: entry.entryId,
+ 514 |         title:
+ 515 |           entry.title?.trim() ||
+ 516 |           entry.content.replace(/\s+/g, ' ').trim().slice(0, 64) ||
+ 517 |           'Zapis',
+ 518 |         typeLabel: 'Zapis',
+ 519 |         meta: entry.content.replace(/\s+/g, ' ').trim().slice(0, 140),
+ 520 |         favourite:
+ 521 |           jingleGraphKeys.has(
+ 522 |             'ENTRY:' + entry.entryId,
+ 523 |           ),
+ 524 |       })),
+ 525 |       ...frequencies.map((frequency) => ({
+ 526 |         key: 'FREQUENCY:' + frequency.trackId,
+ 527 |         kind: 'FREQUENCY' as const,
+ 528 |         id: frequency.trackId,
+ 529 |         title: frequency.trackTitle || 'Frekvencija',
+ 530 |         typeLabel: 'Frekvencija',
+ 531 |         meta: [
+ 532 |           frequency.artist,
+ 533 |           'Memory Radio',
+ 534 |           frequency.linkId ? 'Povezano' : 'Nepovezano',
+ 535 |         ]
+ 536 |           .filter(Boolean)
+ 537 |           .join(' · '),
+ 538 |         favourite:
+ 539 |           jingleGraphKeys.has(
+ 540 |             'FREQUENCY:' + frequency.trackId,
+ 541 |           ),
+ 542 |       })),
+ 543 |     ],
+ 544 |     [books, games, media],
+ 545 |   );
+ 546 | 
+ 547 |   const items = useMemo<PaletteItem[]>(() => {
+ 548 |     const normalizedQuery = normalize(query.trim());
+ 549 | 
+ 550 |     if (normalizedQuery.length === 0) {
+ 551 |       const recentSearchCommands =
+ 552 |         recentSearches.map(
+ 553 |           (value): PaletteCommand => ({
+ 554 |             key: 'recent-search:' + value,
+ 555 |             label: value,
+ 556 |             detail: 'Nedavna pretraga',
+ 557 |             aliases: value,
+ 558 |             action: () => {
+ 559 |               setQuery(value);
+ 560 |               setSelectedIndex(0);
+ 561 |             },
+ 562 |           }),
+ 563 |         );
+ 564 | 
+ 565 |       return [
+ 566 |         ...recentEntities.map(
+ 567 |           (entity): PaletteItem => ({
+ 568 |             itemType: 'entity',
+ 569 |             entity,
+ 570 |           }),
+ 571 |         ),
+ 572 | 
+ 573 |         ...recentSearchCommands.map(
+ 574 |           (command): PaletteItem => ({
+ 575 |             itemType: 'command',
+ 576 |             command,
+ 577 |           }),
+ 578 |         ),
+ 579 | 
+ 580 |         ...commands.map(
+ 581 |           (command): PaletteItem => ({
+ 582 |             itemType: 'command',
+ 583 |             command,
+ 584 |           }),
+ 585 |         ),
+ 586 |       ];
+ 587 |     }
+ 588 |     const tokens = normalizedQuery
+ 589 |       .split(/\s+/)
+ 590 |       .filter(Boolean);
+ 591 | 
+ 592 |     const jingleOnly = tokens.includes('jingle');
+ 593 | 
+ 594 |     const textTerms = tokens.filter(
+ 595 |       (token) => token !== 'jingle'
+ 596 |     );
+ 597 | 
+ 598 |     const commandResults =
+ 599 |       commands.filter((command) => {
+ 600 |             const haystack = normalize(
+ 601 |               command.label +
+ 602 |                 ' ' +
+ 603 |                 command.detail +
+ 604 |                 ' ' +
+ 605 |                 command.aliases
+ 606 |             );
+ 607 | 
+ 608 |             return textTerms.length > 0
+ 609 |               ? textTerms.every((term) =>
+ 610 |                   haystack.includes(term)
+ 611 |                 )
+ 612 |               : false;
+ 613 |           });
+ 614 | 
+ 615 |     const entityResults =
+ 616 |       entities
+ 617 |             .filter((entity) => {
+ 618 |               if (
+ 619 |                 jingleOnly &&
+ 620 |                 !entity.favourite
+ 621 |               ) {
+ 622 |                 return false;
+ 623 |               }
+ 624 | 
+ 625 |               if (textTerms.length === 0) {
+ 626 |                 return true;
+ 627 |               }
+ 628 | 
+ 629 |               const haystack = normalize(
+ 630 |                 [
+ 631 |                   entity.title,
+ 632 |                   entity.typeLabel,
+ 633 |                   entity.meta,
+ 634 |                 ].join(' ')
+ 635 |               );
+ 636 | 
+ 637 |               return textTerms.every((term) =>
+ 638 |                 haystack.includes(term)
+ 639 |               );
+ 640 |             })
+ 641 |             .slice(0, 20);
+ 642 | 
+ 643 |     return [
+ 644 |       ...commandResults.map(
+ 645 |         (command): PaletteItem => ({
+ 646 |           itemType: 'command',
+ 647 |           command,
+ 648 |         })
+ 649 |       ),
+ 650 |       ...entityResults.map(
+ 651 |         (entity): PaletteItem => ({
+ 652 |           itemType: 'entity',
+ 653 |           entity,
+ 654 |         })
+ 655 |       ),
+ 656 |     ];
+ 657 |   }, [
+ 658 |     commands,
+ 659 |     entities,
+ 660 |     query,
+ 661 |     recentEntities,
+ 662 |     recentSearches,
+ 663 |   ]);
+ 664 | 
+ 665 |   useEffect(() => {
+ 666 |     setSelectedIndex(0);
+ 667 |   }, [query]);
+ 668 | 
+ 669 |   useEffect(() => {
+ 670 |     if (Platform.OS !== 'web' || !visible) return;
+ 671 | 
+ 672 |     const target = globalThis as any;
+ 673 | 
+ 674 |     const onKeyDown = (event: any) => {
+ 675 |       const key = String(event.key ?? '').toLocaleLowerCase();
+ 676 | 
+ 677 |       if (key === 'arrowdown') {
+ 678 |         event.preventDefault();
+ 679 | 
+ 680 |         setSelectedIndex((current) =>
+ 681 |           items.length === 0
+ 682 |             ? 0
+ 683 |             : (current + 1) % items.length
+ 684 |         );
+ 685 | 
+ 686 |         return;
+ 687 |       }
+ 688 | 
+ 689 |       if (key === 'arrowup') {
+ 690 |         event.preventDefault();
+ 691 | 
+ 692 |         setSelectedIndex((current) =>
+ 693 |           items.length === 0
+ 694 |             ? 0
+ 695 |             : (current - 1 + items.length) %
+ 696 |               items.length
+ 697 |         );
+ 698 | 
+ 699 |         return;
+ 700 |       }
+ 701 | 
+ 702 |       if (key === 'enter') {
+ 703 |         const item = items[selectedIndex];
+ 704 | 
+ 705 |         if (!item) return;
+ 706 | 
+ 707 |         event.preventDefault();
+ 708 | 
+ 709 |         if (item.itemType === 'command') {
+ 710 |           rememberSearch(query);
+ 711 |           item.command.action();
+ 712 |         } else {
+ 713 |           openEntity(item.entity);
+ 714 |         }
+ 715 |       }
+ 716 |     };
+ 717 | 
+ 718 |     target.addEventListener?.('keydown', onKeyDown);
+ 719 | 
+ 720 |     return () => {
+ 721 |       target.removeEventListener?.('keydown', onKeyDown);
+ 722 |     };
+ 723 |   }, [items, selectedIndex, visible]);
+ 724 | 
+ 725 |   return (
+ 726 |     <Modal
+ 727 |       animationType="fade"
+ 728 |       transparent
+ 729 |       visible={visible}
+ 730 |       onRequestClose={close}
+ 731 |     >
+ 732 |       <View style={styles.backdrop}>
+ 733 |         <Pressable
+ 734 |           accessibilityLabel="Zatvori command palette"
+ 735 |           onPress={close}
+ 736 |           style={StyleSheet.absoluteFill}
+ 737 |         />
+ 738 | 
+ 739 |         <View style={styles.palette}>
+ 740 |           <View style={styles.searchRow}>
+ 741 |             <Text style={styles.searchIcon}>
+ 742 |               ⌕
+ 743 |             </Text>
+ 744 | 
+ 745 |             <TextInput
+ 746 |               ref={inputRef}
+ 747 |               accessibilityLabel="Pretraži ili pokreni naredbu"
+ 748 |               autoCapitalize="none"
+ 749 |               autoCorrect={false}
+ 750 |               onChangeText={setQuery}
+ 751 |               placeholder="Pretraži ili pokreni naredbu..."
+ 752 |               placeholderTextColor={colors.textMuted}
+ 753 |               style={styles.input}
+ 754 |               value={query}
+ 755 |             />
+ 756 | 
+ 757 |             {Platform.OS === 'web' ? (
+ 758 |               <View style={styles.shortcut}>
+ 759 |                 <Text style={styles.shortcutText}>
+ 760 |                   ESC
+ 761 |                 </Text>
+ 762 |               </View>
+ 763 |             ) : null}
+ 764 |           </View>
+ 765 | 
+ 766 |           <ScrollView
+ 767 |             keyboardShouldPersistTaps="handled"
+ 768 |             style={styles.results}
+ 769 |           >
+ 770 |             {loading ? (
+ 771 |               <View style={styles.loadingRow}>
+ 772 |                 <ActivityIndicator
+ 773 |                   color={colors.textMuted}
+ 774 |                   size="small"
+ 775 |                 />
+ 776 |                 <Text style={styles.loadingText}>
+ 777 |                   Učitavam katalog...
+ 778 |                 </Text>
+ 779 |               </View>
+ 780 |             ) : items.length === 0 ? (
+ 781 |               <Text style={styles.empty}>
+ 782 |                 Nema rezultata.
+ 783 |               </Text>
+ 784 |             ) : (
+ 785 |               items.map((item, index) => {
+ 786 |                 const selected =
+ 787 |                   selectedIndex === index;
+ 788 | 
+ 789 |                 if (item.itemType === 'command') {
+ 790 |                   return (
+ 791 |                     <Pressable
+ 792 |                       key={'command:' + item.command.key}
+ 793 |                       accessibilityRole="button"
+ 794 |                       onPress={() => {
+ 795 |                         rememberSearch(query);
+ 796 |                         item.command.action();
+ 797 |                       }}
+ 798 |                       onHoverIn={() =>
+ 799 |                         setSelectedIndex(index)
+ 800 |                       }
+ 801 |                       style={[
+ 802 |                         styles.row,
+ 803 |                         selected && styles.rowSelected,
+ 804 |                       ]}
+ 805 |                     >
+ 806 |                       <View style={styles.commandMark}>
+ 807 |                         <Text style={styles.commandMarkText}>
+ 808 |                           ›
+ 809 |                         </Text>
+ 810 |                       </View>
+ 811 | 
+ 812 |                       <View style={styles.copy}>
+ 813 |                         <Text style={styles.title}>
+ 814 |                           {item.command.label}
+ 815 |                         </Text>
+ 816 | 
+ 817 |                         <Text style={styles.meta}>
+ 818 |                           {item.command.detail}
+ 819 |                         </Text>
+ 820 |                       </View>
+ 821 | 
+ 822 |                       <Text style={styles.kind}>
+ 823 |                         NAREDBA
+ 824 |                       </Text>
+ 825 |                     </Pressable>
+ 826 |                   );
+ 827 |                 }
+ 828 | 
+ 829 |                 return (
+ 830 |                   <Pressable
+ 831 |                     key={item.entity.key}
+ 832 |                     accessibilityRole="button"
+ 833 |                     onPress={() =>
+ 834 |                       openEntity(item.entity)
+ 835 |                     }
+ 836 |                     onHoverIn={() =>
+ 837 |                       setSelectedIndex(index)
+ 838 |                     }
+ 839 |                     style={[
+ 840 |                       styles.row,
+ 841 |                       selected && styles.rowSelected,
+ 842 |                     ]}
+ 843 |                   >
+ 844 |                     <View style={styles.copy}>
+ 845 |                       <Text
+ 846 |                         numberOfLines={1}
+
+-- lines 854-1019 --
+ 854 |                         style={styles.meta}
+ 855 |                       >
+ 856 |                         {item.entity.meta ||
+ 857 |                           item.entity.typeLabel}
+ 858 |                       </Text>
+ 859 |                     </View>
+ 860 | 
+ 861 |                     {item.entity.favourite ? (
+ 862 |                       <Text style={styles.jingle}>
+ 863 |                         ♫
+ 864 |                       </Text>
+ 865 |                     ) : null}
+ 866 | 
+ 867 |                     <Text style={styles.kind}>
+ 868 |                       {query.trim()
+ 869 |                         ? item.entity.typeLabel.toLocaleUpperCase()
+ 870 |                         : 'NEDAVNO · ' +
+ 871 |                           item.entity.typeLabel.toLocaleUpperCase()}
+ 872 |                     </Text>
+ 873 |                   </Pressable>
+ 874 |                 );
+ 875 |               })
+ 876 |             )}
+ 877 |           </ScrollView>
+ 878 | 
+ 879 |           {Platform.OS === 'web' ? (
+ 880 |             <View style={styles.footer}>
+ 881 |               <Text style={styles.footerText}>
+ 882 |                 ↑ ↓ odabir
+ 883 |               </Text>
+ 884 | 
+ 885 |               <Text style={styles.footerText}>
+ 886 |                 ENTER otvori
+ 887 |               </Text>
+ 888 | 
+ 889 |               <Text style={styles.footerText}>
+ 890 |                 ESC zatvori
+ 891 |               </Text>
+ 892 |             </View>
+ 893 |           ) : null}
+ 894 |         </View>
+ 895 |       </View>
+ 896 |     </Modal>
+ 897 |   );
+ 898 | }
+ 899 | 
+ 900 | const styles = StyleSheet.create({
+ 901 |   backdrop: {
+ 902 |     flex: 1,
+ 903 |     alignItems: 'center',
+ 904 |     justifyContent: 'flex-start',
+ 905 |     paddingHorizontal: 18,
+ 906 |     paddingTop:
+ 907 |       Platform.OS === 'web'
+ 908 |         ? 92
+ 909 |         : 54,
+ 910 |     backgroundColor: 'rgba(0,0,0,0.34)',
+ 911 |   },
+ 912 | 
+ 913 |   palette: {
+ 914 |     width: '100%',
+ 915 |     maxWidth: 650,
+ 916 |     maxHeight:
+ 917 |       Platform.OS === 'web'
+ 918 |         ? 590
+ 919 |         : '82%',
+ 920 |     overflow: 'hidden',
+ 921 |     borderRadius: 22,
+ 922 |     borderWidth: 1,
+ 923 |     borderColor: colors.separator,
+ 924 |     backgroundColor: colors.surface,
+ 925 |   },
+ 926 | 
+ 927 |   searchRow: {
+ 928 |     minHeight: 62,
+ 929 |     flexDirection: 'row',
+ 930 |     alignItems: 'center',
+ 931 |     paddingHorizontal: 16,
+ 932 |     borderBottomWidth: 1,
+ 933 |     borderBottomColor: colors.separator,
+ 934 |   },
+ 935 | 
+ 936 |   searchIcon: {
+ 937 |     color: colors.textMuted,
+ 938 |     fontSize: 23,
+ 939 |     marginRight: 10,
+ 940 |   },
+ 941 | 
+ 942 |   input: {
+ 943 |     flex: 1,
+ 944 |     minWidth: 0,
+ 945 |     color: colors.text,
+ 946 |     fontSize: 17,
+ 947 |     paddingVertical: 14,
+ 948 |   },
+ 949 | 
+ 950 |   shortcut: {
+ 951 |     paddingHorizontal: 8,
+ 952 |     paddingVertical: 5,
+ 953 |     borderRadius: 7,
+ 954 |     backgroundColor: colors.fill,
+ 955 |   },
+ 956 | 
+ 957 |   shortcutText: {
+ 958 |     color: colors.textMuted,
+ 959 |     fontSize: 9,
+ 960 |     fontWeight: '800',
+ 961 |   },
+ 962 | 
+ 963 |   results: {
+ 964 |     maxHeight: 465,
+ 965 |     padding: 8,
+ 966 |   },
+ 967 | 
+ 968 |   row: {
+ 969 |     minHeight: 60,
+ 970 |     flexDirection: 'row',
+ 971 |     alignItems: 'center',
+ 972 |     paddingHorizontal: 11,
+ 973 |     paddingVertical: 8,
+ 974 |     borderRadius: 13,
+ 975 |   },
+ 976 | 
+ 977 |   rowSelected: {
+ 978 |     backgroundColor: colors.fill,
+ 979 |   },
+ 980 | 
+ 981 |   commandMark: {
+ 982 |     width: 30,
+ 983 |     height: 30,
+ 984 |     alignItems: 'center',
+ 985 |     justifyContent: 'center',
+ 986 |     borderRadius: 9,
+ 987 |     backgroundColor: colors.fillStrong,
+ 988 |     marginRight: 10,
+ 989 |   },
+ 990 | 
+ 991 |   commandMarkText: {
+ 992 |     color: colors.text,
+ 993 |     fontSize: 18,
+ 994 |     fontWeight: '800',
+ 995 |   },
+ 996 | 
+ 997 |   copy: {
+ 998 |     flex: 1,
+ 999 |     minWidth: 0,
+1000 |   },
+1001 | 
+1002 |   title: {
+1003 |     color: colors.text,
+1004 |     fontSize: 14,
+1005 |     fontWeight: '800',
+1006 |   },
+1007 | 
+1008 |   meta: {
+1009 |     color: colors.textMuted,
+1010 |     fontSize: 11,
+1011 |     marginTop: 3,
+1012 |   },
+1013 | 
+1014 |   kind: {
+1015 |     color: colors.textMuted,
+1016 |     fontSize: 9,
+1017 |     fontWeight: '900',
+1018 |     letterSpacing: 0.5,
+1019 |     marginLeft: 10,
+
+### src/screens/CommandPaletteScreen.tsx
+
+MISSING
+
+### src/components/Palette.tsx
+
+MISSING
+
+### src/audio/uiFeedback.ts
+
+-- lines 1-126 --
+   1 | import { Platform } from 'react-native';
+   2 | import * as Haptics from 'expo-haptics';
+   3 | import { createAudioPlayer } from 'expo-audio';
+   4 | 
+   5 | // uiFeedbackFinalV1
+   6 | // Filenames are now the source of truth:
+   7 | // app-open.mp3 = app opening
+   8 | // delete.mp3   = successful delete
+   9 | // jingle.mp3   = Jingle toggle/event
+  10 | // create.mp3   = successful create
+  11 | 
+  12 | export type UiCue =
+  13 |   | 'tap'
+  14 |   | 'confirm'
+  15 |   | 'start'
+  16 |   | 'stop'
+  17 |   | 'complete'
+  18 |   | 'open'
+  19 |   | 'jingle'
+  20 |   | 'create'
+  21 |   | 'delete';
+  22 | 
+  23 | let enabled = true;
+  24 | 
+  25 | const players = {
+  26 |   open: createAudioPlayer(
+  27 |     require('../assets/ui-sounds/app-open.mp3'),
+  28 |   ),
+  29 |   delete: createAudioPlayer(
+  30 |     require('../assets/ui-sounds/delete.mp3'),
+  31 |   ),
+  32 |   jingle: createAudioPlayer(
+  33 |     require('../assets/ui-sounds/jingle.mp3'),
+  34 |   ),
+  35 |   create: createAudioPlayer(
+  36 |     require('../assets/ui-sounds/create.mp3'),
+  37 |   ),
+  38 | };
+  39 | 
+  40 | export function setUiFeedbackEnabled(value: boolean) {
+  41 |   enabled = value;
+  42 | }
+  43 | 
+  44 | export function isUiFeedbackEnabled() {
+  45 |   return enabled;
+  46 | }
+  47 | 
+  48 | async function haptic(cue: UiCue) {
+  49 |   if (Platform.OS === 'web') return;
+  50 | 
+  51 |   switch (cue) {
+  52 |     case 'tap':
+  53 |     case 'open':
+  54 |     case 'jingle':
+  55 |       await Haptics.selectionAsync();
+  56 |       return;
+  57 | 
+  58 |     case 'confirm':
+  59 |     case 'start':
+  60 |     case 'create':
+  61 |       await Haptics.impactAsync(
+  62 |         Haptics.ImpactFeedbackStyle.Light,
+  63 |       );
+  64 |       return;
+  65 | 
+  66 |     case 'stop':
+  67 |     case 'delete':
+  68 |       await Haptics.impactAsync(
+  69 |         Haptics.ImpactFeedbackStyle.Medium,
+  70 |       );
+  71 |       return;
+  72 | 
+  73 |     case 'complete':
+  74 |       await Haptics.notificationAsync(
+  75 |         Haptics.NotificationFeedbackType.Success,
+  76 |       );
+  77 |       return;
+  78 |   }
+  79 | }
+  80 | 
+  81 | async function sound(cue: UiCue) {
+  82 |   if (
+  83 |     cue !== 'open' &&
+  84 |     cue !== 'delete' &&
+  85 |     cue !== 'jingle' &&
+  86 |     cue !== 'create'
+  87 |   ) {
+  88 |     return;
+  89 |   }
+  90 | 
+  91 |   const player = players[cue];
+  92 | 
+  93 |   try {
+  94 |     await player.seekTo(0);
+  95 |   } catch {
+  96 |     // Already at the beginning is fine.
+  97 |   }
+  98 | 
+  99 |   player.play();
+ 100 | }
+ 101 | 
+ 102 | // uiSoundOnlyV2
+ 103 | export async function playUiSound(cue: UiCue) {
+ 104 |   if (!enabled) return;
+ 105 |   if (Platform.OS === 'web') return;
+ 106 | 
+ 107 |   try {
+ 108 |     await sound(cue);
+ 109 |   } catch {
+ 110 |     // Audio must never block the actual app action.
+ 111 |   }
+ 112 | }
+ 113 | 
+ 114 | export async function playUiCue(cue: UiCue) {
+ 115 |   if (!enabled) return;
+ 116 | 
+ 117 |   try {
+ 118 |     await Promise.all([
+ 119 |       haptic(cue),
+ 120 |       sound(cue),
+ 121 |     ]);
+ 122 |   } catch {
+ 123 |     // Feedback must never block the actual app action.
+ 124 |   }
+ 125 | }
+ 126 | 
+
+### src/utils/semanticFeedback.ts
+
+-- lines 1-31 --
+   1 | import { Platform } from 'react-native';
+   2 | import * as Haptics from 'expo-haptics';
+   3 | import { playUiCue, playUiSound } from '../audio/uiFeedback';
+   4 | 
+   5 | // semanticFeedbackV1
+   6 | //
+   7 | // Screens describe WHAT happened.
+   8 | // This module decides HOW that should feel.
+   9 | //
+  10 | // Keep feedback intentionally subtle.
+  11 | // No feature should call expo-haptics directly once integrated.
+  12 | 
+  13 | export type SemanticFeedbackEvent =
+  14 |   | 'JINGLE'
+  15 |   | 'COMPLETE'
+  16 |   | 'TIMER_START'
+  17 |   | 'TIMER_STOP'
+  18 |   | 'GESTURE_THRESHOLD'
+  19 |   | 'RANDOM_PICK'
+  20 |   | 'UNDO'
+  21 |   | 'SELECTION'
+  22 |   | 'ERROR';
+  23 | 
+  24 | let enabled = true;
+  25 | let lastEventAt = 0;
+  26 | 
+  27 | const MIN_INTERVAL_MS = 45;
+  28 | 
+  29 | export function setSemanticFeedbackEnabled(
+  30 |   value: boolean,
+  31 | ) {
+
+-- lines 105-156 --
+ 105 |         return;
+ 106 | 
+ 107 |       case 'ERROR':
+ 108 |         await Haptics.notificationAsync(
+ 109 |           Haptics.NotificationFeedbackType.Error,
+ 110 |         );
+ 111 |         return;
+ 112 |     }
+ 113 |   } catch {
+ 114 |     // Haptics must never break the actual interaction.
+ 115 |   }
+ 116 | }
+ 117 | 
+ 118 | export const semanticFeedback = {
+ 119 |   // semanticCrudSoundFinalV1
+ 120 |   create: () => playUiCue('create'),
+ 121 |   delete: () => playUiCue('delete'),
+ 122 |   // jingleActivationSoundV2
+ 123 | 
+ 124 |   jingle: (active = true) => {
+ 125 | 
+ 126 |     if (active) {
+ 127 | 
+ 128 |       void playUiSound('jingle');
+ 129 | 
+ 130 |     }
+ 131 | 
+ 132 |     return playSemanticFeedback('JINGLE');
+ 133 | 
+ 134 |   },
+ 135 | 
+ 136 |   complete: () =>
+ 137 |     playSemanticFeedback('COMPLETE'),
+ 138 | 
+ 139 |   timerStart: () =>
+ 140 |     playSemanticFeedback('TIMER_START'),
+ 141 | 
+ 142 |   timerStop: () =>
+ 143 |     playSemanticFeedback('TIMER_STOP'),
+ 144 | 
+ 145 |   gestureThreshold: () =>
+ 146 |     playSemanticFeedback(
+ 147 |       'GESTURE_THRESHOLD',
+ 148 |     ),
+ 149 | 
+ 150 |   randomPick: () =>
+ 151 |     playSemanticFeedback('RANDOM_PICK'),
+ 152 | 
+ 153 |   undo: () =>
+ 154 |     playSemanticFeedback('UNDO'),
+ 155 | 
+ 156 |   selection: () =>
+
+### src/services/entryApi.ts
+
+-- lines 1-47 --
+   1 | import type { Entry, EntryQuery, EntryRequest } from '../types/entry';
+   2 | import { apiRequest } from './apiClient';
+   3 | import {
+   4 |   cleanupEntryImagesAfterDelete,
+   5 |   getEntryImageUris,
+   6 | } from './entryImages';
+   7 | 
+   8 | export { ApiError } from './apiClient';
+   9 | 
+  10 | function queryString(query: EntryQuery) {
+  11 |   return Object.entries(query)
+  12 |     .filter(([, value]) => value !== undefined && value !== '')
+  13 |     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+  14 |     .join('&');
+  15 | }
+  16 | 
+  17 | export const entryApi = {
+  18 |   getAll: (query: EntryQuery = {}) => {
+  19 |     const params = queryString(query);
+  20 |     return apiRequest<Entry[]>(`/entries${params ? `?${params}` : ''}`);
+  21 |   },
+  22 | 
+  23 |   getById: (entryId: string) => apiRequest<Entry>(`/entries/${entryId}`),
+  24 | 
+  25 |   create: (payload: EntryRequest) =>
+  26 |     apiRequest<Entry>('/entries', {
+  27 |       method: 'POST',
+  28 |       body: JSON.stringify(payload),
+  29 |     }),
+  30 | 
+  31 |   update: (entryId: string, payload: EntryRequest) =>
+  32 |     apiRequest<Entry>(`/entries/${entryId}`, {
+  33 |       method: 'PUT',
+  34 |       body: JSON.stringify(payload),
+  35 |     }),
+  36 | 
+  37 |   remove: async (entryId: string) => {
+  38 |     const imageUris = await getEntryImageUris(entryId).catch(() => []);
+  39 | 
+  40 |     await apiRequest<void>(`/entries/${entryId}`, {
+  41 |       method: 'DELETE',
+  42 |     });
+  43 | 
+  44 |     await cleanupEntryImagesAfterDelete(
+  45 |       entryId,
+  46 |       imageUris,
+  47 |     ).catch(() => undefined);
+
+### src/types/entry.ts
+
+-- lines 1-76 --
+   1 | export const entryTypes = [
+   2 |   'NOTE',
+   3 |   'QUOTE',
+   4 |   'OBSERVATION',
+   5 |   'REVIEW',
+   6 |   'PROGRESS_UPDATE',
+   7 | ] as const;
+   8 | 
+   9 | export type EntryType = (typeof entryTypes)[number];
+  10 | 
+  11 | export const entryTypeLabels: Record<EntryType, string> = {
+  12 |   NOTE: 'Bilješka',
+  13 |   QUOTE: 'Citat',
+  14 |   OBSERVATION: 'Opažanje',
+  15 |   REVIEW: 'Osvrt',
+  16 |   PROGRESS_UPDATE: 'Napredak',
+  17 | };
+  18 | 
+  19 | export const entryTypeMarks: Record<EntryType, string> = {
+  20 |   NOTE: '≡',
+  21 |   QUOTE: '“',
+  22 |   OBSERVATION: '◉',
+  23 |   REVIEW: '☆',
+  24 |   PROGRESS_UPDATE: '↑',
+  25 | };
+  26 | 
+  27 | export type Entry = {
+  28 |   entryId: string;
+  29 |   title: string | null;
+  30 |   content: string;
+  31 |   type: EntryType;
+  32 |   bookId: string | null;
+  33 |   topicId: string | null;
+  34 |   activityId: string | null;
+  35 |   createdAt: string;
+  36 |   modifiedAt: string;
+  37 | };
+  38 | 
+  39 | export type EntryRequest = {
+  40 |   title?: string | null;
+  41 |   content: string;
+  42 |   type: EntryType;
+  43 |   bookId?: string | null;
+  44 |   topicId?: string | null;
+  45 |   activityId?: string | null;
+  46 | };
+  47 | 
+  48 | export type EntryQuery = {
+  49 |   bookId?: string;
+  50 |   topicId?: string;
+  51 |   activityId?: string;
+  52 |   type?: EntryType;
+  53 | };
+  54 | 
+  55 | export type EntryLinkOption = {
+  56 |   id: string;
+  57 |   label: string;
+  58 |   detail?: string;
+  59 |   topicId?: string;
+  60 | };
+  61 | 
+  62 | export type EntryLinks = {
+  63 |   books: EntryLinkOption[];
+  64 |   topics: EntryLinkOption[];
+  65 |   activities: EntryLinkOption[];
+  66 | };
+  67 | 
+  68 | export type EntryLinkLabels = {
+  69 |   books: Record<string, string>;
+  70 |   topics: Record<string, string>;
+  71 |   activities: Record<string, string>;
+  72 | };
+  73 | 
+  74 | export type EntryFormParams = {
+  75 |   entryId?: string;
+  76 | };
+
+
+### filename discovery
+
+src/audio/audioFocus.ts
+src/audio/MemoryAudioProvider.tsx
+src/audio/uiFeedback.ts
+src/audio/webAudioStore.ts
+src/components/CommandPalette.tsx
+src/components/CommandPaletteEdgeGesture.tsx
+src/components/FeedbackView.tsx
+src/components/MediaFeedbackView.tsx
+src/screens/ThemePickerScreen.tsx
+src/theme/aeroBackground.ts
+src/theme/catalogueDisplayMode.ts
+src/theme/colors.ts
+src/theme/radioTheme.ts
+src/theme/visualSkins.ts
+src/utils/crudFeedback.ts
+src/utils/semanticFeedback.ts

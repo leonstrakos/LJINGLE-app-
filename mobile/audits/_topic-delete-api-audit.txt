@@ -1,0 +1,359 @@
+LJINGLE — Topic delete API audit
+================================
+
+### src/services/topicApi.ts
+
+-- lines 5-60 --
+   5 |   TopicActivityTimerResponse,
+   6 |   TopicRequest,
+   7 |   TopicResponse,
+   8 | } from '../types/topic';
+   9 | 
+  10 | function jsonBody(body: unknown): RequestInit {
+  11 |   return {
+  12 |     headers: { 'Content-Type': 'application/json' },
+  13 |     body: JSON.stringify(body),
+  14 |   };
+  15 | }
+  16 | 
+  17 | export const topicApi = {
+  18 |   getAll: () => apiRequest<TopicResponse[]>('/topics'),
+  19 | 
+  20 |   getById: (topicId: string) =>
+  21 |     apiRequest<TopicResponse>(`/topics/${topicId}`),
+  22 | 
+  23 |   create: (request: TopicRequest) =>
+  24 |     apiRequest<TopicResponse>('/topics', {
+  25 |       method: 'POST',
+  26 |       ...jsonBody(request),
+  27 |     }),
+  28 | 
+  29 |   update: (topicId: string, request: TopicRequest) =>
+  30 |     apiRequest<TopicResponse>(`/topics/${topicId}`, {
+  31 |       method: 'PUT',
+  32 |       ...jsonBody(request),
+  33 |     }),
+  34 | 
+  35 |   remove: (topicId: string) =>
+  36 |     apiRequest<void>(`/topics/${topicId}`, { method: 'DELETE' }),
+  37 | 
+  38 |   getActivities: (topicId: string) =>
+  39 |     apiRequest<TopicActivityResponse[]>(`/topics/${topicId}/activities`),
+  40 | 
+  41 |   createActivity: (topicId: string, request: TopicActivityRequest) =>
+  42 |     apiRequest<TopicActivityResponse>(`/topics/${topicId}/activities`, {
+  43 |       method: 'POST',
+  44 |       ...jsonBody(request),
+  45 |     }),
+  46 | 
+  47 |   getActiveActivities: () =>
+  48 |     apiRequest<TopicActivityTimerResponse[]>('/activities/active'),
+  49 | 
+  50 |   startActivity: (activityId: string) =>
+  51 |     apiRequest<TopicActivityTimerResponse>(`/activities/${activityId}/start`, {
+  52 |       method: 'POST',
+  53 |     }),
+  54 | 
+  55 |   stopActivity: (activityId: string) =>
+  56 |     apiRequest<TopicActivityTimerResponse>(`/activities/${activityId}/stop`, {
+  57 |       method: 'POST',
+  58 |     }),
+  59 | };
+  60 | 
+
+### src/types/topic.ts
+
+-- lines 1-78 --
+   1 | export const activityTypes = [
+   2 |   'READING',
+   3 |   'STUDYING',
+   4 |   'PLAYING',
+   5 |   'RESEARCH',
+   6 |   'WORK',
+   7 |   'EXERCISE',
+   8 |   'CUSTOM',
+   9 | ] as const;
+  10 | 
+  11 | export type ActivityType = (typeof activityTypes)[number];
+  12 | 
+  13 | export const activityTypeLabels: Record<ActivityType, string> = {
+  14 |   READING: 'Čitanje',
+  15 |   STUDYING: 'Učenje',
+  16 |   PLAYING: 'Igranje',
+  17 |   RESEARCH: 'Istraživanje',
+  18 |   WORK: 'Rad',
+  19 |   EXERCISE: 'Vježbanje',
+  20 |   CUSTOM: 'Ostalo',
+  21 | };
+  22 | 
+  23 | export const activityTypeMarks: Record<ActivityType, string> = {
+  24 |   READING: '≡',
+  25 |   STUDYING: '◇',
+  26 |   PLAYING: '△',
+  27 |   RESEARCH: '⌕',
+  28 |   WORK: '□',
+  29 |   EXERCISE: '↑',
+  30 |   CUSTOM: '·',
+  31 | };
+  32 | 
+  33 | export type TopicResponse = {
+  34 |   topicId: string;
+  35 |   name: string;
+  36 |   description: string | null;
+  37 |   activityCount: number;
+  38 |   createdAt: string;
+  39 |   modifiedAt: string;
+  40 | };
+  41 | 
+  42 | export type TopicRequest = {
+  43 |   name: string;
+  44 |   description?: string;
+  45 | };
+  46 | 
+  47 | export type TopicActivityResponse = {
+  48 |   activityId: string;
+  49 |   label: string;
+  50 |   activityType: ActivityType;
+  51 |   bookId: string | null;
+  52 |   topicId: string | null;
+  53 |   createdAt: string;
+  54 |   modifiedAt: string;
+  55 | };
+  56 | 
+  57 | export type TopicActivityRequest = {
+  58 |   label: string;
+  59 |   activityType: ActivityType;
+  60 | };
+  61 | 
+  62 | export type TopicActivityTimerResponse = {
+  63 |   activityId: string | null;
+  64 |   label: string;
+  65 |   activityType: ActivityType;
+  66 |   bookId: string | null;
+  67 |   topicId: string | null;
+  68 |   running: boolean;
+  69 |   activeSessionId: string | null;
+  70 |   activeStartedAt: string | null;
+  71 |   completedSeconds: number;
+  72 |   totalSeconds: number;
+  73 | };
+  74 | 
+  75 | export type TopicDetailsParams = {
+  76 |   topicId: string;
+  77 | };
+  78 | 
+
+### src/screens/TopicDetailsScreen.tsx
+
+-- lines 1-97 --
+   1 | import { useCallback, useEffect, useMemo, useState } from 'react';
+   2 | import {
+   3 |   ActivityIndicator,
+   4 |   FlatList,
+   5 |   KeyboardAvoidingView,
+   6 |   Platform,
+   7 |   Pressable,
+   8 |   RefreshControl,
+   9 |   StyleSheet,
+  10 |   Text,
+  11 |   View,
+  12 | } from 'react-native';
+  13 | import { useFocusEffect } from '@react-navigation/native';
+  14 | import { SafeAreaView } from 'react-native-safe-area-context';
+  15 | 
+  16 | import { ActivityCreateForm } from '../components/ActivityCreateForm';
+  17 | import { EntityRelationsPanel } from '../components/EntityRelationsPanel';
+  18 | import { FeedbackView } from '../components/FeedbackView';
+  19 | import { TopicActivityCard } from '../components/TopicActivityCard';
+  20 | import { topicApi } from '../services/topicApi';
+  21 | import { colors } from '../theme/colors';
+  22 | import { TimerMotionView } from '../components/TimerMotionView';
+  23 | import { semanticFeedback } from '../utils/semanticFeedback';
+  24 | import type {
+  25 |   ActivityType,
+  26 |   TopicActivityResponse,
+  27 |   TopicActivityTimerResponse,
+  28 |   TopicDetailsParams,
+  29 |   TopicResponse,
+  30 | } from '../types/topic';
+  31 | 
+  32 | export type TopicDetailsScreenProps = {
+  33 |   route: { params: TopicDetailsParams };
+  34 | };
+  35 | 
+  36 | function timersByActivityId(timers: TopicActivityTimerResponse[]) {
+  37 |   const byId = new Map<string, TopicActivityTimerResponse>();
+  38 |   timers.forEach((timer) => {
+  39 |     if (timer.activityId) byId.set(timer.activityId, timer);
+  40 |   });
+  41 |   return byId;
+  42 | }
+  43 | 
+  44 | export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
+  45 |   const { topicId } = route.params;
+  46 |   const [topic, setTopic] = useState<TopicResponse | null>(null);
+  47 |   const [activities, setActivities] = useState<TopicActivityResponse[]>([]);
+  48 |   const [timers, setTimers] = useState<Map<string, TopicActivityTimerResponse>>(new Map());
+  49 |   const [loading, setLoading] = useState(true);
+  50 |   const [refreshing, setRefreshing] = useState(false);
+  51 |   const [error, setError] = useState<string | null>(null);
+  52 |   const [actionError, setActionError] = useState<string | null>(null);
+  53 |   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  54 |   const [now, setNow] = useState(Date.now());
+  55 |   const [formVisible, setFormVisible] = useState(false);
+  56 |   const [activityLabel, setActivityLabel] = useState('');
+  57 |   const [activityType, setActivityType] = useState<ActivityType>('STUDYING');
+  58 |   const [saving, setSaving] = useState(false);
+  59 |   const [formError, setFormError] = useState<string | null>(null);
+  60 | 
+  61 |   const runningCount = useMemo(
+  62 |     () => Array.from(timers.values()).filter((timer) => timer.running).length,
+  63 |     [timers],
+  64 |   );
+  65 | 
+  66 |   const loadTopic = useCallback(async (asRefresh = false) => {
+  67 |     asRefresh ? setRefreshing(true) : setLoading(true);
+  68 |     setError(null);
+  69 |     try {
+  70 |       const [loadedTopic, loadedActivities, activeTimers] = await Promise.all([
+  71 |         topicApi.getById(topicId),
+  72 |         topicApi.getActivities(topicId),
+  73 |         topicApi.getActiveActivities(),
+  74 |       ]);
+  75 |       const activityIds = new Set(loadedActivities.map((activity) => activity.activityId));
+  76 |       setTopic(loadedTopic);
+  77 |       setActivities(loadedActivities);
+  78 |       setTimers(
+  79 |         timersByActivityId(
+  80 |           activeTimers.filter(
+  81 |             (timer) => timer.activityId !== null && activityIds.has(timer.activityId),
+  82 |           ),
+  83 |         ),
+  84 |       );
+  85 |       setNow(Date.now());
+  86 |     } catch (caught) {
+  87 |       setError(caught instanceof Error ? caught.message : 'Dohvat teme nije uspio.');
+  88 |     } finally {
+  89 |       setLoading(false);
+  90 |       setRefreshing(false);
+  91 |     }
+  92 |   }, [topicId]);
+  93 | 
+  94 |   useFocusEffect(
+  95 |     useCallback(() => {
+  96 |       void loadTopic();
+  97 |     }, [loadTopic]),
+
+-- lines 110-192 --
+ 110 |     setActivityLabel('');
+ 111 |     setActivityType('STUDYING');
+ 112 |     setFormError(null);
+ 113 |   };
+ 114 | 
+ 115 |   const createActivity = async () => {
+ 116 |     const label = activityLabel.trim();
+ 117 |     if (!label || saving) return;
+ 118 | 
+ 119 |     setSaving(true);
+ 120 |     setFormError(null);
+ 121 |     try {
+ 122 |       const created = await topicApi.createActivity(topicId, {
+ 123 |         label,
+ 124 |         activityType,
+ 125 |       });
+ 126 |       setActivities((current) => [...current, created]);
+ 127 |       setTopic((current) =>
+ 128 |         current ? { ...current, activityCount: current.activityCount + 1 } : current,
+ 129 |       );
+ 130 |       setFormVisible(false);
+ 131 |       setActivityLabel('');
+ 132 |       setActivityType('STUDYING');
+ 133 |     } catch (caught) {
+ 134 |       setFormError(
+ 135 |         caught instanceof Error ? caught.message : 'Stvaranje aktivnosti nije uspjelo.',
+ 136 |       );
+ 137 |     } finally {
+ 138 |       setSaving(false);
+ 139 |     }
+ 140 |   };
+ 141 | 
+ 142 |   const toggleTimer = async (activity: TopicActivityResponse) => {
+ 143 |     if (busyIds.has(activity.activityId)) return;
+ 144 | 
+ 145 |     const currentTimer = timers.get(activity.activityId);
+ 146 |     setActionError(null);
+ 147 |     setBusyIds((current) => new Set(current).add(activity.activityId));
+ 148 |     try {
+ 149 |       const updated = currentTimer?.running
+ 150 |         ? await topicApi.stopActivity(activity.activityId)
+ 151 |         : await topicApi.startActivity(activity.activityId);
+ 152 |       setTimers((current) => {
+ 153 |         const next = new Map(current);
+ 154 |         next.set(activity.activityId, updated);
+ 155 |         return next;
+ 156 |       });
+ 157 |             void (updated.running
+ 158 |         ? semanticFeedback.timerStart()
+ 159 |         : semanticFeedback.timerStop());
+ 160 |       setNow(Date.now());
+ 161 |     } catch (caught) {
+ 162 |       setActionError(
+ 163 |         caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.',
+ 164 |       );
+ 165 |     } finally {
+ 166 |       setBusyIds((current) => {
+ 167 |         const next = new Set(current);
+ 168 |         next.delete(activity.activityId);
+ 169 |         return next;
+ 170 |       });
+ 171 |     }
+ 172 |   };
+ 173 | 
+ 174 |   if (loading && !topic) {
+ 175 |     return (
+ 176 |       <SafeAreaView style={styles.safeArea}>
+ 177 |         <View style={styles.loadingState}>
+ 178 |           <ActivityIndicator size="large" color={colors.black} />
+ 179 |           <Text style={styles.loadingText}>Povezujemo aktivnosti i vrijeme…</Text>
+ 180 |         </View>
+ 181 |       </SafeAreaView>
+ 182 |     );
+ 183 |   }
+ 184 | 
+ 185 |   if ((error && !topic) || !topic) {
+ 186 |     return (
+ 187 |       <FeedbackView
+ 188 |         type="error"
+ 189 |         message={error ?? 'Tema nije pronađena.'}
+ 190 |         onRetry={() => void loadTopic()}
+ 191 |       />
+ 192 |     );
+
+### src/types/navigation.ts
+
+-- lines 1-24 --
+   1 | export type RootStackParamList = {
+   2 |   Today: undefined;
+   3 |   ThemePicker: undefined;
+   4 |   Catalogue: undefined;
+   5 |   Collections: undefined;
+   6 |   CollectionDetails: { collectionId: string };
+   7 |   Topics: undefined;
+   8 |   TopicDetails: { topicId: string };
+   9 |   History: undefined;
+  10 |   Stats: undefined;
+  11 |   Reconstruction: undefined;
+  12 |   Entries: undefined;
+  13 |   EntryForm: { entryId?: string } | undefined;
+  14 |   MemoryRadio: undefined;
+  15 |   Games: undefined;
+  16 |   Media: undefined;
+  17 |   BookList: undefined;
+  18 |   BookSearch: undefined;
+  19 |   BookMetadataImport: undefined;
+  20 |   BookStats: undefined;
+  21 |   BookDetails: { bookId: string };
+  22 |   BookForm: { bookId?: string } | undefined;
+  23 | };
+  24 | 
+

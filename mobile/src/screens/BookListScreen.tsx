@@ -16,6 +16,7 @@ import { BookCard } from '../components/BookCard';
 import { FeedbackView } from '../components/FeedbackView';
 import { bookApi } from '../services/bookApi';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import { registerUndo } from '../utils/undoManager';
 import { semanticFeedback } from '../utils/semanticFeedback';
 import {
@@ -25,8 +26,13 @@ import {
 } from '../utils/screenStateCache';
 import type { BookResponse } from '../types/book';
 import type { RootStackParamList } from '../types/navigation';
+import { JingleBellIcon } from '../components/JingleBellIcon';
 
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+import { celestial, celestialAlpha } from '../theme/celestial';
 type Props = NativeStackScreenProps<RootStackParamList, 'BookList'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 // bookStatePreservationV1
 type BookListPreservedState = {
@@ -163,7 +169,7 @@ export function BookListScreen({ navigation }: Props) {
 
       await bookApi.update(book.bookId, payload as any);
       // semanticJingleFeedbackV1
-      void semanticFeedback.jingle();
+      void semanticFeedback.jingle(next);
 
       setBooks((current) =>
         current.map((row) =>
@@ -214,7 +220,8 @@ export function BookListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+        {celestialMode ? <CelestialAtmosphere variant="books" /> : null}
         <Text style={styles.eyebrow}>Katalog · Knjige</Text>
         <Text style={styles.heading}>Moje knjige</Text>
         {!loading && !error ? (
@@ -222,25 +229,26 @@ export function BookListScreen({ navigation }: Props) {
             {visibleBooks.length === 1 ? '1 knjiga u zbirci' : `${visibleBooks.length} knjiga u zbirci`}
           </Text>
         ) : null}
-
-        <View style={styles.quickActions}>
+<View style={styles.quickActions}>
           <Pressable
             accessibilityRole="button"
             onPress={() => navigation.navigate('BookMetadataImport')}
-            style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
+            style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.quickActionPressed]}
           >
             <Text style={styles.quickActionIcon}>⌕</Text>
             <Text style={styles.quickActionLabel}>Online pretraga</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigation.navigate('BookStats')}
-            style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
+            onPress={() => navigation.navigate('BookForm')}
+            style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.quickActionPressed]}
           >
-            <Text style={styles.quickActionIcon}>▥</Text>
-            <Text style={styles.quickActionLabel}>Statistika</Text>
+            <Text style={styles.quickActionIcon}>+</Text>
+            <Text style={styles.quickActionLabel}>Ručno dodaj</Text>
           </Pressable>
         </View>
+        {/* forkEBookStatsLinkRemovedV1 — book stats now live in global Stats */}
+
         <View style={styles.jingleFilters}>
           <Pressable
             accessibilityRole="button"
@@ -316,13 +324,10 @@ export function BookListScreen({ navigation }: Props) {
                   pressed && styles.jinglePressed,
                 ]}
               >
-                <Image
-                  source={require('../assets/aero/fav.png')}
-                  resizeMode="contain"
-                  style={[
-                    styles.jingleIcon,
-                    { opacity: item.favourite ? 1 : 0.5 },
-                  ]}
+                <JingleBellIcon
+                  active={item.favourite}
+                  inactiveOpacity={0.5}
+                  style={styles.jingleIcon}
                 />
               </Pressable>
             </View>
@@ -340,15 +345,7 @@ export function BookListScreen({ navigation }: Props) {
         />
       )}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Dodaj novu knjigu"
-        onPress={() => navigation.navigate('BookForm')}
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-      >
-        <Text style={styles.fabPlus}>+</Text>
-        <Text style={styles.fabLabel}>Nova knjiga</Text>
-      </Pressable>
+      
     </SafeAreaView>
   );
 }
@@ -413,7 +410,7 @@ const styles = StyleSheet.create({
   list: {
     flexGrow: 1,
     paddingHorizontal: 16,
-    paddingBottom: 112,
+    paddingBottom: 120,
   },
   fab: {
     position: 'absolute',
@@ -494,4 +491,18 @@ const styles = StyleSheet.create({
   jinglePressed: {
     opacity: 0.72,
   },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  celestialAction: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+
 });

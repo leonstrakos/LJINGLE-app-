@@ -44,7 +44,9 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "onnxruntime-react-native",
+      "expo-secure-store"
     ],
     "owner": "lekistra"
   }

@@ -1,6 +1,11 @@
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   visible: boolean;
@@ -25,19 +30,20 @@ export function DeleteConfirmationModal({
 
   return (
     <Modal animationType="fade" onRequestClose={loading ? undefined : onCancel} transparent visible={visible}>
-      <View style={styles.backdrop}>
-        <View accessibilityLabel={accessibilityLabel ?? dialogTitle} accessibilityRole="alert" style={styles.dialog}>
-          <View style={styles.iconCircle}><Text style={styles.icon}>!</Text></View>
-          <Text style={styles.title}>{dialogTitle}</Text>
-          <Text style={styles.message}>{dialogMessage}</Text>
+      <View style={[styles.backdrop, celestialMode && styles.celestialBackdrop]}>
+        <View accessibilityLabel={accessibilityLabel ?? dialogTitle} accessibilityRole="alert" style={[styles.dialog, celestialMode && styles.celestialDialog]}>
+          {celestialMode ? <Text style={styles.celestialOrnament}>✦ · ✧ · ✦</Text> : null}
+          <View style={[styles.iconCircle, celestialMode && styles.celestialIconCircle]}><Text style={[styles.icon, celestialMode && styles.celestialIcon]}>!</Text></View>
+          <Text style={[styles.title, celestialMode && styles.celestialTitle]}>{dialogTitle}</Text>
+          <Text style={[styles.message, celestialMode && styles.celestialMessage]}>{dialogMessage}</Text>
           {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" disabled={loading} onPress={onCancel}
-              style={({ pressed }) => [styles.button, styles.cancelButton, pressed && !loading && styles.pressed, loading && styles.disabled]}>
-              <Text style={styles.cancelLabel}>Odustani</Text>
+              style={({ pressed }) => [styles.button, styles.cancelButton, celestialMode && styles.celestialCancelButton, pressed && !loading && styles.pressed, loading && styles.disabled]}>
+              <Text style={[styles.cancelLabel, celestialMode && styles.celestialCancelLabel]}>Odustani</Text>
             </Pressable>
             <Pressable accessibilityRole="button" disabled={loading} onPress={onConfirm}
-              style={({ pressed }) => [styles.button, styles.deleteButton, pressed && !loading && styles.pressed, loading && styles.disabled]}>
+              style={({ pressed }) => [styles.button, styles.deleteButton, celestialMode && styles.celestialDeleteButton, pressed && !loading && styles.pressed, loading && styles.disabled]}>
               {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.deleteLabel}>Obriši</Text>}
             </Pressable>
           </View>
@@ -48,7 +54,7 @@ export function DeleteConfirmationModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.42)', padding: 24 },
+  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: celestialAlpha(celestial.shadow, 0.42), padding: 24 },
   dialog: { width: '100%', maxWidth: 430, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, padding: 24, shadowColor: colors.black, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 18, elevation: 12 },
   iconCircle: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', borderRadius: 23, backgroundColor: colors.dangerSoft },
   icon: { color: colors.danger, fontSize: 24, fontWeight: '700' },
@@ -63,4 +69,33 @@ const styles = StyleSheet.create({
   deleteLabel: { color: colors.white, fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.6 },
+  celestialBackdrop: { backgroundColor: celestialAlpha(celestial.night, 0.72) },
+  celestialDialog: {
+    backgroundColor: celestial.night,
+    borderColor: celestialAlpha(celestial.gold, 0.64),
+    shadowColor: celestial.gold,
+    shadowOpacity: 0.15,
+  },
+  celestialOrnament: {
+    alignSelf: 'center',
+    marginBottom: 10,
+    color: celestial.gold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+  },
+  celestialIconCircle: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.45),
+    backgroundColor: 'rgba(215,0,21,0.12)',
+  },
+  celestialIcon: { color: '#FF747D' },
+  celestialTitle: { color: celestial.ivory },
+  celestialMessage: { color: celestialAlpha(celestial.ivory, 0.70) },
+  celestialCancelButton: {
+    backgroundColor: celestialAlpha(celestial.ivory, 0.06),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+  },
+  celestialDeleteButton: { borderWidth: 1, borderColor: 'rgba(255,116,125,0.46)' },
+  celestialCancelLabel: { color: celestial.gold },
 });

@@ -13,13 +13,22 @@ import {
   reconstructPeriod,
   reconstructionDay,
   reconstructionMonth,
+  reconstructionYear,
 } from '../storage/reconstruction';
 import { colors } from '../theme/colors';
 import { semanticFeedback } from '../utils/semanticFeedback';
 import type { Reconstruction } from '../types/reconstruction';
 
-// reconstructionScreenV1A
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../types/navigation';
 
+// reconstructionScreenV1A
+// paletteYearRouteV1
+type ReconstructionScreenProps =
+  NativeStackScreenProps<
+    RootStackParamList,
+    'Reconstruction'
+  >;
 function durationLabel(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -89,11 +98,25 @@ function shiftMonth(
   };
 }
 
-export function ReconstructionScreen() {
+export function ReconstructionScreen({
+  route,
+}: ReconstructionScreenProps) {
   const now = new Date();
 
+  const requestedYear =
+    route.params?.year;
+
   const [year, setYear] =
-    useState(now.getFullYear());
+    useState(
+      requestedYear ??
+        now.getFullYear(),
+    );
+
+  const [yearMode, setYearMode] =
+    useState(
+      typeof requestedYear ===
+        'number',
+    );
 
   const [month, setMonth] =
     useState(now.getMonth() + 1);
@@ -112,9 +135,18 @@ export function ReconstructionScreen() {
     setError(null);
 
     const period =
-      day === null
-        ? reconstructionMonth(year, month)
-        : reconstructionDay(year, month, day);
+      yearMode
+        ? reconstructionYear(year)
+        : day === null
+          ? reconstructionMonth(
+              year,
+              month,
+            )
+          : reconstructionDay(
+              year,
+              month,
+              day,
+            );
 
     void reconstructPeriod(period)
       .then(setData)
@@ -125,10 +157,19 @@ export function ReconstructionScreen() {
             : 'Rekonstrukcija nije dostupna.',
         );
       });
-  }, [year, month, day]);
+  }, [year, month, day, yearMode]);
 
   function moveMonth(delta: number) {
     setDay(null);
+
+    if (yearMode) {
+      void semanticFeedback.selection();
+      setYear(
+        (current) =>
+          current + delta,
+      );
+      return;
+    }
     const next = shiftMonth(
       year,
       month,
@@ -142,6 +183,8 @@ export function ReconstructionScreen() {
   }
 
   function openDay(date: string) {
+    setYearMode(false);
+
     const parts = date.split('-').map(Number);
     const nextYear = parts[0];
     const nextMonth = parts[1];
@@ -213,7 +256,9 @@ export function ReconstructionScreen() {
           </Pressable>
 
           <Text style={styles.periodNavLabel}>
-            MJESEC
+            {yearMode
+            ? 'GODINA'
+            : 'MJESEC'}
           </Text>
 
           <Pressable

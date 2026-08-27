@@ -1,0 +1,1777 @@
+LJINGLE — Palette Power v2 audit
+================================
+
+### src/components/CommandPalette.tsx
+
+-- lines 8-115 --
+   8 |   ActivityIndicator,
+   9 |   Modal,
+  10 |   Platform,
+  11 |   Pressable,
+  12 |   ScrollView,
+  13 |   StyleSheet,
+  14 |   Text,
+  15 |   TextInput,
+  16 |   View,
+  17 | } from 'react-native';
+  18 | 
+  19 | import { gameApi } from '../games/services/gameApi';
+  20 | import type { GameResponse } from '../games/types/game';
+  21 | import { bookApi } from '../services/bookApi';
+  22 | import { mediaApi } from '../services/mediaApi';
+  23 | import { colors } from '../theme/colors';
+  24 | import { entityLinksApi } from '../services/entityLinksApi';
+  25 | import type { EntityReference } from '../types/collection';
+  26 | import { entryApi } from '../services/entryApi';
+  27 | import { memoryRadioApi } from '../services/memoryRadioApi';
+  28 | import type { Entry } from '../types/entry';
+  29 | import type { MemoryTrack } from '../types/memoryRadio';
+  30 | import type { BookResponse } from '../types/book';
+  31 | import type { MediaResponse } from '../types/media';
+  32 | import { topicApi } from '../services/topicApi';
+  33 | import { createdFeedback } from '../utils/crudFeedback';
+  34 | import type { EntryType } from '../types/entry';
+  35 | 
+  36 | type Props = {
+  37 |   navigation: any;
+  38 |   openSignal?: number;
+  39 | };
+  40 | 
+  41 | type SearchEntity = {
+  42 |   key: string;
+  43 |   kind: 'BOOK' | 'MEDIA' | 'GAME' | 'ENTRY' | 'FREQUENCY';
+  44 |   id: string;
+  45 |   title: string;
+  46 |   typeLabel: string;
+  47 |   meta: string;
+  48 |   favourite: boolean;
+  49 | };
+  50 | 
+  51 | type PaletteCommand = {
+  52 |   key: string;
+  53 |   label: string;
+  54 |   detail: string;
+  55 |   aliases: string;
+  56 |   action: () => void | Promise<void>;
+  57 | };
+  58 | 
+  59 | type PaletteItem =
+  60 |   | {
+  61 |       itemType: 'command';
+  62 |       command: PaletteCommand;
+  63 |     }
+  64 |   | {
+  65 |       itemType: 'entity';
+  66 |       entity: SearchEntity;
+  67 |     };
+  68 | 
+  69 | function normalize(value: unknown) {
+  70 |   return String(value ?? '')
+  71 |     .toLocaleLowerCase()
+  72 |     .normalize('NFD')
+  73 |     .replace(/[\u0300-\u036f]/g, '');
+  74 | }
+  75 | 
+  76 | type QuickCreateCommand =
+  77 |   | { kind: 'ENTRY'; type: EntryType; content: string; label: string }
+  78 |   | { kind: 'BOOK'; title: string }
+  79 |   | { kind: 'TOPIC'; name: string };
+  80 | 
+  81 | function parseQuickCreateCommand(value: string): QuickCreateCommand | null {
+  82 |   const match = value.trim().match(/^:([a-z]+)\s+([\s\S]+)$/i);
+  83 |   if (!match) return null;
+  84 | 
+  85 |   const command = (match[1] ?? '').toLocaleLowerCase();
+  86 |   const payload = (match[2] ?? '').trim();
+  87 |   if (!payload) return null;
+  88 | 
+  89 |   if (command === 'note') {
+  90 |     return { kind: 'ENTRY', type: 'NOTE', content: payload, label: 'Bilješka' };
+  91 |   }
+  92 | 
+  93 |   if (command === 'quote') {
+  94 |     return { kind: 'ENTRY', type: 'QUOTE', content: payload, label: 'Citat' };
+  95 |   }
+  96 | 
+  97 |   if (command === 'obs' || command === 'observation') {
+  98 |     return { kind: 'ENTRY', type: 'OBSERVATION', content: payload, label: 'Opažanje' };
+  99 |   }
+ 100 | 
+ 101 |   if (command === 'review') {
+ 102 |     return { kind: 'ENTRY', type: 'REVIEW', content: payload, label: 'Osvrt' };
+ 103 |   }
+ 104 | 
+ 105 |   if (command === 'book') {
+ 106 |     return { kind: 'BOOK', title: payload };
+ 107 |   }
+ 108 | 
+ 109 |   if (command === 'topic') {
+ 110 |     return { kind: 'TOPIC', name: payload };
+ 111 |   }
+ 112 | 
+ 113 |   return null;
+ 114 | }
+ 115 | 
+
+-- lines 157-419 --
+ 157 |   const inputRef = useRef<TextInput>(null);
+ 158 | 
+ 159 |   const [visible, setVisible] = useState(false);
+ 160 |   const [query, setQuery] = useState('');
+ 161 |   const [selectedIndex, setSelectedIndex] = useState(0);
+ 162 | 
+ 163 |   const [books, setBooks] = useState<BookResponse[]>([]);
+ 164 |   const [media, setMedia] = useState<MediaResponse[]>([]);
+ 165 |   const [games, setGames] = useState<GameResponse[]>([]);
+ 166 |   const [entries, setEntries] = useState<Entry[]>([]);
+ 167 |   const [frequencies, setFrequencies] = useState<MemoryTrack[]>([]);
+ 168 | 
+ 169 |   const [loading, setLoading] = useState(false);
+ 170 |   const [quickCommandBusy, setQuickCommandBusy] = useState(false);
+ 171 |   const [quickCommandError, setQuickCommandError] = useState<string | null>(null);
+ 172 | 
+ 173 |   // brutusPaletteExtendedEntitiesV1
+ 174 |   useEffect(() => {
+ 175 |     if (!visible) return;
+ 176 | 
+ 177 |     let cancelled = false;
+ 178 | 
+ 179 |     void Promise.all([
+ 180 |       entryApi.getAll(),
+ 181 |       memoryRadioApi.getAll(),
+ 182 |     ])
+ 183 |       .then(([nextEntries, nextFrequencies]) => {
+ 184 |         if (cancelled) return;
+ 185 |         setEntries(nextEntries);
+ 186 |         setFrequencies(nextFrequencies);
+ 187 |       })
+ 188 |       .catch(() => {
+ 189 |         // Extended search is additive. Existing palette stays usable.
+ 190 |       });
+ 191 | 
+ 192 |     return () => {
+ 193 |       cancelled = true;
+ 194 |     };
+ 195 |   }, [visible]);
+ 196 | 
+ 197 |   const [recentSearches, setRecentSearches] =
+ 198 |     useState<string[]>([]);
+ 199 | 
+ 200 |   const [recentEntities, setRecentEntities] =
+ 201 |     useState<SearchEntity[]>([]);
+ 202 | 
+ 203 |   const [jingleGraph, setJingleGraph] =
+ 204 |     useState<EntityReference[]>([]);
+ 205 | 
+ 206 |   // brutusJingleGraphV2
+ 207 |   useEffect(() => {
+ 208 |     if (!visible) return;
+ 209 | 
+ 210 |     let cancelled = false;
+ 211 | 
+ 212 |     void entityLinksApi
+ 213 |       .jingleReferences()
+ 214 |       .then((items) => {
+ 215 |         if (!cancelled) setJingleGraph(items);
+ 216 |       })
+ 217 |       .catch(() => {
+ 218 |         if (!cancelled) setJingleGraph([]);
+ 219 |       });
+ 220 | 
+ 221 |     return () => {
+ 222 |       cancelled = true;
+ 223 |     };
+ 224 |   }, [visible]);
+ 225 | 
+ 226 |   useEffect(() => {
+ 227 |     if (openSignal <= 0) return;
+ 228 | 
+ 229 |     setVisible(true);
+ 230 |   }, [openSignal]);
+ 231 | 
+ 232 |   useEffect(() => {
+ 233 |     if (Platform.OS !== 'web') return;
+ 234 | 
+ 235 |     setRecentSearches(
+ 236 |       readStoredArray<string>(RECENT_SEARCHES_KEY)
+ 237 |         .slice(0, 4)
+ 238 |     );
+ 239 | 
+ 240 |     setRecentEntities(
+ 241 |       readStoredArray<SearchEntity>(RECENT_ITEMS_KEY)
+ 242 |         .slice(0, 5)
+ 243 |     );
+ 244 |   }, []);
+ 245 | 
+ 246 |   const rememberSearch = (value: string) => {
+ 247 |     const clean = value.trim();
+ 248 | 
+ 249 |     if (!clean) return;
+ 250 | 
+ 251 |     setRecentSearches((current) => {
+ 252 |       const next = [
+ 253 |         clean,
+ 254 |         ...current.filter(
+ 255 |           (item) =>
+ 256 |             normalize(item) !== normalize(clean)
+ 257 |         ),
+ 258 |       ].slice(0, 4);
+ 259 | 
+ 260 |       writeStoredArray(
+ 261 |         RECENT_SEARCHES_KEY,
+ 262 |         next,
+ 263 |       );
+ 264 | 
+ 265 |       return next;
+ 266 |     });
+ 267 |   };
+ 268 | 
+ 269 |   const rememberEntity = (
+ 270 |     entity: SearchEntity,
+ 271 |   ) => {
+ 272 |     setRecentEntities((current) => {
+ 273 |       const next = [
+ 274 |         entity,
+ 275 |         ...current.filter(
+ 276 |           (item) => item.key !== entity.key
+ 277 |         ),
+ 278 |       ].slice(0, 5);
+ 279 | 
+ 280 |       writeStoredArray(
+ 281 |         RECENT_ITEMS_KEY,
+ 282 |         next,
+ 283 |       );
+ 284 | 
+ 285 |       return next;
+ 286 |     });
+ 287 |   };
+ 288 | 
+ 289 |   const close = () => {
+ 290 |     setVisible(false);
+ 291 |     setQuery('');
+ 292 |     setSelectedIndex(0);
+ 293 |     setQuickCommandError(null);
+ 294 |   };
+ 295 | 
+ 296 |   const navigate = (
+ 297 |     route: string,
+ 298 |     params?: unknown,
+ 299 |   ) => {
+ 300 |     if (!navigation?.isReady?.()) return;
+ 301 | 
+ 302 |     if (params === undefined) {
+ 303 |       navigation.navigate(route);
+ 304 |     } else {
+ 305 |       navigation.navigate(route, params);
+ 306 |     }
+ 307 | 
+ 308 |     close();
+ 309 |   };
+ 310 | 
+ 311 |   const openEntity = (entity: SearchEntity) => {
+ 312 |     rememberEntity(entity);
+ 313 |     rememberSearch(query);
+ 314 | 
+ 315 |     if (entity.kind === 'BOOK') {
+ 316 |       navigate('BookDetails', {
+ 317 |         bookId: entity.id,
+ 318 |       });
+ 319 |       return;
+ 320 |     }
+ 321 | 
+ 322 |     if (entity.kind === 'MEDIA') {
+ 323 |       navigate('Media', {
+ 324 |         screen: 'MediaDetails',
+ 325 |         params: {
+ 326 |           mediaId: entity.id,
+ 327 |         },
+ 328 |       });
+ 329 |       return;
+ 330 |     }
+ 331 | 
+ 332 |     if (entity.kind === 'ENTRY') {
+ 333 |       navigate('EntryForm', {
+ 334 |         entryId: entity.id,
+ 335 |       });
+ 336 |       return;
+ 337 |     }
+ 338 | 
+ 339 |     if (entity.kind === 'FREQUENCY') {
+ 340 |       navigate('MemoryRadio');
+ 341 |       return;
+ 342 |     }
+ 343 | 
+ 344 |     navigate('Games', {
+ 345 |       screen: 'GameDetails',
+ 346 |       params: {
+ 347 |         gameId: entity.id,
+ 348 |       },
+ 349 |     });
+ 350 |   };
+ 351 | 
+ 352 |   const runQuickCreate = async (command: QuickCreateCommand) => {
+ 353 |     if (quickCommandBusy) return;
+ 354 | 
+ 355 |     setQuickCommandBusy(true);
+ 356 |     setQuickCommandError(null);
+ 357 | 
+ 358 |     try {
+ 359 |       if (command.kind === 'ENTRY') {
+ 360 |         await entryApi.create({
+ 361 |           title: null,
+ 362 |           content: command.content,
+ 363 |           type: command.type,
+ 364 |           bookId: null,
+ 365 |           topicId: null,
+ 366 |           activityId: null,
+ 367 |         });
+ 368 |       } else if (command.kind === 'BOOK') {
+ 369 |         await bookApi.create({
+ 370 |           title: command.title,
+ 371 |           author: '',
+ 372 |           isbn: '',
+ 373 |           publishedYear: 0,
+ 374 |           readingStatus: 'LATER',
+ 375 |           progress: 0,
+ 376 |           enjoyment: null,
+ 377 |           favourite: false,
+ 378 |           startedOn: null,
+ 379 |           finishedOn: null,
+ 380 |         });
+ 381 |       } else {
+ 382 |         await topicApi.create({ name: command.name });
+ 383 |       }
+ 384 | 
+ 385 |       createdFeedback();
+ 386 |       close();
+ 387 |     } catch (caught) {
+ 388 |       setQuickCommandError(
+ 389 |         caught instanceof Error ? caught.message : 'Naredba nije uspjela.',
+ 390 |       );
+ 391 |     } finally {
+ 392 |       setQuickCommandBusy(false);
+ 393 |     }
+ 394 |   };
+ 395 | 
+ 396 |   const commands = useMemo<PaletteCommand[]>(
+ 397 |     () => [
+ 398 |       {
+ 399 |         key: 'catalogue',
+ 400 |         label: 'Katalog',
+ 401 |         detail: 'Otvori cijeli katalog',
+ 402 |         aliases: 'catalogue katalog library biblioteka',
+ 403 |         action: () => navigate('Catalogue'),
+ 404 |       },
+ 405 |       {
+ 406 |         key: 'entries',
+ 407 |         label: 'Zapisi',
+ 408 |         detail: 'Otvori i pretraži spremljene zapise',
+ 409 |         aliases: 'zapisi entries biljeske bilješke citati notes',
+ 410 |         action: () => navigate('Entries'),
+ 411 |       },
+ 412 |       {
+ 413 |         key: 'new-entry',
+ 414 |         label: 'Novi zapis',
+ 415 |         detail: 'Dodaj novi zapis',
+ 416 |         aliases: 'zapis entry note dodaj novi',
+ 417 |         action: () => navigate('EntryForm'),
+ 418 |       },
+ 419 |       {
+
+-- lines 439-494 --
+ 439 |       },
+ 440 |       {
+ 441 |         key: 'radio',
+ 442 |         label: 'Memory Radio',
+ 443 |         detail: 'Otvori Memory Radio',
+ 444 |         aliases: 'radio memory audio glazba',
+ 445 |         action: () => navigate('MemoryRadio'),
+ 446 |       },
+ 447 |       {
+ 448 |         key: 'settings',
+ 449 |         label: 'Postavke',
+ 450 |         detail: 'Izgled, boje i postavke',
+ 451 |         aliases: 'settings postavke theme tema izgled',
+ 452 |         action: () => navigate('ThemePicker'),
+ 453 |       },
+ 454 |       {
+ 455 |         key: 'jingle',
+ 456 |         label: 'Jingle',
+ 457 |         detail: 'Prikaži sve Jingle naslove',
+ 458 |         aliases: 'jingle favourite favorite bell zvono',
+ 459 |         action: () => {
+ 460 |           setQuery('jingle');
+ 461 |           setSelectedIndex(0);
+ 462 |         },
+ 463 |       },
+ 464 |     ],
+ 465 |     [navigation],
+ 466 |   );
+ 467 | 
+ 468 |   useEffect(() => {
+ 469 |     if (Platform.OS !== 'web') return;
+ 470 | 
+ 471 |     const target = globalThis as any;
+ 472 | 
+ 473 |     const onKeyDown = (event: any) => {
+ 474 |       const key = String(event.key ?? '').toLocaleLowerCase();
+ 475 | 
+ 476 |       if (
+ 477 |         (event.ctrlKey || event.metaKey) &&
+ 478 |         key === 'k'
+ 479 |       ) {
+ 480 |         event.preventDefault();
+ 481 |         setVisible((current) => !current);
+ 482 |         return;
+ 483 |       }
+ 484 | 
+ 485 |       if (!visible) return;
+ 486 | 
+ 487 |       if (key === 'escape') {
+ 488 |         event.preventDefault();
+ 489 |         close();
+ 490 |       }
+ 491 |     };
+ 492 | 
+ 493 |     target.addEventListener?.('keydown', onKeyDown);
+ 494 | 
+
+-- lines 502-910 --
+ 502 | 
+ 503 |     const timer = setTimeout(() => {
+ 504 |       inputRef.current?.focus();
+ 505 |     }, 30);
+ 506 | 
+ 507 |     return () => clearTimeout(timer);
+ 508 |   }, [visible]);
+ 509 | 
+ 510 |   useEffect(() => {
+ 511 |     if (!visible) return;
+ 512 | 
+ 513 |     let cancelled = false;
+ 514 | 
+ 515 |     setLoading(true);
+ 516 | 
+ 517 |     Promise.all([
+ 518 |       bookApi.getAll(),
+ 519 |       mediaApi.getAll(),
+ 520 |       gameApi.getAll(),
+ 521 |     ])
+ 522 |       .then(([loadedBooks, loadedMedia, loadedGames]) => {
+ 523 |         if (cancelled) return;
+ 524 | 
+ 525 |         setBooks(loadedBooks);
+ 526 |         setMedia(loadedMedia);
+ 527 |         setGames(loadedGames);
+ 528 |       })
+ 529 |       .finally(() => {
+ 530 |         if (!cancelled) {
+ 531 |           setLoading(false);
+ 532 |         }
+ 533 |       });
+ 534 | 
+ 535 |     return () => {
+ 536 |       cancelled = true;
+ 537 |     };
+ 538 |   }, [visible]);
+ 539 | 
+ 540 |   const jingleGraphKeys = new Set(
+ 541 |     jingleGraph.map(
+ 542 |       (item) =>
+ 543 |         item.entityType + ':' + item.entityId,
+ 544 |     ),
+ 545 |   );
+ 546 | 
+ 547 |   const entities = useMemo<SearchEntity[]>(
+ 548 |     () => [
+ 549 |       ...books.map((book) => ({
+ 550 |         key: 'BOOK:' + book.bookId,
+ 551 |         kind: 'BOOK' as const,
+ 552 |         id: book.bookId,
+ 553 |         title: book.title,
+ 554 |         typeLabel: 'Knjiga',
+ 555 |         meta: [
+ 556 |           book.author,
+ 557 |           book.publishedYear,
+ 558 |         ]
+ 559 |           .filter(Boolean)
+ 560 |           .join(' · '),
+ 561 |         favourite: Boolean(book.favourite),
+ 562 |       })),
+ 563 | 
+ 564 |       ...media.map((item) => ({
+ 565 |         key: 'MEDIA:' + item.mediaId,
+ 566 |         kind: 'MEDIA' as const,
+ 567 |         id: item.mediaId,
+ 568 |         title: item.title,
+ 569 |         typeLabel:
+ 570 |           item.mediaType === 'MOVIE'
+ 571 |             ? 'Film'
+ 572 |             : 'Serija',
+ 573 |         meta: [
+ 574 |           item.originalTitle &&
+ 575 |           item.originalTitle !== item.title
+ 576 |             ? item.originalTitle
+ 577 |             : null,
+ 578 |           item.releaseYear,
+ 579 |         ]
+ 580 |           .filter(Boolean)
+ 581 |           .join(' · '),
+ 582 |         favourite: Boolean(item.favourite),
+ 583 |       })),
+ 584 | 
+ 585 |       ...games.map((game) => ({
+ 586 |         key: 'GAME:' + game.gameId,
+ 587 |         kind: 'GAME' as const,
+ 588 |         id: game.gameId,
+ 589 |         title: game.title,
+ 590 |         typeLabel: 'Igra',
+ 591 |         meta: [
+ 592 |           game.platform,
+ 593 |           game.developer,
+ 594 |           game.releaseYear,
+ 595 |         ]
+ 596 |           .filter(Boolean)
+ 597 |           .join(' · '),
+ 598 |         favourite: Boolean(game.favourite),
+ 599 |       })),
+ 600 |       ...entries.map((entry) => ({
+ 601 |         key: 'ENTRY:' + entry.entryId,
+ 602 |         kind: 'ENTRY' as const,
+ 603 |         id: entry.entryId,
+ 604 |         title:
+ 605 |           entry.title?.trim() ||
+ 606 |           entry.content.replace(/\s+/g, ' ').trim().slice(0, 64) ||
+ 607 |           'Zapis',
+ 608 |         typeLabel: 'Zapis',
+ 609 |         meta: entry.content.replace(/\s+/g, ' ').trim().slice(0, 140),
+ 610 |         favourite:
+ 611 |           jingleGraphKeys.has(
+ 612 |             'ENTRY:' + entry.entryId,
+ 613 |           ),
+ 614 |       })),
+ 615 |       ...frequencies.map((frequency) => ({
+ 616 |         key: 'FREQUENCY:' + frequency.trackId,
+ 617 |         kind: 'FREQUENCY' as const,
+ 618 |         id: frequency.trackId,
+ 619 |         title: frequency.trackTitle || 'Frekvencija',
+ 620 |         typeLabel: 'Frekvencija',
+ 621 |         meta: [
+ 622 |           frequency.artist,
+ 623 |           'Memory Radio',
+ 624 |           frequency.linkId ? 'Povezano' : 'Nepovezano',
+ 625 |         ]
+ 626 |           .filter(Boolean)
+ 627 |           .join(' · '),
+ 628 |         favourite:
+ 629 |           jingleGraphKeys.has(
+ 630 |             'FREQUENCY:' + frequency.trackId,
+ 631 |           ),
+ 632 |       })),
+ 633 |     ],
+ 634 |     [books, games, media],
+ 635 |   );
+ 636 | 
+ 637 |   const items = useMemo<PaletteItem[]>(() => {
+ 638 |     const normalizedQuery = normalize(query.trim());
+ 639 |     const quickCreate = parseQuickCreateCommand(query);
+ 640 | 
+ 641 |     if (quickCreate) {
+ 642 |       const detail =
+ 643 |         quickCreate.kind === 'BOOK'
+ 644 |           ? `Odmah stvori knjigu “${quickCreate.title}”`
+ 645 |           : quickCreate.kind === 'TOPIC'
+ 646 |             ? `Odmah stvori temu “${quickCreate.name}”`
+ 647 |             : `Odmah stvori ${quickCreate.label.toLocaleLowerCase()}`;
+ 648 | 
+ 649 |       return [
+ 650 |         {
+ 651 |           itemType: 'command',
+ 652 |           command: {
+ 653 |             key: 'quick-create',
+ 654 |             label: query.trim(),
+ 655 |             detail,
+ 656 |             aliases: query.trim(),
+ 657 |             action: () => runQuickCreate(quickCreate),
+ 658 |           },
+ 659 |         },
+ 660 |       ];
+ 661 |     }
+ 662 | 
+ 663 |     if (normalizedQuery.length === 0) {
+ 664 |       const recentSearchCommands =
+ 665 |         recentSearches.map(
+ 666 |           (value): PaletteCommand => ({
+ 667 |             key: 'recent-search:' + value,
+ 668 |             label: value,
+ 669 |             detail: 'Nedavna pretraga',
+ 670 |             aliases: value,
+ 671 |             action: () => {
+ 672 |               setQuery(value);
+ 673 |               setSelectedIndex(0);
+ 674 |             },
+ 675 |           }),
+ 676 |         );
+ 677 | 
+ 678 |       return [
+ 679 |         ...recentEntities.map(
+ 680 |           (entity): PaletteItem => ({
+ 681 |             itemType: 'entity',
+ 682 |             entity,
+ 683 |           }),
+ 684 |         ),
+ 685 | 
+ 686 |         ...recentSearchCommands.map(
+ 687 |           (command): PaletteItem => ({
+ 688 |             itemType: 'command',
+ 689 |             command,
+ 690 |           }),
+ 691 |         ),
+ 692 | 
+ 693 |         ...commands.map(
+ 694 |           (command): PaletteItem => ({
+ 695 |             itemType: 'command',
+ 696 |             command,
+ 697 |           }),
+ 698 |         ),
+ 699 |       ];
+ 700 |     }
+ 701 |     const tokens = normalizedQuery
+ 702 |       .split(/\s+/)
+ 703 |       .filter(Boolean);
+ 704 | 
+ 705 |     const jingleOnly = tokens.includes('jingle');
+ 706 | 
+ 707 |     const textTerms = tokens.filter(
+ 708 |       (token) => token !== 'jingle'
+ 709 |     );
+ 710 | 
+ 711 |     const commandResults =
+ 712 |       commands.filter((command) => {
+ 713 |             const haystack = normalize(
+ 714 |               command.label +
+ 715 |                 ' ' +
+ 716 |                 command.detail +
+ 717 |                 ' ' +
+ 718 |                 command.aliases
+ 719 |             );
+ 720 | 
+ 721 |             return textTerms.length > 0
+ 722 |               ? textTerms.every((term) =>
+ 723 |                   haystack.includes(term)
+ 724 |                 )
+ 725 |               : false;
+ 726 |           });
+ 727 | 
+ 728 |     const entityResults =
+ 729 |       entities
+ 730 |             .filter((entity) => {
+ 731 |               if (
+ 732 |                 jingleOnly &&
+ 733 |                 !entity.favourite
+ 734 |               ) {
+ 735 |                 return false;
+ 736 |               }
+ 737 | 
+ 738 |               if (textTerms.length === 0) {
+ 739 |                 return true;
+ 740 |               }
+ 741 | 
+ 742 |               const haystack = normalize(
+ 743 |                 [
+ 744 |                   entity.title,
+ 745 |                   entity.typeLabel,
+ 746 |                   entity.meta,
+ 747 |                 ].join(' ')
+ 748 |               );
+ 749 | 
+ 750 |               return textTerms.every((term) =>
+ 751 |                 haystack.includes(term)
+ 752 |               );
+ 753 |             })
+ 754 |             .slice(0, 20);
+ 755 | 
+ 756 |     return [
+ 757 |       ...commandResults.map(
+ 758 |         (command): PaletteItem => ({
+ 759 |           itemType: 'command',
+ 760 |           command,
+ 761 |         })
+ 762 |       ),
+ 763 |       ...entityResults.map(
+ 764 |         (entity): PaletteItem => ({
+ 765 |           itemType: 'entity',
+ 766 |           entity,
+ 767 |         })
+ 768 |       ),
+ 769 |     ];
+ 770 |   }, [
+ 771 |     commands,
+ 772 |     entities,
+ 773 |     query,
+ 774 |     recentEntities,
+ 775 |     recentSearches,
+ 776 |     quickCommandBusy,
+ 777 |   ]);
+ 778 | 
+ 779 |   useEffect(() => {
+ 780 |     setSelectedIndex(0);
+ 781 |   }, [query]);
+ 782 | 
+ 783 |   useEffect(() => {
+ 784 |     if (Platform.OS !== 'web' || !visible) return;
+ 785 | 
+ 786 |     const target = globalThis as any;
+ 787 | 
+ 788 |     const onKeyDown = (event: any) => {
+ 789 |       const key = String(event.key ?? '').toLocaleLowerCase();
+ 790 | 
+ 791 |       if (key === 'arrowdown') {
+ 792 |         event.preventDefault();
+ 793 | 
+ 794 |         setSelectedIndex((current) =>
+ 795 |           items.length === 0
+ 796 |             ? 0
+ 797 |             : (current + 1) % items.length
+ 798 |         );
+ 799 | 
+ 800 |         return;
+ 801 |       }
+ 802 | 
+ 803 |       if (key === 'arrowup') {
+ 804 |         event.preventDefault();
+ 805 | 
+ 806 |         setSelectedIndex((current) =>
+ 807 |           items.length === 0
+ 808 |             ? 0
+ 809 |             : (current - 1 + items.length) %
+ 810 |               items.length
+ 811 |         );
+ 812 | 
+ 813 |         return;
+ 814 |       }
+ 815 | 
+ 816 |       if (key === 'enter') {
+ 817 |         const item = items[selectedIndex];
+ 818 | 
+ 819 |         if (!item) return;
+ 820 | 
+ 821 |         event.preventDefault();
+ 822 | 
+ 823 |         if (item.itemType === 'command') {
+ 824 |           rememberSearch(query);
+ 825 |           void void item.command.action();
+ 826 |         } else {
+ 827 |           openEntity(item.entity);
+ 828 |         }
+ 829 |       }
+ 830 |     };
+ 831 | 
+ 832 |     target.addEventListener?.('keydown', onKeyDown);
+ 833 | 
+ 834 |     return () => {
+ 835 |       target.removeEventListener?.('keydown', onKeyDown);
+ 836 |     };
+ 837 |   }, [items, selectedIndex, visible]);
+ 838 | 
+ 839 |   return (
+ 840 |     <Modal
+ 841 |       animationType="fade"
+ 842 |       transparent
+ 843 |       visible={visible}
+ 844 |       onRequestClose={close}
+ 845 |     >
+ 846 |       <View style={styles.backdrop}>
+ 847 |         <Pressable
+ 848 |           accessibilityLabel="Zatvori command palette"
+ 849 |           onPress={close}
+ 850 |           style={StyleSheet.absoluteFill}
+ 851 |         />
+ 852 | 
+ 853 |         <View style={styles.palette}>
+ 854 |           <View style={styles.searchRow}>
+ 855 |             <Text style={styles.searchIcon}>
+ 856 |               ⌕
+ 857 |             </Text>
+ 858 | 
+ 859 |             <TextInput
+ 860 |               ref={inputRef}
+ 861 |               accessibilityLabel="Pretraži ili pokreni naredbu"
+ 862 |               autoCapitalize="none"
+ 863 |               autoCorrect={false}
+ 864 |               onChangeText={(value) => {
+ 865 |                 setQuery(value);
+ 866 |                 setQuickCommandError(null);
+ 867 |               }}
+ 868 |               onSubmitEditing={() => {
+ 869 |                 if (Platform.OS === 'web') return;
+ 870 |                 const item = items[selectedIndex];
+ 871 |                 if (!item) return;
+ 872 |                 if (item.itemType === 'command') {
+ 873 |                   rememberSearch(query);
+ 874 |                   void item.command.action();
+ 875 |                 } else {
+ 876 |                   openEntity(item.entity);
+ 877 |                 }
+ 878 |               }}
+ 879 |               returnKeyType="go"
+ 880 |               placeholder="Pretraži ili pokreni naredbu..."
+ 881 |               placeholderTextColor={colors.textMuted}
+ 882 |               style={styles.input}
+ 883 |               value={query}
+ 884 |             />
+ 885 | 
+ 886 |             {Platform.OS === 'web' ? (
+ 887 |               <View style={styles.shortcut}>
+ 888 |                 <Text style={styles.shortcutText}>
+ 889 |                   ESC
+ 890 |                 </Text>
+ 891 |               </View>
+ 892 |             ) : null}
+ 893 |           </View>
+ 894 | 
+ 895 |           <ScrollView
+ 896 |             keyboardShouldPersistTaps="handled"
+ 897 |             style={styles.results}
+ 898 |           >
+ 899 |             {quickCommandError ? (
+ 900 |               <Text style={styles.commandError}>{quickCommandError}</Text>
+ 901 |             ) : null}
+ 902 |             {quickCommandBusy ? (
+ 903 |               <View style={styles.loadingRow}>
+ 904 |                 <ActivityIndicator color={colors.textMuted} size="small" />
+ 905 |                 <Text style={styles.loadingText}>Izvršavam naredbu...</Text>
+ 906 |               </View>
+ 907 |             ) : loading ? (
+ 908 |               <View style={styles.loadingRow}>
+ 909 |                 <ActivityIndicator
+ 910 |                   color={colors.textMuted}
+
+-- lines 955-1071 --
+ 955 |                           {item.command.detail}
+ 956 |                         </Text>
+ 957 |                       </View>
+ 958 | 
+ 959 |                       <Text style={styles.kind}>
+ 960 |                         NAREDBA
+ 961 |                       </Text>
+ 962 |                     </Pressable>
+ 963 |                   );
+ 964 |                 }
+ 965 | 
+ 966 |                 return (
+ 967 |                   <Pressable
+ 968 |                     key={item.entity.key}
+ 969 |                     accessibilityRole="button"
+ 970 |                     onPress={() =>
+ 971 |                       openEntity(item.entity)
+ 972 |                     }
+ 973 |                     onHoverIn={() =>
+ 974 |                       setSelectedIndex(index)
+ 975 |                     }
+ 976 |                     style={[
+ 977 |                       styles.row,
+ 978 |                       selected && styles.rowSelected,
+ 979 |                     ]}
+ 980 |                   >
+ 981 |                     <View style={styles.copy}>
+ 982 |                       <Text
+ 983 |                         numberOfLines={1}
+ 984 |                         style={styles.title}
+ 985 |                       >
+ 986 |                         {item.entity.title}
+ 987 |                       </Text>
+ 988 | 
+ 989 |                       <Text
+ 990 |                         numberOfLines={1}
+ 991 |                         style={styles.meta}
+ 992 |                       >
+ 993 |                         {item.entity.meta ||
+ 994 |                           item.entity.typeLabel}
+ 995 |                       </Text>
+ 996 |                     </View>
+ 997 | 
+ 998 |                     {item.entity.favourite ? (
+ 999 |                       <Text style={styles.jingle}>
+1000 |                         ♫
+1001 |                       </Text>
+1002 |                     ) : null}
+1003 | 
+1004 |                     <Text style={styles.kind}>
+1005 |                       {query.trim()
+1006 |                         ? item.entity.typeLabel.toLocaleUpperCase()
+1007 |                         : 'NEDAVNO · ' +
+1008 |                           item.entity.typeLabel.toLocaleUpperCase()}
+1009 |                     </Text>
+1010 |                   </Pressable>
+1011 |                 );
+1012 |               })
+1013 |             )}
+1014 |           </ScrollView>
+1015 | 
+1016 |           {Platform.OS === 'web' ? (
+1017 |             <View style={styles.footer}>
+1018 |               <Text style={styles.footerText}>
+1019 |                 ↑ ↓ odabir
+1020 |               </Text>
+1021 | 
+1022 |               <Text style={styles.footerText}>
+1023 |                 ENTER otvori
+1024 |               </Text>
+1025 | 
+1026 |               <Text style={styles.footerText}>
+1027 |                 ESC zatvori
+1028 |               </Text>
+1029 |             </View>
+1030 |           ) : null}
+1031 |         </View>
+1032 |       </View>
+1033 |     </Modal>
+1034 |   );
+1035 | }
+1036 | 
+1037 | const styles = StyleSheet.create({
+1038 |   backdrop: {
+1039 |     flex: 1,
+1040 |     alignItems: 'center',
+1041 |     justifyContent: 'flex-start',
+1042 |     paddingHorizontal: 18,
+1043 |     paddingTop:
+1044 |       Platform.OS === 'web'
+1045 |         ? 92
+1046 |         : 54,
+1047 |     backgroundColor: 'rgba(0,0,0,0.34)',
+1048 |   },
+1049 | 
+1050 |   palette: {
+1051 |     width: '100%',
+1052 |     maxWidth: 650,
+1053 |     maxHeight:
+1054 |       Platform.OS === 'web'
+1055 |         ? 590
+1056 |         : '82%',
+1057 |     overflow: 'hidden',
+1058 |     borderRadius: 22,
+1059 |     borderWidth: 1,
+1060 |     borderColor: colors.separator,
+1061 |     backgroundColor: colors.surface,
+1062 |   },
+1063 | 
+1064 |   searchRow: {
+1065 |     minHeight: 62,
+1066 |     flexDirection: 'row',
+1067 |     alignItems: 'center',
+1068 |     paddingHorizontal: 16,
+1069 |     borderBottomWidth: 1,
+1070 |     borderBottomColor: colors.separator,
+1071 |   },
+
+-- lines 1143-1193 --
+1143 |   },
+1144 | 
+1145 |   meta: {
+1146 |     color: colors.textMuted,
+1147 |     fontSize: 11,
+1148 |     marginTop: 3,
+1149 |   },
+1150 | 
+1151 |   kind: {
+1152 |     color: colors.textMuted,
+1153 |     fontSize: 9,
+1154 |     fontWeight: '900',
+1155 |     letterSpacing: 0.5,
+1156 |     marginLeft: 10,
+1157 |   },
+1158 | 
+1159 |   jingle: {
+1160 |     color: colors.text,
+1161 |     fontSize: 14,
+1162 |     marginLeft: 8,
+1163 |   },
+1164 | 
+1165 |   loadingRow: {
+1166 |     minHeight: 72,
+1167 |     flexDirection: 'row',
+1168 |     alignItems: 'center',
+1169 |     justifyContent: 'center',
+1170 |     gap: 9,
+1171 |   },
+1172 | 
+1173 |   loadingText: {
+1174 |     color: colors.textMuted,
+1175 |     fontSize: 12,
+1176 |   },
+1177 | 
+1178 |   commandError: {
+1179 |     marginHorizontal: 14,
+1180 |     marginTop: 10,
+1181 |     color: colors.danger,
+1182 |     fontSize: 12,
+1183 |     lineHeight: 17,
+1184 |   },
+1185 |   empty: {
+1186 |     color: colors.textMuted,
+1187 |     fontSize: 13,
+1188 |     padding: 24,
+1189 |     textAlign: 'center',
+1190 |   },
+1191 | 
+1192 |   footer: {
+1193 |     minHeight: 38,
+
+### src/services/topicApi.ts
+
+-- lines 1-60 --
+   1 | import { apiRequest } from './apiClient';
+   2 | import type {
+   3 |   TopicActivityRequest,
+   4 |   TopicActivityResponse,
+   5 |   TopicActivityTimerResponse,
+   6 |   TopicRequest,
+   7 |   TopicResponse,
+   8 | } from '../types/topic';
+   9 | 
+  10 | function jsonBody(body: unknown): RequestInit {
+  11 |   return {
+  12 |     headers: { 'Content-Type': 'application/json' },
+  13 |     body: JSON.stringify(body),
+  14 |   };
+  15 | }
+  16 | 
+  17 | export const topicApi = {
+  18 |   getAll: () => apiRequest<TopicResponse[]>('/topics'),
+  19 | 
+  20 |   getById: (topicId: string) =>
+  21 |     apiRequest<TopicResponse>(`/topics/${topicId}`),
+  22 | 
+  23 |   create: (request: TopicRequest) =>
+  24 |     apiRequest<TopicResponse>('/topics', {
+  25 |       method: 'POST',
+  26 |       ...jsonBody(request),
+  27 |     }),
+  28 | 
+  29 |   update: (topicId: string, request: TopicRequest) =>
+  30 |     apiRequest<TopicResponse>(`/topics/${topicId}`, {
+  31 |       method: 'PUT',
+  32 |       ...jsonBody(request),
+  33 |     }),
+  34 | 
+  35 |   remove: (topicId: string) =>
+  36 |     apiRequest<void>(`/topics/${topicId}`, { method: 'DELETE' }),
+  37 | 
+  38 |   getActivities: (topicId: string) =>
+  39 |     apiRequest<TopicActivityResponse[]>(`/topics/${topicId}/activities`),
+  40 | 
+  41 |   createActivity: (topicId: string, request: TopicActivityRequest) =>
+  42 |     apiRequest<TopicActivityResponse>(`/topics/${topicId}/activities`, {
+  43 |       method: 'POST',
+  44 |       ...jsonBody(request),
+  45 |     }),
+  46 | 
+  47 |   getActiveActivities: () =>
+  48 |     apiRequest<TopicActivityTimerResponse[]>('/activities/active'),
+  49 | 
+  50 |   startActivity: (activityId: string) =>
+  51 |     apiRequest<TopicActivityTimerResponse>(`/activities/${activityId}/start`, {
+  52 |       method: 'POST',
+  53 |     }),
+  54 | 
+  55 |   stopActivity: (activityId: string) =>
+  56 |     apiRequest<TopicActivityTimerResponse>(`/activities/${activityId}/stop`, {
+  57 |       method: 'POST',
+  58 |     }),
+  59 | };
+  60 | 
+
+### src/services/entityLinksApi.ts
+
+-- lines 1-57 --
+   1 | import { apiRequest } from './apiClient';
+   2 | import type {
+   3 |   EntityLink,
+   4 |   EntityReference,
+   5 |   EntityReferenceType,
+   6 |   RelationType,
+   7 | } from '../types/collection';
+   8 | 
+   9 | // brutusEntityLinksApiV2
+  10 | export const entityLinksApi = {
+  11 |   searchReferences(query: string) {
+  12 |     return apiRequest<EntityReference[]>(
+  13 |       '/entity-references?query=' +
+  14 |         encodeURIComponent(query),
+  15 |     );
+  16 |   },
+  17 | 
+  18 |   jingleReferences() {
+  19 |     return apiRequest<EntityReference[]>(
+  20 |       '/entity-references/jingle',
+  21 |     );
+  22 |   },
+  23 | 
+  24 |   getFor(entityType: EntityReferenceType, entityId: string) {
+  25 |     return apiRequest<EntityLink[]>(
+  26 |       '/entity-links?entityType=' +
+  27 |         encodeURIComponent(entityType) +
+  28 |         '&entityId=' +
+  29 |         encodeURIComponent(entityId),
+  30 |     );
+  31 |   },
+  32 | 
+  33 |   create(request: {
+  34 |     sourceType: EntityReferenceType;
+  35 |     sourceId: string;
+  36 |     targetType: EntityReferenceType;
+  37 |     targetId: string;
+  38 |     relationType: RelationType;
+  39 |     note?: string | null;
+  40 |   }) {
+  41 |     return apiRequest<EntityLink>(
+  42 |       '/entity-links',
+  43 |       {
+  44 |         method: 'POST',
+  45 |         body: JSON.stringify(request),
+  46 |       },
+  47 |     );
+  48 |   },
+  49 | 
+  50 |   remove(linkId: string) {
+  51 |     return apiRequest<void>(
+  52 |       '/entity-links/' + encodeURIComponent(linkId),
+  53 |       { method: 'DELETE' },
+  54 |     );
+  55 |   },
+  56 | };
+  57 | 
+
+### src/services/entryApi.ts
+
+-- lines 1-50 --
+   1 | import type { Entry, EntryQuery, EntryRequest } from '../types/entry';
+   2 | import { apiRequest } from './apiClient';
+   3 | import {
+   4 |   cleanupEntryImagesAfterDelete,
+   5 |   getEntryImageUris,
+   6 | } from './entryImages';
+   7 | 
+   8 | export { ApiError } from './apiClient';
+   9 | 
+  10 | function queryString(query: EntryQuery) {
+  11 |   return Object.entries(query)
+  12 |     .filter(([, value]) => value !== undefined && value !== '')
+  13 |     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+  14 |     .join('&');
+  15 | }
+  16 | 
+  17 | export const entryApi = {
+  18 |   getAll: (query: EntryQuery = {}) => {
+  19 |     const params = queryString(query);
+  20 |     return apiRequest<Entry[]>(`/entries${params ? `?${params}` : ''}`);
+  21 |   },
+  22 | 
+  23 |   getById: (entryId: string) => apiRequest<Entry>(`/entries/${entryId}`),
+  24 | 
+  25 |   create: (payload: EntryRequest) =>
+  26 |     apiRequest<Entry>('/entries', {
+  27 |       method: 'POST',
+  28 |       body: JSON.stringify(payload),
+  29 |     }),
+  30 | 
+  31 |   update: (entryId: string, payload: EntryRequest) =>
+  32 |     apiRequest<Entry>(`/entries/${entryId}`, {
+  33 |       method: 'PUT',
+  34 |       body: JSON.stringify(payload),
+  35 |     }),
+  36 | 
+  37 |   remove: async (entryId: string) => {
+  38 |     const imageUris = await getEntryImageUris(entryId).catch(() => []);
+  39 | 
+  40 |     await apiRequest<void>(`/entries/${entryId}`, {
+  41 |       method: 'DELETE',
+  42 |     });
+  43 | 
+  44 |     await cleanupEntryImagesAfterDelete(
+  45 |       entryId,
+  46 |       imageUris,
+  47 |     ).catch(() => undefined);
+  48 |   },
+  49 | };
+  50 | 
+
+### src/services/cloudSync.ts
+
+-- lines 4-110 --
+   4 | 
+   5 | import {
+   6 |   exportLocalData,
+   7 |   importLocalData,
+   8 | } from '../storage/backup';
+   9 | import {
+  10 |   ApiError,
+  11 |   onlineApiRequest,
+  12 | } from './apiClient';
+  13 | 
+  14 | // cloudSyncV1
+  15 | 
+  16 | export type CloudSyncReason =
+  17 |   | 'APP_OPEN'
+  18 |   | 'BACKGROUND'
+  19 |   | 'PERIODIC'
+  20 |   | 'MANUAL'
+  21 |   | 'MANUAL_FORCE';
+  22 | 
+  23 | export type CloudSyncOutcome =
+  24 |   | 'disabled'
+  25 |   | 'synced'
+  26 |   | 'uploaded'
+  27 |   | 'cloud-newer'
+  28 |   | 'conflict'
+  29 |   | 'offline'
+  30 |   | 'wifi-only'
+  31 |   | 'error';
+  32 | 
+  33 | export type CloudSnapshotMeta = {
+  34 |   revision: number;
+  35 |   createdAt: string | null;
+  36 |   deviceId: string;
+  37 |   contentHash: string;
+  38 |   schemaVersion: number;
+  39 |   reason: string;
+  40 |   backupBytes: number;
+  41 | };
+  42 | 
+  43 | export type CloudSyncState = {
+  44 |   deviceId: string;
+  45 | 
+  46 |   automatic: boolean;
+  47 |   wifiOnly: boolean;
+  48 | 
+  49 |   lastSyncedHash: string | null;
+  50 |   lastRevision: number | null;
+  51 |   lastSyncedAt: string | null;
+  52 | 
+  53 |   lastOutcome: CloudSyncOutcome;
+  54 |   lastError: string | null;
+  55 | };
+  56 | 
+  57 | export type CloudSyncResult = {
+  58 |   outcome: CloudSyncOutcome;
+  59 |   state: CloudSyncState;
+  60 |   manifest: CloudSnapshotMeta | null;
+  61 |   localHash?: string;
+  62 | };
+  63 | 
+  64 | const WEB_STORAGE_KEY =
+  65 |   'ljingle_cloud_sync_v1';
+  66 | 
+  67 | const STATE_FILENAME =
+  68 |   'ljingle-cloud-sync-v1.json';
+  69 | 
+  70 | const SYNC_KEY =
+  71 |   process.env.EXPO_PUBLIC_SYNC_KEY?.trim() ?? '';
+  72 | 
+  73 | const SYNC_API_BASE_URL =
+  74 |   (
+  75 |     process.env.EXPO_PUBLIC_SYNC_API_URL?.trim() ||
+  76 |     'https://heraldsofthelion.org/ljingle-api'
+  77 |   ).replace(/\/+$/, '');
+  78 | 
+  79 | let running:
+  80 |   | Promise<CloudSyncResult>
+  81 |   | null = null;
+  82 | 
+  83 | function freshState(): CloudSyncState {
+  84 |   return {
+  85 |     deviceId: '',
+  86 |     automatic: true,
+  87 |     wifiOnly: false,
+  88 |     lastSyncedHash: null,
+  89 |     lastRevision: null,
+  90 |     lastSyncedAt: null,
+  91 |     lastOutcome: 'disabled',
+  92 |     lastError: null,
+  93 |   };
+  94 | }
+  95 | 
+  96 | function identifier() {
+  97 |   return (
+  98 |     'lj-' +
+  99 |     Date.now().toString(36) +
+ 100 |     '-' +
+ 101 |     Math.random()
+ 102 |       .toString(36)
+ 103 |       .slice(2, 12)
+ 104 |   );
+ 105 | }
+ 106 | 
+ 107 | async function loadState(): Promise<CloudSyncState> {
+ 108 |   let parsed: Partial<CloudSyncState> = {};
+ 109 | 
+ 110 |   try {
+
+-- lines 194-244 --
+ 194 |   };
+ 195 | 
+ 196 |   await saveState(updated);
+ 197 | 
+ 198 |   return updated;
+ 199 | }
+ 200 | 
+ 201 | function authHeaders():
+ 202 |   Record<string, string> {
+ 203 |   if (!SYNC_KEY) {
+ 204 |     throw new Error(
+ 205 |       'Cloud Sync key nedostaje u ovom buildu. Ponovno pokreni/rebuildaj Expo s EXPO_PUBLIC_SYNC_KEY.',
+ 206 |     );
+ 207 |   }
+ 208 |   return SYNC_KEY
+ 209 |     ? {
+ 210 |         'X-LJINGLE-SYNC-KEY':
+ 211 |           SYNC_KEY,
+ 212 |       }
+ 213 |     : {};
+ 214 | }
+ 215 | 
+ 216 | function normalizeBackupForHash(
+ 217 |   text: string,
+ 218 | ) {
+ 219 |   const root =
+ 220 |     JSON.parse(text) as Record<string, unknown>;
+ 221 | 
+ 222 |   // Export timestamp is intentionally ignored:
+ 223 |   // exporting the same DB twice must produce the same
+ 224 |   // content fingerprint.
+ 225 |   delete root.exportedAt;
+ 226 | 
+ 227 |   return JSON.stringify(root);
+ 228 | }
+ 229 | 
+ 230 | function fingerprint(
+ 231 |   value: string,
+ 232 | ) {
+ 233 |   // Two independent 32-bit hashes.
+ 234 |   // This is change detection, not password crypto.
+ 235 |   let a = 0x811c9dc5;
+ 236 |   let b = 0x9e3779b9;
+ 237 | 
+ 238 |   for (
+ 239 |     let index = 0;
+ 240 |     index < value.length;
+ 241 |     index += 1
+ 242 |   ) {
+ 243 |     const code =
+ 244 |       value.charCodeAt(index);
+
+-- lines 377-458 --
+ 377 |   state: CloudSyncState,
+ 378 |   reason: CloudSyncReason,
+ 379 |   local: Awaited<
+ 380 |     ReturnType<typeof localSnapshot>
+ 381 |   >,
+ 382 | ) {
+ 383 |   const meta =
+ 384 |     await onlineApiRequest<
+ 385 |       CloudSnapshotMeta
+ 386 |     >(
+ 387 |       SYNC_API_BASE_URL + '/sync/snapshots',
+ 388 |       {
+ 389 |         method: 'POST',
+ 390 |         headers: {
+ 391 |           ...authHeaders(),
+ 392 | 
+ 393 |           'X-LJINGLE-DEVICE-ID':
+ 394 |             state.deviceId,
+ 395 | 
+ 396 |           'X-LJINGLE-CONTENT-HASH':
+ 397 |             local.contentHash,
+ 398 | 
+ 399 |           'X-LJINGLE-SCHEMA-VERSION':
+ 400 |             String(
+ 401 |               local.schemaVersion,
+ 402 |             ),
+ 403 | 
+ 404 |           'X-LJINGLE-SYNC-REASON':
+ 405 |             reason,
+ 406 |         },
+ 407 | 
+ 408 |         // Raw LJingle backup JSON.
+ 409 |         // No double-encoding giant JSON string.
+ 410 |         body: local.backupJson,
+ 411 |       },
+ 412 |     );
+ 413 | 
+ 414 |   const updated: CloudSyncState = {
+ 415 |     ...state,
+ 416 | 
+ 417 |     lastSyncedHash:
+ 418 |       meta.contentHash,
+ 419 | 
+ 420 |     lastRevision:
+ 421 |       meta.revision,
+ 422 | 
+ 423 |     lastSyncedAt:
+ 424 |       meta.createdAt ??
+ 425 |       new Date().toISOString(),
+ 426 | 
+ 427 |     lastOutcome: 'uploaded',
+ 428 |     lastError: null,
+ 429 |   };
+ 430 | 
+ 431 |   await saveState(updated);
+ 432 | 
+ 433 |   return {
+ 434 |     outcome:
+ 435 |       'uploaded' as const,
+ 436 |     state: updated,
+ 437 |     manifest: meta,
+ 438 |     localHash:
+ 439 |       local.contentHash,
+ 440 |   };
+ 441 | }
+ 442 | 
+ 443 | async function run(
+ 444 |   reason: CloudSyncReason,
+ 445 |   automatic: boolean,
+ 446 |   forceUpload: boolean,
+ 447 | ): Promise<CloudSyncResult> {
+ 448 |   let state =
+ 449 |     await loadState();
+ 450 | 
+ 451 |   if (
+ 452 |     automatic &&
+ 453 |     !state.automatic
+ 454 |   ) {
+ 455 |     return {
+ 456 |       outcome: 'disabled',
+ 457 |       state,
+ 458 |       manifest: null,
+
+-- lines 498-548 --
+ 498 |     }
+ 499 | 
+ 500 |     if (
+ 501 |       manifest.contentHash ===
+ 502 |       local.contentHash
+ 503 |     ) {
+ 504 |       state = {
+ 505 |         ...state,
+ 506 | 
+ 507 |         lastSyncedHash:
+ 508 |           manifest.contentHash,
+ 509 | 
+ 510 |         lastRevision:
+ 511 |           manifest.revision,
+ 512 | 
+ 513 |         lastSyncedAt:
+ 514 |           manifest.createdAt ??
+ 515 |           state.lastSyncedAt,
+ 516 | 
+ 517 |         lastOutcome: 'synced',
+ 518 |         lastError: null,
+ 519 |       };
+ 520 | 
+ 521 |       await saveState(state);
+ 522 | 
+ 523 |       return {
+ 524 |         outcome: 'synced',
+ 525 |         state,
+ 526 |         manifest,
+ 527 |         localHash:
+ 528 |           local.contentHash,
+ 529 |       };
+ 530 |     }
+ 531 | 
+ 532 |     const base =
+ 533 |       state.lastSyncedHash;
+ 534 | 
+ 535 |     if (
+ 536 |       base &&
+ 537 |       manifest.contentHash !== base
+ 538 |     ) {
+ 539 |       // Another device/server changed after our
+ 540 |       // last shared checkpoint.
+ 541 |       if (
+ 542 |         local.contentHash === base
+ 543 |       ) {
+ 544 |         const updated = {
+ 545 |           ...state,
+ 546 |           lastOutcome:
+ 547 |             'cloud-newer' as const,
+ 548 |           lastError: null,
+
+-- lines 626-688 --
+ 626 |     const updated = {
+ 627 |       ...state,
+ 628 |       lastOutcome: outcome,
+ 629 |       lastError: message,
+ 630 |     };
+ 631 | 
+ 632 |     await saveState(updated);
+ 633 | 
+ 634 |     return {
+ 635 |       outcome,
+ 636 |       state: updated,
+ 637 |       manifest: null,
+ 638 |     };
+ 639 |   }
+ 640 | }
+ 641 | 
+ 642 | export function runCloudSync(
+ 643 |   options?: {
+ 644 |     reason?: CloudSyncReason;
+ 645 |     automatic?: boolean;
+ 646 |     forceUpload?: boolean;
+ 647 |   },
+ 648 | ): Promise<CloudSyncResult> {
+ 649 |   if (running) {
+ 650 |     return running;
+ 651 |   }
+ 652 | 
+ 653 |   running = run(
+ 654 |     options?.reason ?? 'MANUAL',
+ 655 |     options?.automatic ?? false,
+ 656 |     options?.forceUpload ?? false,
+ 657 |   ).finally(() => {
+ 658 |     running = null;
+ 659 |   });
+ 660 | 
+ 661 |   return running;
+ 662 | }
+ 663 | 
+ 664 | async function downloadSnapshot(
+ 665 |   revision?: number,
+ 666 | ) {
+ 667 |   const path =
+ 668 |     revision == null
+ 669 |       ? '/sync/snapshots/latest'
+ 670 |       : '/sync/snapshots/' +
+ 671 |         revision;
+ 672 | 
+ 673 |   const controller =
+ 674 |     new AbortController();
+ 675 | 
+ 676 |   const timeout =
+ 677 |     setTimeout(
+ 678 |       () => controller.abort(),
+ 679 |       15000,
+ 680 |     );
+ 681 | 
+ 682 |   try {
+ 683 |     const response =
+ 684 |       await fetch(
+ 685 |         SYNC_API_BASE_URL + path,
+ 686 |         {
+ 687 |           method: 'GET',
+ 688 |           headers: {
+
+-- lines 697-782 --
+ 697 | 
+ 698 |     if (!response.ok) {
+ 699 |       throw new Error(
+ 700 |         'Cloud snapshot nije dostupan (' +
+ 701 |           response.status +
+ 702 |           ').',
+ 703 |       );
+ 704 |     }
+ 705 | 
+ 706 |     return {
+ 707 |       text:
+ 708 |         await response.text(),
+ 709 | 
+ 710 |       revision:
+ 711 |         Number(
+ 712 |           response.headers.get(
+ 713 |             'X-LJINGLE-REVISION',
+ 714 |           ),
+ 715 |         ) || null,
+ 716 | 
+ 717 |       contentHash:
+ 718 |         response.headers.get(
+ 719 |           'X-LJINGLE-CONTENT-HASH',
+ 720 |         ),
+ 721 | 
+ 722 |       createdAt:
+ 723 |         response.headers.get(
+ 724 |           'X-LJINGLE-CREATED-AT',
+ 725 |         ),
+ 726 |     };
+ 727 |   } finally {
+ 728 |     clearTimeout(timeout);
+ 729 |   }
+ 730 | }
+ 731 | 
+ 732 | async function saveBeforeRestoreBackup(
+ 733 |   text: string,
+ 734 | ) {
+ 735 |   if (
+ 736 |     Platform.OS === 'web' ||
+ 737 |     !FileSystem.documentDirectory
+ 738 |   ) {
+ 739 |     return null;
+ 740 |   }
+ 741 | 
+ 742 |   const stamp =
+ 743 |     new Date()
+ 744 |       .toISOString()
+ 745 |       .replace(/[:.]/g, '-');
+ 746 | 
+ 747 |   const filename =
+ 748 |     'ljingle-before-cloud-restore-' +
+ 749 |     stamp +
+ 750 |     '.json';
+ 751 | 
+ 752 |   const uri =
+ 753 |     FileSystem.documentDirectory +
+ 754 |     filename;
+ 755 | 
+ 756 |   await FileSystem.writeAsStringAsync(
+ 757 |     uri,
+ 758 |     text,
+ 759 |   );
+ 760 | 
+ 761 |   return uri;
+ 762 | }
+ 763 | 
+ 764 | export async function restoreCloudSnapshot(
+ 765 |   revision?: number,
+ 766 | ) {
+ 767 |   const before =
+ 768 |     await exportLocalData();
+ 769 | 
+ 770 |   const recoveryUri =
+ 771 |     await saveBeforeRestoreBackup(
+ 772 |       before,
+ 773 |     );
+ 774 | 
+ 775 |   const remote =
+ 776 |     await downloadSnapshot(
+ 777 |       revision,
+ 778 |     );
+ 779 | 
+ 780 |   // Existing backup service performs the
+ 781 |   // destructive restore transaction + FK validation.
+ 782 |   await importLocalData(remote.text);
+
+-- lines 788-818 --
+ 788 |     remote.contentHash ??
+ 789 |     fingerprint(
+ 790 |       normalizeBackupForHash(
+ 791 |         remote.text,
+ 792 |       ),
+ 793 |     );
+ 794 | 
+ 795 |   const updated: CloudSyncState = {
+ 796 |     ...state,
+ 797 | 
+ 798 |     lastSyncedHash: hash,
+ 799 | 
+ 800 |     lastRevision:
+ 801 |       remote.revision,
+ 802 | 
+ 803 |     lastSyncedAt:
+ 804 |       remote.createdAt ??
+ 805 |       new Date().toISOString(),
+ 806 | 
+ 807 |     lastOutcome: 'synced',
+ 808 |     lastError: null,
+ 809 |   };
+ 810 | 
+ 811 |   await saveState(updated);
+ 812 | 
+ 813 |   return {
+ 814 |     state: updated,
+ 815 |     recoveryUri,
+ 816 |   };
+ 817 | }
+ 818 | 
+
+### src/storage/cloudSync.ts
+
+MISSING
+
+### src/types/collection.ts
+
+-- lines 1-82 --
+   1 | export type EntityReferenceType = 'BOOK' | 'MEDIA' | 'GAME' | 'TOPIC' | 'ENTRY' | 'FREQUENCY';
+   2 | 
+   3 | export type RelationType =
+   4 |   | 'RELATED'
+   5 |   | 'INSPIRED_BY'
+   6 |   | 'ABOUT'
+   7 |   | 'REFERENCES'
+   8 |   | 'ADAPTATION_OF'
+   9 |   | 'REMEMBERED_WITH';
+  10 | 
+  11 | export type EntityReference = {
+  12 |   entityType: EntityReferenceType;
+  13 |   entityId: string;
+  14 |   title: string;
+  15 |   subtitle: string | null;
+  16 | };
+  17 | 
+  18 | export type CollectionSummary = {
+  19 |   collectionId: string;
+  20 |   name: string;
+  21 |   description: string | null;
+  22 |   symbol: string | null;
+  23 |   itemCount: number;
+  24 | };
+  25 | 
+  26 | export type CollectionItem = {
+  27 |   itemId: string;
+  28 |   entityType: EntityReferenceType;
+  29 |   entityId: string;
+  30 |   title: string;
+  31 |   subtitle: string | null;
+  32 |   position: number;
+  33 |   addedAt: string;
+  34 | };
+  35 | 
+  36 | export type CollectionDetail = {
+  37 |   collectionId: string;
+  38 |   name: string;
+  39 |   description: string | null;
+  40 |   symbol: string | null;
+  41 |   items: CollectionItem[];
+  42 | };
+  43 | 
+  44 | export type CollectionRequest = {
+  45 |   name: string;
+  46 |   description?: string | null;
+  47 |   symbol?: string | null;
+  48 | };
+  49 | 
+  50 | export type EntityLink = {
+  51 |   linkId: string;
+  52 |   sourceType: EntityReferenceType;
+  53 |   sourceId: string;
+  54 |   targetType: EntityReferenceType;
+  55 |   targetId: string;
+  56 |   relationType: RelationType;
+  57 |   note: string | null;
+  58 |   source: EntityReference;
+  59 |   target: EntityReference;
+  60 |   createdAt: string;
+  61 | };
+  62 | 
+  63 | export const entityTypeLabels: Record<EntityReferenceType, string> = {
+  64 |   BOOK: 'Knjiga',
+  65 |   MEDIA: 'Film / serija',
+  66 |   GAME: 'Igra',
+  67 |   TOPIC: 'Tema',
+  68 |   ENTRY: 'Zapis',
+  69 |   FREQUENCY: 'Frekvencija',
+  70 | };
+  71 | 
+  72 | export const relationTypeLabels: Record<RelationType, string> = {
+  73 |   RELATED: 'Povezano',
+  74 |   INSPIRED_BY: 'Inspirirano',
+  75 |   ABOUT: 'Govori o',
+  76 |   REFERENCES: 'Referenca',
+  77 |   ADAPTATION_OF: 'Adaptacija',
+  78 |   REMEMBERED_WITH: 'Pamtim uz',
+  79 | };
+  80 | 
+  81 | export const relationTypes = Object.keys(relationTypeLabels) as RelationType[];
+  82 | 
+

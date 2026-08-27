@@ -1,6 +1,11 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   type: 'loading' | 'error' | 'empty';
@@ -11,27 +16,27 @@ type Props = {
 export function MediaFeedbackView({ type, message, onRetry }: Props) {
   if (type === 'loading') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, celestialMode && styles.celestialContainer]}>
         <ActivityIndicator size="large" color={colors.black} />
-        <Text style={styles.message}>{message ?? 'Učitavanje filmova i serija…'}</Text>
+        <Text style={[styles.message, celestialMode && styles.celestialMessage]}>{message ?? 'Učitavanje filmova i serija…'}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.symbol}>{type === 'error' ? '!' : '▶'}</Text>
-      <Text style={styles.title}>
+    <View style={[styles.container, celestialMode && styles.celestialContainer]}>
+      <Text style={[styles.symbol, celestialMode && styles.celestialSymbol]}>{type === 'error' ? '!' : celestialMode ? '✦' : '▶'}</Text>
+      <Text style={[styles.title, celestialMode && styles.celestialTitle]}>
         {type === 'error' ? 'Dohvat nije uspio' : 'Katalog je još prazan'}
       </Text>
-      <Text style={styles.message}>
+      <Text style={[styles.message, celestialMode && styles.celestialMessage]}>
         {message ?? (type === 'empty'
           ? 'Dodajte prvi film ili seriju iz online pretrage.'
           : 'Pokušajte ponovno.')}
       </Text>
       {onRetry ? (
-        <Pressable onPress={onRetry} style={styles.retry}>
-          <Text style={styles.retryLabel}>Pokušaj ponovno</Text>
+        <Pressable onPress={onRetry} style={[styles.retry, celestialMode && styles.celestialRetry]}>
+          <Text style={[styles.retryLabel, celestialMode && styles.celestialRetryText]}>Pokušaj ponovno</Text>
         </Pressable>
       ) : null}
     </View>
@@ -80,4 +85,25 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
+  celestialContainer: {
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.25),
+    borderRadius: 26,
+    backgroundColor: celestialAlpha(celestial.night, 0.035),
+  },
+  celestialSymbol: {
+    color: celestial.gold,
+    backgroundColor: celestial.night,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.66),
+  },
+  celestialTitle: { letterSpacing: -0.2 },
+  celestialMessage: { maxWidth: 420 },
+  celestialRetry: {
+    backgroundColor: celestial.night,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.62),
+  },
+  celestialRetryText: { color: celestial.gold, letterSpacing: 0.55 },
 });

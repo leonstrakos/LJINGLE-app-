@@ -1,0 +1,2360 @@
+LJINGLE — Jingle Motion + Sound Audit
+=====================================
+
+Scanned source files: 167
+Priority hits: 158
+Other jingle hits: 165
+
+PRIORITY — semantic + animation-looking hits
+--------------------------------------------
+
+src\audio\uiFeedback.ts:9
+     5 | // uiFeedbackFinalV1
+     6 | // Filenames are now the source of truth:
+     7 | // app-open.mp3 = app opening
+     8 | // delete.mp3   = successful delete
+>    9 | // jingle.mp3   = Jingle toggle/event
+    10 | // create.mp3   = successful create
+    11 | 
+    12 | export type UiCue =
+    13 |   | 'tap'
+    14 |   | 'confirm'
+    15 |   | 'start'
+
+src\audio\uiFeedback.ts:19
+    15 |   | 'start'
+    16 |   | 'stop'
+    17 |   | 'complete'
+    18 |   | 'open'
+>   19 |   | 'jingle'
+    20 |   | 'create'
+    21 |   | 'delete';
+    22 | 
+    23 | let enabled = true;
+    24 | 
+    25 | const players = {
+
+src\audio\uiFeedback.ts:32
+    28 |   ),
+    29 |   delete: createAudioPlayer(
+    30 |     require('../assets/ui-sounds/delete.mp3'),
+    31 |   ),
+>   32 |   jingle: createAudioPlayer(
+    33 |     require('../assets/ui-sounds/jingle.mp3'),
+    34 |   ),
+    35 |   create: createAudioPlayer(
+    36 |     require('../assets/ui-sounds/create.mp3'),
+    37 |   ),
+    38 | };
+
+src\audio\uiFeedback.ts:33
+    29 |   delete: createAudioPlayer(
+    30 |     require('../assets/ui-sounds/delete.mp3'),
+    31 |   ),
+    32 |   jingle: createAudioPlayer(
+>   33 |     require('../assets/ui-sounds/jingle.mp3'),
+    34 |   ),
+    35 |   create: createAudioPlayer(
+    36 |     require('../assets/ui-sounds/create.mp3'),
+    37 |   ),
+    38 | };
+    39 | 
+
+src\audio\uiFeedback.ts:54
+    50 | 
+    51 |   switch (cue) {
+    52 |     case 'tap':
+    53 |     case 'open':
+>   54 |     case 'jingle':
+    55 |       await Haptics.selectionAsync();
+    56 |       return;
+    57 | 
+    58 |     case 'confirm':
+    59 |     case 'start':
+    60 |     case 'create':
+
+src\audio\uiFeedback.ts:85
+    81 | async function sound(cue: UiCue) {
+    82 |   if (
+    83 |     cue !== 'open' &&
+    84 |     cue !== 'delete' &&
+>   85 |     cue !== 'jingle' &&
+    86 |     cue !== 'create'
+    87 |   ) {
+    88 |     return;
+    89 |   }
+    90 | 
+    91 |   const player = players[cue];
+
+src\components\CatalogueSnapshotsSection.tsx:144
+   140 |       </View>
+   141 | 
+   142 |       <View style={styles.smallMetrics}>
+   143 |         <Text style={styles.smallMetric}>
+>  144 |           • {snapshot.jingleCount} Jingle
+   145 |         </Text>
+   146 | 
+   147 |         {snapshot.nebitnoCount > 0 ? (
+   148 |           <Text style={styles.smallMetric}>
+   149 |             • {snapshot.nebitnoCount} Nebitno
+   150 |           </Text>
+
+src\components\CatalogueSnapshotsSection.tsx:321
+   317 |                         · {item.progress}%
+   318 |                       </Text>
+   319 |                     ) : null}
+   320 | 
+>  321 |                     {item.jingle ? (
+   322 |                       <Text style={styles.itemJingle}>
+   323 |                         · Jingle
+   324 |                       </Text>
+   325 |                     ) : null}
+   326 | 
+   327 |                     {item.nebitno ? (
+
+src\components\CatalogueSnapshotsSection.tsx:323
+   319 |                     ) : null}
+   320 | 
+   321 |                     {item.jingle ? (
+   322 |                       <Text style={styles.itemJingle}>
+>  323 |                         · Jingle
+   324 |                       </Text>
+   325 |                     ) : null}
+   326 | 
+   327 |                     {item.nebitno ? (
+   328 |                       <Text style={styles.itemNebitno}>
+   329 |                         · Nebitno
+
+src\components\CommandPalette.tsx:365
+   361 |         aliases: 'settings postavke theme tema izgled',
+   362 |         action: () => navigate('ThemePicker'),
+   363 |       },
+   364 |       {
+>  365 |         key: 'jingle',
+   366 |         label: 'Jingle',
+   367 |         detail: 'Prikaži sve Jingle naslove',
+   368 |         aliases: 'jingle favourite favorite bell zvono',
+   369 |         action: () => {
+   370 |           setQuery('jingle');
+   371 |           setSelectedIndex(0);
+
+src\components\CommandPalette.tsx:366
+   362 |         action: () => navigate('ThemePicker'),
+   363 |       },
+   364 |       {
+   365 |         key: 'jingle',
+>  366 |         label: 'Jingle',
+   367 |         detail: 'Prikaži sve Jingle naslove',
+   368 |         aliases: 'jingle favourite favorite bell zvono',
+   369 |         action: () => {
+   370 |           setQuery('jingle');
+   371 |           setSelectedIndex(0);
+   372 |         },
+
+src\components\CommandPalette.tsx:367
+   363 |       },
+   364 |       {
+   365 |         key: 'jingle',
+   366 |         label: 'Jingle',
+>  367 |         detail: 'Prikaži sve Jingle naslove',
+   368 |         aliases: 'jingle favourite favorite bell zvono',
+   369 |         action: () => {
+   370 |           setQuery('jingle');
+   371 |           setSelectedIndex(0);
+   372 |         },
+   373 |       },
+
+src\components\CommandPalette.tsx:368
+   364 |       {
+   365 |         key: 'jingle',
+   366 |         label: 'Jingle',
+   367 |         detail: 'Prikaži sve Jingle naslove',
+>  368 |         aliases: 'jingle favourite favorite bell zvono',
+   369 |         action: () => {
+   370 |           setQuery('jingle');
+   371 |           setSelectedIndex(0);
+   372 |         },
+   373 |       },
+   374 |     ],
+
+src\components\CommandPalette.tsx:370
+   366 |         label: 'Jingle',
+   367 |         detail: 'Prikaži sve Jingle naslove',
+   368 |         aliases: 'jingle favourite favorite bell zvono',
+   369 |         action: () => {
+>  370 |           setQuery('jingle');
+   371 |           setSelectedIndex(0);
+   372 |         },
+   373 |       },
+   374 |     ],
+   375 |     [navigation],
+   376 |   );
+
+src\components\CommandPalette.tsx:592
+   588 |     const tokens = normalizedQuery
+   589 |       .split(/\s+/)
+   590 |       .filter(Boolean);
+   591 | 
+>  592 |     const jingleOnly = tokens.includes('jingle');
+   593 | 
+   594 |     const textTerms = tokens.filter(
+   595 |       (token) => token !== 'jingle'
+   596 |     );
+   597 | 
+   598 |     const commandResults =
+
+src\components\CommandPalette.tsx:595
+   591 | 
+   592 |     const jingleOnly = tokens.includes('jingle');
+   593 | 
+   594 |     const textTerms = tokens.filter(
+>  595 |       (token) => token !== 'jingle'
+   596 |     );
+   597 | 
+   598 |     const commandResults =
+   599 |       commands.filter((command) => {
+   600 |             const haystack = normalize(
+   601 |               command.label +
+
+src\components\CommandPalette.tsx:862
+   858 |                       </Text>
+   859 |                     </View>
+   860 | 
+   861 |                     {item.entity.favourite ? (
+>  862 |                       <Text style={styles.jingle}>
+   863 |                         ♫
+   864 |                       </Text>
+   865 |                     ) : null}
+   866 | 
+   867 |                     <Text style={styles.kind}>
+   868 |                       {query.trim()
+
+src\components\CommandPalette.tsx:1022
+  1018 |     letterSpacing: 0.5,
+  1019 |     marginLeft: 10,
+  1020 |   },
+  1021 | 
+> 1022 |   jingle: {
+  1023 |     color: colors.text,
+  1024 |     fontSize: 14,
+  1025 |     marginLeft: 8,
+  1026 |   },
+  1027 | 
+  1028 |   loadingRow: {
+
+src\components\CommandPaletteEdgeGesture.tsx:248
+   244 |           <Text
+   245 |             numberOfLines={1}
+   246 |             style={styles.placeholder}
+   247 |           >
+>  248 |             Katalog · naredbe · Jingle
+   249 |           </Text>
+   250 |         </View>
+   251 |       </Animated.View>
+   252 | 
+   253 |       <Pressable
+   254 |         {...responder.panHandlers}
+
+src\components\CommandPaletteEdgeGesture.tsx:251
+   247 |           >
+   248 |             Katalog · naredbe · Jingle
+   249 |           </Text>
+   250 |         </View>
+>  251 |       </Animated.View>
+   252 | 
+   253 |       <Pressable
+   254 |         {...responder.panHandlers}
+   255 |         accessibilityLabel="Povuci za pretragu"
+   256 |         accessibilityRole="button"
+   257 |         collapsable={false}
+
+src\components\EntityRelationsPanel.tsx:370
+   366 |     height: 13,
+   367 |     borderLeftWidth: 2.5,
+   368 |     borderBottomWidth: 2.5,
+   369 |     borderColor: colors.text,
+>  370 |     transform: [{ rotate: '45deg' }],
+   371 |     marginLeft: 5,
+   372 |   },
+   373 |   modalHeaderCopy: { flex: 1, minWidth: 0, marginLeft: 4 },
+   374 |   modalKicker: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
+   375 |   modalTitle: { maxWidth: 260, marginTop: 3, color: colors.text, fontSize: 20, fontWeight: '900' },
+   376 |   done: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 11, backgroundColor: colors.black },
+
+src\components\JingleBellIcon.tsx:39
+    35 | 
+    36 |     progress.stopAnimation();
+    37 |     progress.setValue(0);
+    38 | 
+>   39 |     Animated.spring(progress, {
+    40 |       toValue: 1,
+    41 |       ...semanticSpring.jingle,
+    42 |       useNativeDriver: true,
+    43 |     }).start();
+    44 |   }, [active, progress, reducedMotion]);
+    45 | 
+
+src\components\JingleBellIcon.tsx:41
+    37 |     progress.setValue(0);
+    38 | 
+    39 |     Animated.spring(progress, {
+    40 |       toValue: 1,
+>   41 |       ...semanticSpring.jingle,
+    42 |       useNativeDriver: true,
+    43 |     }).start();
+    44 |   }, [active, progress, reducedMotion]);
+    45 | 
+    46 |   const rotate = progress.interpolate({
+    47 |     inputRange: jingleSwing.inputRange,
+
+src\components\JingleBellIcon.tsx:46
+    42 |       useNativeDriver: true,
+    43 |     }).start();
+    44 |   }, [active, progress, reducedMotion]);
+    45 | 
+>   46 |   const rotate = progress.interpolate({
+    47 |     inputRange: jingleSwing.inputRange,
+    48 |     outputRange: jingleSwing.rotate,
+    49 |   });
+    50 | 
+    51 |   const scale = progress.interpolate({
+    52 |     inputRange: [0, 0.45, 1],
+
+src\components\JingleBellIcon.tsx:48
+    44 |   }, [active, progress, reducedMotion]);
+    45 | 
+    46 |   const rotate = progress.interpolate({
+    47 |     inputRange: jingleSwing.inputRange,
+>   48 |     outputRange: jingleSwing.rotate,
+    49 |   });
+    50 | 
+    51 |   const scale = progress.interpolate({
+    52 |     inputRange: [0, 0.45, 1],
+    53 |     outputRange: [1, 1.08, 1],
+    54 |   });
+
+src\components\JingleBellIcon.tsx:65
+    61 |       style={[
+    62 |         style,
+    63 |         {
+    64 |           opacity: active ? 1 : inactiveOpacity,
+>   65 |           transform: [{ rotate }, { scale }],
+    66 |         },
+    67 |       ]}
+    68 |     />
+    69 |   );
+    70 | }
+    71 | 
+
+src\components\JingleReasonCard.tsx:73
+    69 | 
+    70 |         setError(
+    71 |           caught instanceof Error
+    72 |             ? caught.message
+>   73 |             : 'Jingle bilješka nije učitana.',
+    74 |         );
+    75 |       })
+    76 |       .finally(() => {
+    77 |         if (!cancelled) {
+    78 |           setLoading(false);
+    79 |         }
+
+src\components\JingleReasonCard.tsx:114
+   110 |     } catch (caught) {
+   111 |       setError(
+   112 |         caught instanceof Error
+   113 |           ? caught.message
+>  114 |           : 'Jingle bilješka nije spremljena.',
+   115 |       );
+   116 |     } finally {
+   117 |       setSaving(false);
+   118 |     }
+   119 |   };
+   120 | 
+
+src\components\JingleReasonCard.tsx:129
+   125 |   if (!editing && !reason) {
+   126 |     return (
+   127 |       <Pressable
+   128 |         accessibilityRole="button"
+>  129 |         accessibilityLabel="Dodaj razlog za Jingle"
+   130 |         onPress={() => {
+   131 |           setDraft('');
+   132 |           setEditing(true);
+   133 |         }}
+   134 |         style={({ pressed }) => [
+   135 |           styles.emptyCard,
+
+src\components\JingleReasonCard.tsx:148
+   144 |         />
+   145 | 
+   146 |         <View style={styles.emptyCopy}>
+   147 |           <Text style={styles.eyebrow}>
+>  148 |             JINGLE
+   149 |           </Text>
+   150 | 
+   151 |           <Text style={styles.emptyTitle}>
+   152 |             Zašto mi ovo znači?
+   153 |           </Text>
+   154 | 
+
+src\components\JingleReasonCard.tsx:178
+   174 |             style={styles.bell}
+   175 |           />
+   176 | 
+   177 |           <Text style={styles.eyebrow}>
+>  178 |             JINGLE · ZAŠTO MI OVO ZNAČI
+   179 |           </Text>
+   180 |         </View>
+   181 | 
+   182 |         {!editing ? (
+   183 |           <Pressable
+   184 |             accessibilityRole="button"
+
+src\games\screens\GameListScreen.tsx:44
+    40 | 
+    41 | // gameStatePreservationV1
+    42 | type GameListPreservedStatus =
+    43 |   | GameStatus
+>   44 |   | 'JINGLE'
+    45 |   | null;
+    46 | 
+    47 | type GameListPreservedState = {
+    48 |   status: GameListPreservedStatus;
+    49 |   scrollOffset: number;
+    50 | };
+
+src\games\screens\GameListScreen.tsx:176
+   172 |     asRefresh ? setRefreshing(true) : setLoading(true);
+   173 |     setError(null);
+   174 |     try {
+   175 |       const loaded = await gameApi.getAll(
+>  176 |         status && status !== 'JINGLE' ? status : undefined
+   177 |       );
+   178 | 
+   179 |       setGames(
+   180 |         status === 'JINGLE'
+   181 |           ? loaded.filter((game) => game.favourite)
+   182 |           : loaded
+
+src\games\screens\GameListScreen.tsx:180
+   176 |         status && status !== 'JINGLE' ? status : undefined
+   177 |       );
+   178 | 
+   179 |       setGames(
+>  180 |         status === 'JINGLE'
+   181 |           ? loaded.filter((game) => game.favourite)
+   182 |           : loaded
+   183 |       );
+   184 |     } catch (caught) {
+   185 |       setError(caught instanceof Error ? caught.message : 'Dohvat igara nije uspio.');
+   186 |     } finally {
+
+src\games\screens\GameListScreen.tsx:209
+   205 |       delete payload.modifiedAt;
+   206 | 
+   207 |       await gameApi.update(game.gameId, payload as any);
+   208 |       // semanticJingleFeedbackV1
+>  209 |       void semanticFeedback.jingle();
+   210 | 
+   211 |       setGames((current) => {
+   212 |         if (status === 'JINGLE' && !next) {
+   213 |           return current.filter((row) => row.gameId !== game.gameId);
+   214 |         }
+   215 | 
+
+src\games\screens\GameListScreen.tsx:212
+   208 |       // semanticJingleFeedbackV1
+   209 |       void semanticFeedback.jingle();
+   210 | 
+   211 |       setGames((current) => {
+>  212 |         if (status === 'JINGLE' && !next) {
+   213 |           return current.filter((row) => row.gameId !== game.gameId);
+   214 |         }
+   215 | 
+   216 |         return current.map((row) =>
+   217 |           row.gameId === game.gameId
+   218 |             ? { ...row, favourite: next }
+
+src\games\screens\GameListScreen.tsx:226
+   222 | 
+   223 |       // jingleUniversalUndoV1
+   224 |       registerUndo({
+   225 |         label: next
+>  226 |           ? `Dodano u Jingle: ${game.title}`
+   227 |           : `Maknuto iz Jingle: ${game.title}`,
+   228 | 
+   229 |         undo: async () => {
+   230 |           const undoPayload = {
+   231 |             ...game,
+   232 |             favourite: game.favourite,
+
+src\games\screens\GameListScreen.tsx:227
+   223 |       // jingleUniversalUndoV1
+   224 |       registerUndo({
+   225 |         label: next
+   226 |           ? `Dodano u Jingle: ${game.title}`
+>  227 |           : `Maknuto iz Jingle: ${game.title}`,
+   228 | 
+   229 |         undo: async () => {
+   230 |           const undoPayload = {
+   231 |             ...game,
+   232 |             favourite: game.favourite,
+   233 |           } as Record<string, unknown>;
+
+src\games\screens\GameListScreen.tsx:250
+   246 |               (row) => row.gameId === reverted.gameId,
+   247 |             );
+   248 | 
+   249 |             if (
+>  250 |               status === 'JINGLE' &&
+   251 |               reverted.favourite &&
+   252 |               !exists
+   253 |             ) {
+   254 |               return [reverted, ...current];
+   255 |             }
+   256 | 
+
+src\games\screens\GameListScreen.tsx:258
+   254 |               return [reverted, ...current];
+   255 |             }
+   256 | 
+   257 |             if (
+>  258 |               status === 'JINGLE' &&
+   259 |               !reverted.favourite
+   260 |             ) {
+   261 |               return current.filter(
+   262 |                 (row) => row.gameId !== reverted.gameId,
+   263 |               );
+   264 |             }
+
+src\games\screens\GameListScreen.tsx:278
+   274 |     } catch (caught) {
+   275 |       setError(
+   276 |         caught instanceof Error
+   277 |           ? caught.message
+>  278 |           : 'Jingle nije spremljen.'
+   279 |       );
+   280 |     }
+   281 |   }, [status]);
+   282 | 
+   283 |   return (
+   284 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+
+src\games\screens\GameListScreen.tsx:340
+   336 |           ))}
+   337 | 
+   338 |           <Pressable
+   339 |             accessibilityRole="button"
+>  340 |             onPress={() => selectGameStatus('JINGLE')}
+   341 |             style={[
+   342 |               styles.filter,
+   343 |               status === 'JINGLE' && styles.filterSelected,
+   344 |             ]}
+   345 |           >
+   346 |             <Text
+
+src\games\screens\GameListScreen.tsx:343
+   339 |             accessibilityRole="button"
+   340 |             onPress={() => selectGameStatus('JINGLE')}
+   341 |             style={[
+   342 |               styles.filter,
+>  343 |               status === 'JINGLE' && styles.filterSelected,
+   344 |             ]}
+   345 |           >
+   346 |             <Text
+   347 |               style={[
+   348 |                 styles.filterText,
+   349 |                 status === 'JINGLE' && styles.filterTextSelected,
+
+src\games\screens\GameListScreen.tsx:349
+   345 |           >
+   346 |             <Text
+   347 |               style={[
+   348 |                 styles.filterText,
+>  349 |                 status === 'JINGLE' && styles.filterTextSelected,
+   350 |               ]}
+   351 |             >
+   352 |               Jingle
+   353 |             </Text>
+   354 |           </Pressable>
+   355 |         </ScrollView>
+
+src\games\screens\GameListScreen.tsx:352
+   348 |                 styles.filterText,
+   349 |                 status === 'JINGLE' && styles.filterTextSelected,
+   350 |               ]}
+   351 |             >
+>  352 |               Jingle
+   353 |             </Text>
+   354 |           </Pressable>
+   355 |         </ScrollView>
+   356 |       </View>
+   357 | 
+   358 |       {loading && games.length === 0 ? (
+
+src\games\screens\GameListScreen.tsx:388
+   384 | 
+   385 |               <Pressable
+   386 |                 accessibilityRole="button"
+   387 |                 accessibilityLabel={
+>  388 |                   item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
+   389 |                 }
+   390 |                 onPress={() => void toggleGameJingle(item)}
+   391 |                 style={({ pressed }) => [
+   392 |                   styles.jingleButton,
+   393 |                   pressed && styles.jinglePressed,
+   394 |                 ]}
+
+src\intelligence\eras.ts:37
+    33 |    * Optional signal for events that should matter
+    34 |    * more when identifying defining items.
+    35 |    *
+    36 |    * Examples:
+>   37 |    * completion, Jingle, major note, first session.
+    38 |    *
+    39 |    * Expected range: 0–1.
+    40 |    */
+    41 |   significance?: number | null;
+    42 | };
+    43 | 
+
+src\intelligence\forgottenThings.ts:276
+   272 |     )}`,
+   273 |   );
+   274 | 
+   275 |   if (item.favourite) {
+>  276 |     reasons.push('Jingle');
+   277 |   }
+   278 | 
+   279 |   const minutes =
+   280 |     numeric(item.totalMinutes);
+   281 | 
+   282 |   if (minutes >= 60) {
+
+src\intelligence\forgottenThings.ts:406
+   402 |      * Something being merely old does not
+   403 |      * automatically make it meaningful.
+   404 |      *
+   405 |      * Jingles bypass this because choosing
+>  406 |      * Jingle is itself a significance signal.
+   407 |      */
+   408 |     if (
+   409 |       significanceScore < 4 &&
+   410 |       !item.favourite
+   411 |     ) {
+   412 |       continue;
+
+src\intelligence\itemBiography.ts:211
+   207 |       };
+   208 | 
+   209 |     case 'JINGLE_ON':
+   210 |       return {
+>  211 |         title: 'Jingle',
+   212 |         detail:
+   213 |           event.note?.trim() ||
+   214 |           event.label ||
+   215 |           null,
+   216 |       };
+   217 | 
+
+src\intelligence\itemBiography.ts:220
+   216 |       };
+   217 | 
+   218 |     case 'JINGLE_OFF':
+   219 |       return {
+>  220 |         title: 'Maknuto iz Jingle',
+   221 |         detail: event.label ?? null,
+   222 |       };
+   223 | 
+   224 |     case 'NOTE':
+   225 |       return {
+   226 |         title: 'Bilješka',
+
+src\intelligence\memoryRadioModes.ts:13
+     9 | // memoryRadioModesV1
+    10 | 
+    11 | export type MemoryRadioMode =
+    12 |   | 'MEMORY'
+>   13 |   | 'JINGLE'
+    14 |   | 'ERA'
+    15 |   | 'THIS_TIME'
+    16 |   | 'LOST_SIGNAL';
+    17 | 
+    18 | export const memoryRadioModes: Array<{
+    19 |   id: MemoryRadioMode;
+
+src\intelligence\memoryRadioModes.ts:27
+    23 |     id: 'MEMORY',
+    24 |     label: 'Memory',
+    25 |   },
+    26 |   {
+>   27 |     id: 'JINGLE',
+    28 |     label: 'Jingle',
+    29 |   },
+    30 |   {
+    31 |     id: 'ERA',
+    32 |     label: 'Era',
+    33 |   },
+
+src\intelligence\memoryRadioModes.ts:28
+    24 |     label: 'Memory',
+    25 |   },
+    26 |   {
+    27 |     id: 'JINGLE',
+>   28 |     label: 'Jingle',
+    29 |   },
+    30 |   {
+    31 |     id: 'ERA',
+    32 |     label: 'Era',
+    33 |   },
+    34 |   {
+
+src\intelligence\memoryRadioModes.ts:290
+   286 |         memories,
+   287 |     };
+   288 |   }
+   289 | 
+>  290 |   if (mode === 'JINGLE') {
+   291 |     const pool =
+   292 |       memories.filter(
+   293 |         (memory) =>
+   294 |           contexts.get(
+   295 |             memory.trackId
+   296 |           )?.isJingle === true
+
+src\intelligence\memoryRadioModes.ts:302
+   298 | 
+   299 |     return {
+   300 |       mode,
+   301 |       eyebrow:
+>  302 |         'JINGLE SIGNAL',
+   303 |       description:
+   304 |         'Uspomene povezane s naslovima koje si označio kao Jingle.',
+   305 |       contextLabel:
+   306 |         pool.length > 0
+   307 |           ? 'osobni signal'
+   308 |           : null,
+
+src\intelligence\memoryRadioModes.ts:304
+   300 |       mode,
+   301 |       eyebrow:
+   302 |         'JINGLE SIGNAL',
+   303 |       description:
+>  304 |         'Uspomene povezane s naslovima koje si označio kao Jingle.',
+   305 |       contextLabel:
+   306 |         pool.length > 0
+   307 |           ? 'osobni signal'
+   308 |           : null,
+   309 |       emptyText:
+   310 |         'Još nema audio-uspomene povezane s Jingle naslovom.',
+
+src\intelligence\memoryRadioModes.ts:310
+   306 |         pool.length > 0
+   307 |           ? 'osobni signal'
+   308 |           : null,
+   309 |       emptyText:
+>  310 |         'Još nema audio-uspomene povezane s Jingle naslovom.',
+   311 |       count:
+   312 |         pool.length,
+   313 |       pool,
+   314 |     };
+   315 |   }
+   316 | 
+
+src\intelligence\reconstruction.ts:14
+    10 |   | 'PROGRESS'
+    11 |   | 'COMPLETED'
+    12 |   | 'STATUS'
+    13 |   | 'NOTE'
+>   14 |   | 'JINGLE'
+    15 |   | 'ENTRY'
+    16 |   | 'TOPIC'
+    17 |   | 'OTHER';
+    18 | 
+    19 | export type ReconstructionEventInput = {
+    20 |   id: string;
+
+src\intelligence\reconstruction.ts:634
+   630 | 
+   631 |   const jingleCount =
+   632 |     nearby.filter(
+   633 |       (event) =>
+>  634 |         event.kind === 'JINGLE' ||
+   635 |         event.favourite,
+   636 |     ).length;
+   637 | 
+   638 |   const targetDate =
+   639 |     new Date(
+   640 |       targetTimestamp,
+
+src\screens\BookListScreen.tsx:166
+   162 |       delete payload.modifiedAt;
+   163 | 
+   164 |       await bookApi.update(book.bookId, payload as any);
+   165 |       // semanticJingleFeedbackV1
+>  166 |       void semanticFeedback.jingle();
+   167 | 
+   168 |       setBooks((current) =>
+   169 |         current.map((row) =>
+   170 |           row.bookId === book.bookId
+   171 |             ? { ...row, favourite: next }
+   172 |             : row
+
+src\screens\BookListScreen.tsx:179
+   175 | 
+   176 |       // jingleUniversalUndoV1
+   177 |       registerUndo({
+   178 |         label: next
+>  179 |           ? `Dodano u Jingle: ${book.title}`
+   180 |           : `Maknuto iz Jingle: ${book.title}`,
+   181 | 
+   182 |         undo: async () => {
+   183 |           const undoPayload = {
+   184 |             ...book,
+   185 |             favourite: book.favourite,
+
+src\screens\BookListScreen.tsx:180
+   176 |       // jingleUniversalUndoV1
+   177 |       registerUndo({
+   178 |         label: next
+   179 |           ? `Dodano u Jingle: ${book.title}`
+>  180 |           : `Maknuto iz Jingle: ${book.title}`,
+   181 | 
+   182 |         undo: async () => {
+   183 |           const undoPayload = {
+   184 |             ...book,
+   185 |             favourite: book.favourite,
+   186 |           } as Record<string, unknown>;
+
+src\screens\BookListScreen.tsx:210
+   206 |     } catch (caught) {
+   207 |       setError(
+   208 |         caught instanceof Error
+   209 |           ? caught.message
+>  210 |           : 'Jingle nije spremljen.'
+   211 |       );
+   212 |     }
+   213 |   }, []);
+   214 | 
+   215 |   return (
+   216 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+
+src\screens\BookListScreen.tsx:277
+   273 |                 styles.jingleFilterText,
+   274 |                 jingleOnly && styles.jingleFilterTextSelected,
+   275 |               ]}
+   276 |             >
+>  277 |               Jingle
+   278 |             </Text>
+   279 |           </Pressable>
+   280 |         </View>
+   281 |       </View>
+   282 | 
+   283 |       {loading && books.length === 0 ? (
+
+src\screens\BookListScreen.tsx:311
+   307 | 
+   308 |               <Pressable
+   309 |                 accessibilityRole="button"
+   310 |                 accessibilityLabel={
+>  311 |                   item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
+   312 |                 }
+   313 |                 onPress={() => void toggleBookJingle(item)}
+   314 |                 style={({ pressed }) => [
+   315 |                   styles.jingleButton,
+   316 |                   pressed && styles.jinglePressed,
+   317 |                 ]}
+
+src\screens\CatalogueHomeScreen.tsx:78
+    74 | // catalogueSearchPolishV3
+    75 | // catalogueSearchVisibilityV4
+    76 | type CatalogueSearchQuery = {
+    77 |   terms: string[];
+>   78 |   jingle: boolean;
+    79 |   type?: 'BOOK' | 'MOVIE' | 'SERIES' | 'GAME';
+    80 |   status?: string;
+    81 |   year?: number;
+    82 | };
+    83 | 
+    84 | function parseCatalogueSearch(
+
+src\screens\CatalogueHomeScreen.tsx:89
+    85 |   input: string,
+    86 | ): CatalogueSearchQuery {
+    87 |   const result: CatalogueSearchQuery = {
+    88 |     terms: [],
+>   89 |     jingle: false,
+    90 |   };
+    91 | 
+    92 |   const tokens = normalize(input)
+    93 |     .split(/\s+/)
+    94 |     .filter(Boolean);
+    95 | 
+
+src\screens\CatalogueHomeScreen.tsx:98
+    94 |     .filter(Boolean);
+    95 | 
+    96 |   for (const token of tokens) {
+    97 |     if (
+>   98 |       token === 'jingle' ||
+    99 |       token === 'favorite' ||
+   100 |       token === 'favourite'
+   101 |     ) {
+   102 |       result.jingle = true;
+   103 |       continue;
+   104 |     }
+
+src\screens\CatalogueHomeScreen.tsx:102
+    98 |       token === 'jingle' ||
+    99 |       token === 'favorite' ||
+   100 |       token === 'favourite'
+   101 |     ) {
+>  102 |       result.jingle = true;
+   103 |       continue;
+   104 |     }
+   105 | 
+   106 |     const colon = token.indexOf(':');
+   107 | 
+   108 |     if (colon > 0) {
+
+src\screens\CatalogueHomeScreen.tsx:236
+   232 |     currentToken === 'jingl'
+   233 |   ) {
+   234 |     return [
+   235 |       {
+>  236 |         label: 'Jingle',
+   237 |         token: 'jingle ',
+   238 |       },
+   239 |     ];
+   240 |   }
+   241 | 
+   242 |   if (
+
+src\screens\CatalogueHomeScreen.tsx:237
+   233 |   ) {
+   234 |     return [
+   235 |       {
+   236 |         label: 'Jingle',
+>  237 |         token: 'jingle ',
+   238 |       },
+   239 |     ];
+   240 |   }
+   241 | 
+   242 |   if (
+   243 |     currentToken === 'type:' ||
+
+src\screens\CatalogueHomeScreen.tsx:397
+   393 | 
+   394 |   const plain = tokens.filter((token) => {
+   395 |     const value = normalize(token);
+   396 | 
+>  397 |     if (value === 'jingle') {
+   398 |       return false;
+   399 |     }
+   400 | 
+   401 |     if (
+   402 |       /^type:(movie|series|book|game)$/.test(
+   403 |         value,
+
+src\screens\CatalogueHomeScreen.tsx:752
+   748 | 
+   749 |     return all
+   750 |       .filter((item) => {
+   751 |         if (
+>  752 |           parsed.jingle &&
+   753 |           !item.favourite
+   754 |         ) {
+   755 |           return false;
+   756 |         }
+   757 | 
+   758 |         if (
+
+src\screens\CatalogueHomeScreen.tsx:833
+   829 | 
+   830 |     const parsed = parseCatalogueSearch(query);
+   831 |     const chips: string[] = [];
+   832 | 
+>  833 |     if (parsed.jingle) {
+   834 |       chips.push('Jingle');
+   835 |     }
+   836 | 
+   837 |     if (parsed.type) {
+   838 |       const typeLabels = {
+   839 |         BOOK: 'Knjiga',
+
+src\screens\CatalogueHomeScreen.tsx:834
+   830 |     const parsed = parseCatalogueSearch(query);
+   831 |     const chips: string[] = [];
+   832 | 
+   833 |     if (parsed.jingle) {
+>  834 |       chips.push('Jingle');
+   835 |     }
+   836 | 
+   837 |     if (parsed.type) {
+   838 |       const typeLabels = {
+   839 |         BOOK: 'Knjiga',
+   840 |         MOVIE: 'Film',
+
+src\screens\CatalogueHomeScreen.tsx:1123
+  1119 |               accessibilityLabel="Pretraži cijeli katalog"
+  1120 |               autoCapitalize="none"
+  1121 |               autoCorrect={false}
+  1122 |               onChangeText={setQuery}
+> 1123 |               placeholder="Naslov · type:movie · jingle · year:2024"
+  1124 |               placeholderTextColor={colors.textMuted}
+  1125 |               returnKeyType="search"
+  1126 |               style={styles.searchInput}
+  1127 |               value={query}
+  1128 |             />
+  1129 | 
+
+src\screens\CatalogueHomeScreen.tsx:1248
+  1244 |                     </View>
+  1245 | 
+  1246 |                     {result.favourite ? (
+  1247 |                       <Image
+> 1248 |                         accessibilityLabel="Jingle"
+  1249 |                         source={require('../assets/aero/fav.png')}
+  1250 |                         style={styles.resultJingleIcon}
+  1251 |                       />
+  1252 |                     ) : null}
+  1253 | 
+  1254 |                     <Text style={styles.resultArrow}>
+
+src\screens\MediaListScreen.tsx:44
+    40 | type Props = NativeStackScreenProps<MediaStackParamList, 'MediaList'>;
+    41 | type TypeFilter = MediaType | 'ALL';
+    42 | // catalogueNebitnoFilterV4
+    43 | // jingleCatalogueV3
+>   44 | type StatusFilter = WatchStatus | 'ALL' | 'JINGLE' | 'NEBITNO';
+    45 | 
+    46 | const typeFilters: TypeFilter[] = ['ALL', 'MOVIE', 'SERIES'];
+    47 | const statusFilters: StatusFilter[] = [
+    48 |   'ALL',
+    49 |   'WATCHLIST',
+    50 |   'WATCHING',
+
+src\screens\MediaListScreen.tsx:53
+    49 |   'WATCHLIST',
+    50 |   'WATCHING',
+    51 |   'COMPLETED',
+    52 |   'DROPPED',
+>   53 |   'JINGLE',
+    54 |   'NEBITNO',
+    55 | ];
+    56 | 
+    57 | // mediaStatePreservationV1
+    58 | type MediaListPreservedState = {
+    59 |   typeFilter: TypeFilter;
+
+src\screens\MediaListScreen.tsx:194
+   190 |     setJingleBusy(item.mediaId);
+   191 |     try {
+   192 |       const updated = await mediaApi.setFavourite(item.mediaId, !item.favourite);
+   193 |       // semanticJingleFeedbackV1
+>  194 |       void semanticFeedback.jingle();
+   195 |       setItems((current) =>
+   196 |         statusFilter === 'JINGLE' && !updated.favourite
+   197 |           ? current.filter((row) => row.mediaId !== updated.mediaId)
+   198 |           : current.map((row) => row.mediaId === updated.mediaId ? updated : row),
+   199 |       );
+   200 | 
+
+src\screens\MediaListScreen.tsx:196
+   192 |       const updated = await mediaApi.setFavourite(item.mediaId, !item.favourite);
+   193 |       // semanticJingleFeedbackV1
+   194 |       void semanticFeedback.jingle();
+   195 |       setItems((current) =>
+>  196 |         statusFilter === 'JINGLE' && !updated.favourite
+   197 |           ? current.filter((row) => row.mediaId !== updated.mediaId)
+   198 |           : current.map((row) => row.mediaId === updated.mediaId ? updated : row),
+   199 |       );
+   200 | 
+   201 |       // jingleUniversalUndoV1
+   202 |       registerUndo({
+
+src\screens\MediaListScreen.tsx:204
+   200 | 
+   201 |       // jingleUniversalUndoV1
+   202 |       registerUndo({
+   203 |         label: updated.favourite
+>  204 |           ? `Dodano u Jingle: ${item.title}`
+   205 |           : `Maknuto iz Jingle: ${item.title}`,
+   206 | 
+   207 |         undo: async () => {
+   208 |           const reverted = await mediaApi.setFavourite(
+   209 |             item.mediaId,
+   210 |             item.favourite,
+
+src\screens\MediaListScreen.tsx:205
+   201 |       // jingleUniversalUndoV1
+   202 |       registerUndo({
+   203 |         label: updated.favourite
+   204 |           ? `Dodano u Jingle: ${item.title}`
+>  205 |           : `Maknuto iz Jingle: ${item.title}`,
+   206 | 
+   207 |         undo: async () => {
+   208 |           const reverted = await mediaApi.setFavourite(
+   209 |             item.mediaId,
+   210 |             item.favourite,
+   211 |           );
+
+src\screens\MediaListScreen.tsx:219
+   215 |               (row) => row.mediaId === reverted.mediaId,
+   216 |             );
+   217 | 
+   218 |             if (
+>  219 |               statusFilter === 'JINGLE' &&
+   220 |               reverted.favourite &&
+   221 |               !exists
+   222 |             ) {
+   223 |               return [reverted, ...current];
+   224 |             }
+   225 | 
+
+src\screens\MediaListScreen.tsx:227
+   223 |               return [reverted, ...current];
+   224 |             }
+   225 | 
+   226 |             if (
+>  227 |               statusFilter === 'JINGLE' &&
+   228 |               !reverted.favourite
+   229 |             ) {
+   230 |               return current.filter(
+   231 |                 (row) => row.mediaId !== reverted.mediaId,
+   232 |               );
+   233 |             }
+
+src\screens\MediaListScreen.tsx:244
+   240 |           });
+   241 |         },
+   242 |       });
+   243 |     } catch (caught) {
+>  244 |       setError(caught instanceof Error ? caught.message : 'Jingle se nije mogao promijeniti.');
+   245 |     } finally {
+   246 |       setJingleBusy(null);
+   247 |     }
+   248 |   };
+   249 | 
+   250 |   // lazyMoviePostersV5
+
+src\screens\MediaListScreen.tsx:281
+   277 |     try {
+   278 |       setItems(await mediaApi.getAll({
+   279 |         mediaType: typeFilter === 'ALL' ? undefined : typeFilter,
+   280 |         status:
+>  281 |           statusFilter === 'ALL' || statusFilter === 'JINGLE' || statusFilter === 'NEBITNO'
+   282 |             ? undefined
+   283 |             : statusFilter,
+   284 |         favourite: statusFilter === 'JINGLE' ? true : undefined,
+   285 |         ignored: statusFilter === 'NEBITNO' ? 'NEBITNO' : undefined,
+   286 |       }));
+   287 |     } catch (caught) {
+
+src\screens\MediaListScreen.tsx:284
+   280 |         status:
+   281 |           statusFilter === 'ALL' || statusFilter === 'JINGLE' || statusFilter === 'NEBITNO'
+   282 |             ? undefined
+   283 |             : statusFilter,
+>  284 |         favourite: statusFilter === 'JINGLE' ? true : undefined,
+   285 |         ignored: statusFilter === 'NEBITNO' ? 'NEBITNO' : undefined,
+   286 |       }));
+   287 |     } catch (caught) {
+   288 |       setError(caught instanceof Error ? caught.message : 'Dohvat kataloga nije uspio.');
+   289 |     } finally {
+   290 |       setLoading(false);
+
+src\screens\MediaListScreen.tsx:346
+   342 |               active={statusFilter === value}
+   343 |               label={
+   344 |                 value === 'ALL'
+   345 |                   ? 'Svi statusi'
+>  346 |                   : value === 'JINGLE'
+   347 |                     ? 'Jingle'
+   348 |                     : value === 'NEBITNO'
+   349 |                       ? 'Nebitno'
+   350 |                       : watchStatusLabels[value]
+   351 |               }
+   352 |               onPress={() => selectStatusFilter(value)}
+
+src\screens\MediaListScreen.tsx:347
+   343 |               label={
+   344 |                 value === 'ALL'
+   345 |                   ? 'Svi statusi'
+   346 |                   : value === 'JINGLE'
+>  347 |                     ? 'Jingle'
+   348 |                     : value === 'NEBITNO'
+   349 |                       ? 'Nebitno'
+   350 |                       : watchStatusLabels[value]
+   351 |               }
+   352 |               onPress={() => selectStatusFilter(value)}
+   353 |             />
+
+src\screens\MediaListScreen.tsx:384
+   380 |                             onPress={() => navigation.navigate('MediaDetails', { mediaId: item.mediaId })}
+   381 |                           />
+   382 |               <Pressable
+   383 |                 accessibilityRole="button"
+>  384 |                 accessibilityLabel={item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'}
+   385 |                 hitSlop={8}
+   386 |                 disabled={jingleBusy === item.mediaId}
+   387 |                 onPress={() => void toggleJingle(item)}
+   388 |                 style={({ pressed }) => [styles.jingleButton, pressed && styles.jingleButtonPressed]}
+   389 |               >
+   390 |                 <JingleBellIcon
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:212
+   208 |               left: index * 5,
+   209 |               height: 28 + (index % 9) * 6,
+   210 |               opacity: 0.42 + (index % 4) * 0.12,
+   211 |               backgroundColor: index % 7 === 0 ? '#D8FF66' : index % 3 === 0 ? '#67C84A' : '#218540',
+>  212 |               transform: [{ rotate: index % 2 ? '9deg' : '-7deg' }],
+   213 |             },
+   214 |           ]}
+   215 |         />
+   216 |       ))}
+   217 |     </View>
+   218 |   );
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:1143
+  1139 |     shadowRadius: 10,
+  1140 | 
+  1141 |     transform: [
+  1142 |       {
+> 1143 |         rotate: '-8deg',
+  1144 |       },
+  1145 |     ],
+  1146 |   },
+  1147 | 
+  1148 |   aeroReflectionSheenLeft: {
+  1149 |     left: '6%',
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:1158
+  1154 |     right: '6%',
+  1155 | 
+  1156 |     transform: [
+  1157 |       {
+> 1158 |         rotate: '8deg',
+  1159 |       },
+  1160 |     ],
+  1161 |   },
+  1162 | 
+  1163 |   aeroReflectionSheenWide: {
+  1164 |     left: '11%',
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:1206
+  1202 |     shadowRadius: 6,
+  1203 | 
+  1204 |     transform: [
+  1205 |       {
+> 1206 |         rotate: '-9deg',
+  1207 |       },
+  1208 |     ],
+  1209 |   },
+  1210 | 
+  1211 |   aeroReflectionStreakLeft: {
+  1212 |     left: '11%',
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:1221
+  1217 |     right: '10%',
+  1218 | 
+  1219 |     transform: [
+  1220 |       {
+> 1221 |         rotate: '9deg',
+  1222 |       },
+  1223 |     ],
+  1224 |   },
+  1225 | 
+  1226 |   aeroReflectionStreakWide: {
+  1227 |     left: '16%',
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:1788
+  1784 | 
+  1785 |     opacity: 0.94,
+  1786 | 
+  1787 |     transform: [
+> 1788 |       { rotate: '-24deg' },
+  1789 |     ],
+  1790 |   },
+  1791 | 
+  1792 |   aeroOrbSparkleH: {
+  1793 |     position: 'absolute',
+  1794 | 
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:2139
+  2135 |     } : {}),},
+  2136 |   aeroScreenBubbleLayer: { ...StyleSheet.absoluteFillObject, zIndex: 40, overflow: 'hidden', pointerEvents: 'none' },
+  2137 |   screenBubble: { position: 'absolute', borderRadius: 999, borderWidth: 2, shadowColor: '#693CC5', shadowOffset: { width: 4, height: 8 }, shadowOpacity: 0.19, shadowRadius: 12, elevation: 8 },
+  2138 |   screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: 'rgba(255,255,255,0.9)', borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
+> 2139 |   screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-28deg' }] },
+  2140 |   screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderColor: 'rgba(255,166,224,0.72)' },
+  2141 |   screenBubbleGold: { right: '9%', width: 92, height: 92, backgroundColor: 'rgba(255,222,105,0.16)', borderColor: 'rgba(255,231,139,0.76)' },
+  2142 |   screenBubbleViolet: { left: '47%', width: 48, height: 48, backgroundColor: 'rgba(162,119,255,0.18)', borderColor: 'rgba(195,166,255,0.76)' },
+  2143 |   screenBubbleMint: { right: '31%', width: 36, height: 36, backgroundColor: 'rgba(91,242,180,0.2)', borderColor: 'rgba(153,255,214,0.8)' },
+  2144 |   screenBubbleBlue: { left: '20%', width: 108, height: 108, backgroundColor: 'rgba(88,190,255,0.13)', borderColor: 'rgba(150,222,255,0.7)' },
+  2145 |   screenBubblePeach: { right: '3%', width: 52, height: 52, backgroundColor: 'rgba(255,151,116,0.18)', borderColor: 'rgba(255,191,165,0.75)' },
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:2280
+  2276 |     shadowRadius: 42,
+  2277 |   },
+  2278 |   aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, backgroundColor: 'rgba(21,115,218,0.14)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
+  2279 |   aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.78)', shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
+> 2280 |   aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-24deg' }] },
+  2281 |   aeroBubbleA: { width: 46, height: 46, left: '7%', bottom: 18 },
+  2282 |   aeroBubbleB: { width: 25, height: 25, left: '22%', bottom: 92 },
+  2283 |   aeroBubbleC: { width: 70, height: 70, right: '7%', bottom: 28 },
+  2284 |   aeroBubbleD: { width: 19, height: 19, right: '25%', top: 35 },
+  2285 |   aeroBubbleE: { width: 34, height: 34, right: '42%', bottom: 4 },
+  2286 |   aeroFish: { position: 'absolute', width: 72, height: 38, opacity: 0.72 },
+
+... 58 more hits omitted.
+
+SECONDARY — other jingle references
+-----------------------------------
+
+src\components\AnimatedPressable.tsx:42
+    38 |   disabled,
+    39 |   ...props
+    40 | }: AnimatedPressableProps) {
+    41 |   const scale = useRef(
+>   42 |     new Animated.Value(1),
+    43 |   ).current;
+    44 | 
+    45 |   const handlePressIn = () => {
+    46 |     // Keep the shared motion helper as the default physical feel.
+    47 |     if (scaleTo === 0.975) {
+    48 |       pressIn(scale).start();
+
+src\components\AnimatedPressable.tsx:52
+    48 |       pressIn(scale).start();
+    49 |       return;
+    50 |     }
+    51 | 
+>   52 |     Animated.spring(scale, {
+    53 |       toValue: scaleTo,
+    54 |       damping: 18,
+    55 |       stiffness: 320,
+    56 |       mass: 0.45,
+    57 |       useNativeDriver: true,
+    58 |     }).start();
+
+src\components\AnimatedPressable.tsx:66
+    62 |     pressOut(scale).start();
+    63 |   };
+    64 | 
+    65 |   return (
+>   66 |     <Animated.View
+    67 |       style={{
+    68 |         transform: [{ scale }],
+    69 |       }}
+    70 |     >
+    71 |       <Pressable
+    72 |         {...props}
+
+src\components\AnimatedPressable.tsx:90
+    86 |         ]}
+    87 |       >
+    88 |         {children}
+    89 |       </Pressable>
+>   90 |     </Animated.View>
+    91 |   );
+    92 | }
+    93 | 
+
+src\components\ApproximateDateCard.tsx:63
+    59 |   id: ApproximateSeason;
+    60 |   label: string;
+    61 | }> = [
+    62 |   {
+>   63 |     id: 'SPRING',
+    64 |     label: 'Proljeće',
+    65 |   },
+    66 |   {
+    67 |     id: 'SUMMER',
+    68 |     label: 'Ljeto',
+    69 |   },
+
+src\components\CommandPaletteEdgeGesture.tsx:17
+    13 | } from 'react';
+    14 | 
+    15 | import { colors } from '../theme/colors';
+    16 | import { semanticFeedback } from '../utils/semanticFeedback';
+>   17 | import { semanticSpring } from '../utils/semanticMotion';
+    18 | import { useReducedMotion } from '../utils/useReducedMotion';
+    19 | 
+    20 | type Props = {
+    21 |   onOpen: () => void;
+    22 | };
+    23 | 
+
+src\components\CommandPaletteEdgeGesture.tsx:34
+    30 | }: Props) {
+    31 |   const reducedMotion = useReducedMotion();
+    32 | 
+    33 |   const progress =
+>   34 |     useRef(new Animated.Value(0)).current;
+    35 | 
+    36 |   const progressValue = useRef(0);
+    37 |   const active = useRef(false);
+    38 |   const thresholdFeedbackPlayed = useRef(false);
+    39 | 
+    40 |   const reset = () => {
+
+src\components\CommandPaletteEdgeGesture.tsx:53
+    49 |       reset();
+    50 |       return;
+    51 |     }
+    52 | 
+>   53 |     Animated.spring(progress, {
+    54 |       toValue: 0,
+    55 |       ...semanticSpring.peek,
+    56 |       useNativeDriver: true,
+    57 |     }).start(reset);
+    58 |   };
+    59 | 
+
+src\components\CommandPaletteEdgeGesture.tsx:55
+    51 |     }
+    52 | 
+    53 |     Animated.spring(progress, {
+    54 |       toValue: 0,
+>   55 |       ...semanticSpring.peek,
+    56 |       useNativeDriver: true,
+    57 |     }).start(reset);
+    58 |   };
+    59 | 
+    60 |   const completeGesture = () => {
+    61 |     if (reducedMotion) {
+
+src\components\CommandPaletteEdgeGesture.tsx:68
+    64 |       onOpen();
+    65 |       return;
+    66 |     }
+    67 | 
+>   68 |     Animated.spring(progress, {
+    69 |       toValue: 1,
+    70 |       ...semanticSpring.peek,
+    71 |       useNativeDriver: true,
+    72 |     }).start(() => {
+    73 |       progress.setValue(0);
+    74 |       reset();
+
+src\components\CommandPaletteEdgeGesture.tsx:70
+    66 |     }
+    67 | 
+    68 |     Animated.spring(progress, {
+    69 |       toValue: 1,
+>   70 |       ...semanticSpring.peek,
+    71 |       useNativeDriver: true,
+    72 |     }).start(() => {
+    73 |       progress.setValue(0);
+    74 |       reset();
+    75 |       onOpen();
+    76 |     });
+
+src\components\CommandPaletteEdgeGesture.tsx:219
+   215 |     });
+   216 | 
+   217 |   return (
+   218 |     <>
+>  219 |       <Animated.View
+   220 |         pointerEvents="none"
+   221 |         style={[
+   222 |           styles.peek,
+   223 |           {
+   224 |             opacity,
+   225 |             transform: [
+
+src\components\GlobalUndoToast.tsx:23
+    19 | } from 'react-native-safe-area-context';
+    20 | 
+    21 | import { colors } from '../theme/colors';
+    22 | import { semanticFeedback } from '../utils/semanticFeedback';
+>   23 | import { semanticSpring, semanticTiming } from '../utils/semanticMotion';
+    24 | 
+    25 | import {
+    26 |   performUndo,
+    27 |   subscribeToUndo,
+    28 |   type UndoAction,
+    29 | } from '../utils/undoManager';
+
+src\components\GlobalUndoToast.tsx:43
+    39 |     useState(false);
+    40 | 
+    41 |   const opacity =
+    42 |     useRef(
+>   43 |       new Animated.Value(0),
+    44 |     ).current;
+    45 | 
+    46 |   const translateY =
+    47 |     useRef(
+    48 |       new Animated.Value(16),
+    49 |     ).current;
+
+src\components\GlobalUndoToast.tsx:48
+    44 |     ).current;
+    45 | 
+    46 |   const translateY =
+    47 |     useRef(
+>   48 |       new Animated.Value(16),
+    49 |     ).current;
+    50 | 
+    51 | 
+    52 |   useEffect(() => {
+    53 |     return subscribeToUndo(
+    54 |       (nextAction) => {
+
+src\components\GlobalUndoToast.tsx:65
+    61 | 
+    62 |         opacity.setValue(0);
+    63 |         translateY.setValue(16);
+    64 | 
+>   65 |         Animated.parallel([
+    66 |           Animated.timing(
+    67 |             opacity,
+    68 |             {
+    69 |               toValue: 1,
+    70 |               duration: semanticTiming.enter.duration,
+    71 |               easing: semanticTiming.enter.easing,
+
+src\components\GlobalUndoToast.tsx:66
+    62 |         opacity.setValue(0);
+    63 |         translateY.setValue(16);
+    64 | 
+    65 |         Animated.parallel([
+>   66 |           Animated.timing(
+    67 |             opacity,
+    68 |             {
+    69 |               toValue: 1,
+    70 |               duration: semanticTiming.enter.duration,
+    71 |               easing: semanticTiming.enter.easing,
+    72 |               useNativeDriver: true,
+
+src\components\GlobalUndoToast.tsx:76
+    72 |               useNativeDriver: true,
+    73 |             },
+    74 |           ),
+    75 | 
+>   76 |           Animated.spring(
+    77 |             translateY,
+    78 |             {
+    79 |               toValue: 0,
+    80 |               ...semanticSpring.peek,
+    81 |               useNativeDriver: true,
+    82 |             },
+
+src\components\GlobalUndoToast.tsx:80
+    76 |           Animated.spring(
+    77 |             translateY,
+    78 |             {
+    79 |               toValue: 0,
+>   80 |               ...semanticSpring.peek,
+    81 |               useNativeDriver: true,
+    82 |             },
+    83 |           ),
+    84 |         ]).start();
+    85 |       },
+    86 |     );
+
+src\components\GlobalUndoToast.tsx:130
+   126 |             'box-none',
+   127 |         } as any,
+   128 |       ]}
+   129 |     >
+>  130 |       <Animated.View
+   131 |         style={[
+   132 |           styles.toast,
+   133 |           {
+   134 |             bottom:
+   135 |               Math.max(
+   136 |                 insets.bottom,
+
+src\components\GlobalUndoToast.tsx:186
+   182 |               ? '...'
+   183 |               : 'PONIŠTI'}
+   184 |           </Text>
+   185 |         </Pressable>
+>  186 |       </Animated.View>
+   187 |     </View>
+   188 |   );
+   189 | }
+   190 | 
+   191 | 
+   192 | const styles =
+
+src\components\JingleBellIcon.tsx:5
+     1 | ﻿import { useEffect, useRef } from 'react';
+     2 | import { Animated } from 'react-native';
+     3 | import type { ImageStyle, StyleProp } from 'react-native';
+     4 | 
+>    5 | import { jingleSwing, semanticSpring } from '../utils/semanticMotion';
+     6 | import { useReducedMotion } from '../utils/useReducedMotion';
+     7 | 
+     8 | type Props = {
+     9 |   active: boolean;
+    10 |   inactiveOpacity?: number;
+    11 |   style?: StyleProp<ImageStyle>;
+
+src\components\JingleBellIcon.tsx:21
+    17 |   inactiveOpacity = 0.5,
+    18 |   style,
+    19 | }: Props) {
+    20 |   const reducedMotion = useReducedMotion();
+>   21 |   const progress = useRef(new Animated.Value(0)).current;
+    22 |   const previousActive = useRef(active);
+    23 | 
+    24 |   useEffect(() => {
+    25 |     const becameActive =
+    26 |       active && !previousActive.current;
+    27 | 
+
+src\components\JingleBellIcon.tsx:57
+    53 |     outputRange: [1, 1.08, 1],
+    54 |   });
+    55 | 
+    56 |   return (
+>   57 |     <Animated.Image
+    58 |       accessibilityIgnoresInvertColors
+    59 |       resizeMode="contain"
+    60 |       source={require('../assets/aero/fav.png')}
+    61 |       style={[
+    62 |         style,
+    63 |         {
+
+src\components\RecentActivityCard.tsx:47
+    43 |   const accent = activityAccents[activity.activityType];
+    44 | 
+    45 | 
+    46 |   // recentSwipeDismissV1 — either horizontal direction dismisses Continue only; history stays intact.
+>   47 |   const translateX = useRef(new Animated.Value(0)).current;
+    48 |   const panResponder = useMemo(
+    49 |     () =>
+    50 |       PanResponder.create({
+    51 |         onMoveShouldSetPanResponder: (_, gesture) =>
+    52 |           !starting && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+    53 |         onPanResponderMove: (_, gesture) => translateX.setValue(gesture.dx),
+
+src\components\RecentActivityCard.tsx:56
+    52 |           !starting && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+    53 |         onPanResponderMove: (_, gesture) => translateX.setValue(gesture.dx),
+    54 |         onPanResponderRelease: (_, gesture) => {
+    55 |           if (Math.abs(gesture.dx) >= 72) {
+>   56 |             Animated.timing(translateX, {
+    57 |               toValue: gesture.dx < 0 ? -520 : 520,
+    58 |               duration: 170,
+    59 |               useNativeDriver: true,
+    60 |             }).start(() => {
+    61 |               translateX.setValue(0);
+    62 |               onDismiss();
+
+src\components\RecentActivityCard.tsx:66
+    62 |               onDismiss();
+    63 |             });
+    64 |             return;
+    65 |           }
+>   66 |           Animated.spring(translateX, {
+    67 |             toValue: 0,
+    68 |             useNativeDriver: true,
+    69 |             speed: 22,
+    70 |             bounciness: 5,
+    71 |           }).start();
+    72 |         },
+
+src\components\RecentActivityCard.tsx:74
+    70 |             bounciness: 5,
+    71 |           }).start();
+    72 |         },
+    73 |         onPanResponderTerminate: () => {
+>   74 |           Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+    75 |         },
+    76 |       }),
+    77 |     [onDismiss, starting, translateX],
+    78 |   );
+    79 |   return (
+    80 |     <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+
+src\components\RecentActivityCard.tsx:80
+    76 |       }),
+    77 |     [onDismiss, starting, translateX],
+    78 |   );
+    79 |   return (
+>   80 |     <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+    81 |     <View style={[styles.card, aeroMode && styles.aeroCard]}>
+    82 |       <View style={[styles.symbol, { backgroundColor: accent.background }]}>
+    83 |         <View style={[styles.symbolDot, { backgroundColor: accent.foreground }]} />
+    84 |       </View>
+    85 | 
+    86 |       <View style={styles.copy}>
+
+src\components\RecentActivityCard.tsx:128
+   124 |         ]}>▶</Text>
+   125 |         )}
+   126 |       </Pressable>
+   127 |     </View>
+>  128 |     </Animated.View>
+   129 |   );
+   130 | }
+   131 | 
+   132 | // aeroRecentPlayV3Applied
+   133 | // aeroPlayScaleV1Applied
+   134 | // aeroPlayRepairV2Applied
+
+src\intelligence\eras.ts:226
+   222 |     return 'Winter';
+   223 |   }
+   224 | 
+   225 |   if (monthIndex <= 4) {
+>  226 |     return 'Spring';
+   227 |   }
+   228 | 
+   229 |   if (monthIndex <= 7) {
+   230 |     return 'Summer';
+   231 |   }
+   232 | 
+
+src\motion\uiMotion.ts:25
+    21 |   standard: Easing.inOut(Easing.cubic),
+    22 | } as const;
+    23 | 
+    24 | export function fadeSlideIn(
+>   25 |   opacity: Animated.Value,
+    26 |   translateY: Animated.Value,
+    27 |   delay = 0,
+    28 | ) {
+    29 |   opacity.setValue(0);
+    30 |   translateY.setValue(10);
+    31 | 
+
+src\motion\uiMotion.ts:26
+    22 | } as const;
+    23 | 
+    24 | export function fadeSlideIn(
+    25 |   opacity: Animated.Value,
+>   26 |   translateY: Animated.Value,
+    27 |   delay = 0,
+    28 | ) {
+    29 |   opacity.setValue(0);
+    30 |   translateY.setValue(10);
+    31 | 
+    32 |   return Animated.parallel([
+
+src\motion\uiMotion.ts:32
+    28 | ) {
+    29 |   opacity.setValue(0);
+    30 |   translateY.setValue(10);
+    31 | 
+>   32 |   return Animated.parallel([
+    33 |     Animated.timing(opacity, {
+    34 |       toValue: 1,
+    35 |       duration: motionDurations.normal,
+    36 |       delay,
+    37 |       easing: motionEasing.enter,
+    38 |       useNativeDriver: true,
+
+src\motion\uiMotion.ts:33
+    29 |   opacity.setValue(0);
+    30 |   translateY.setValue(10);
+    31 | 
+    32 |   return Animated.parallel([
+>   33 |     Animated.timing(opacity, {
+    34 |       toValue: 1,
+    35 |       duration: motionDurations.normal,
+    36 |       delay,
+    37 |       easing: motionEasing.enter,
+    38 |       useNativeDriver: true,
+    39 |     }),
+
+src\motion\uiMotion.ts:40
+    36 |       delay,
+    37 |       easing: motionEasing.enter,
+    38 |       useNativeDriver: true,
+    39 |     }),
+>   40 |     Animated.timing(translateY, {
+    41 |       toValue: 0,
+    42 |       duration: motionDurations.normal,
+    43 |       delay,
+    44 |       easing: motionEasing.enter,
+    45 |       useNativeDriver: true,
+    46 |     }),
+
+src\motion\uiMotion.ts:51
+    47 |   ]);
+    48 | }
+    49 | 
+    50 | export function softSettle(
+>   51 |   scale: Animated.Value,
+    52 |   delay = 0,
+    53 | ) {
+    54 |   scale.setValue(0.965);
+    55 | 
+    56 |   return Animated.spring(scale, {
+    57 |     toValue: 1,
+
+src\motion\uiMotion.ts:56
+    52 |   delay = 0,
+    53 | ) {
+    54 |   scale.setValue(0.965);
+    55 | 
+>   56 |   return Animated.spring(scale, {
+    57 |     toValue: 1,
+    58 |     delay,
+    59 |     damping: 16,
+    60 |     stiffness: 180,
+    61 |     mass: 0.7,
+    62 |     useNativeDriver: true,
+
+src\motion\uiMotion.ts:66
+    62 |     useNativeDriver: true,
+    63 |   });
+    64 | }
+    65 | 
+>   66 | export function pressIn(scale: Animated.Value) {
+    67 |   return Animated.spring(scale, {
+    68 |     toValue: 0.975,
+    69 |     damping: 18,
+    70 |     stiffness: 320,
+    71 |     mass: 0.45,
+    72 |     useNativeDriver: true,
+
+src\motion\uiMotion.ts:67
+    63 |   });
+    64 | }
+    65 | 
+    66 | export function pressIn(scale: Animated.Value) {
+>   67 |   return Animated.spring(scale, {
+    68 |     toValue: 0.975,
+    69 |     damping: 18,
+    70 |     stiffness: 320,
+    71 |     mass: 0.45,
+    72 |     useNativeDriver: true,
+    73 |   });
+
+src\motion\uiMotion.ts:76
+    72 |     useNativeDriver: true,
+    73 |   });
+    74 | }
+    75 | 
+>   76 | export function pressOut(scale: Animated.Value) {
+    77 |   return Animated.spring(scale, {
+    78 |     toValue: 1,
+    79 |     damping: 15,
+    80 |     stiffness: 260,
+    81 |     mass: 0.5,
+    82 |     useNativeDriver: true,
+
+src\motion\uiMotion.ts:77
+    73 |   });
+    74 | }
+    75 | 
+    76 | export function pressOut(scale: Animated.Value) {
+>   77 |   return Animated.spring(scale, {
+    78 |     toValue: 1,
+    79 |     damping: 15,
+    80 |     stiffness: 260,
+    81 |     mass: 0.5,
+    82 |     useNativeDriver: true,
+    83 |   });
+
+src\motion\uiMotion.ts:86
+    82 |     useNativeDriver: true,
+    83 |   });
+    84 | }
+    85 | 
+>   86 | export function gentlePulse(scale: Animated.Value) {
+    87 |   return Animated.sequence([
+    88 |     Animated.timing(scale, {
+    89 |       toValue: 1.025,
+    90 |       duration: 110,
+    91 |       easing: motionEasing.enter,
+    92 |       useNativeDriver: true,
+
+src\motion\uiMotion.ts:87
+    83 |   });
+    84 | }
+    85 | 
+    86 | export function gentlePulse(scale: Animated.Value) {
+>   87 |   return Animated.sequence([
+    88 |     Animated.timing(scale, {
+    89 |       toValue: 1.025,
+    90 |       duration: 110,
+    91 |       easing: motionEasing.enter,
+    92 |       useNativeDriver: true,
+    93 |     }),
+
+src\motion\uiMotion.ts:88
+    84 | }
+    85 | 
+    86 | export function gentlePulse(scale: Animated.Value) {
+    87 |   return Animated.sequence([
+>   88 |     Animated.timing(scale, {
+    89 |       toValue: 1.025,
+    90 |       duration: 110,
+    91 |       easing: motionEasing.enter,
+    92 |       useNativeDriver: true,
+    93 |     }),
+    94 |     Animated.spring(scale, {
+
+src\motion\uiMotion.ts:94
+    90 |       duration: 110,
+    91 |       easing: motionEasing.enter,
+    92 |       useNativeDriver: true,
+    93 |     }),
+>   94 |     Animated.spring(scale, {
+    95 |       toValue: 1,
+    96 |       damping: 13,
+    97 |       stiffness: 220,
+    98 |       mass: 0.5,
+    99 |       useNativeDriver: true,
+   100 |     }),
+
+src\motion\uiMotion.ts:105
+   101 |   ]);
+   102 | }
+   103 | 
+   104 | export function staggerCards(
+>  105 |   animations: Animated.CompositeAnimation[],
+   106 |   spacing = 45,
+   107 | ) {
+   108 |   return Animated.stagger(spacing, animations);
+   109 | }
+   110 | 
+   111 | export function meadowFloat(
+
+src\motion\uiMotion.ts:108
+   104 | export function staggerCards(
+   105 |   animations: Animated.CompositeAnimation[],
+   106 |   spacing = 45,
+   107 | ) {
+>  108 |   return Animated.stagger(spacing, animations);
+   109 | }
+   110 | 
+   111 | export function meadowFloat(
+   112 |   translateY: Animated.Value,
+   113 | ) {
+   114 |   // Intentionally disabled on web: CSS/browser rendering can make
+
+src\motion\uiMotion.ts:112
+   108 |   return Animated.stagger(spacing, animations);
+   109 | }
+   110 | 
+   111 | export function meadowFloat(
+>  112 |   translateY: Animated.Value,
+   113 | ) {
+   114 |   // Intentionally disabled on web: CSS/browser rendering can make
+   115 |   // persistent micro-motion look noisier than on native.
+   116 |   if (Platform.OS === 'web') {
+   117 |     translateY.setValue(0);
+   118 |     return Animated.delay(0);
+
+src\motion\uiMotion.ts:118
+   114 |   // Intentionally disabled on web: CSS/browser rendering can make
+   115 |   // persistent micro-motion look noisier than on native.
+   116 |   if (Platform.OS === 'web') {
+   117 |     translateY.setValue(0);
+>  118 |     return Animated.delay(0);
+   119 |   }
+   120 | 
+   121 |   return Animated.loop(
+   122 |     Animated.sequence([
+   123 |       Animated.timing(translateY, {
+   124 |         toValue: -2,
+
+src\motion\uiMotion.ts:121
+   117 |     translateY.setValue(0);
+   118 |     return Animated.delay(0);
+   119 |   }
+   120 | 
+>  121 |   return Animated.loop(
+   122 |     Animated.sequence([
+   123 |       Animated.timing(translateY, {
+   124 |         toValue: -2,
+   125 |         duration: 1800,
+   126 |         easing: Easing.inOut(Easing.sin),
+   127 |         useNativeDriver: true,
+
+src\motion\uiMotion.ts:122
+   118 |     return Animated.delay(0);
+   119 |   }
+   120 | 
+   121 |   return Animated.loop(
+>  122 |     Animated.sequence([
+   123 |       Animated.timing(translateY, {
+   124 |         toValue: -2,
+   125 |         duration: 1800,
+   126 |         easing: Easing.inOut(Easing.sin),
+   127 |         useNativeDriver: true,
+   128 |       }),
+
+src\motion\uiMotion.ts:123
+   119 |   }
+   120 | 
+   121 |   return Animated.loop(
+   122 |     Animated.sequence([
+>  123 |       Animated.timing(translateY, {
+   124 |         toValue: -2,
+   125 |         duration: 1800,
+   126 |         easing: Easing.inOut(Easing.sin),
+   127 |         useNativeDriver: true,
+   128 |       }),
+   129 |       Animated.timing(translateY, {
+
+src\motion\uiMotion.ts:129
+   125 |         duration: 1800,
+   126 |         easing: Easing.inOut(Easing.sin),
+   127 |         useNativeDriver: true,
+   128 |       }),
+>  129 |       Animated.timing(translateY, {
+   130 |         toValue: 1,
+   131 |         duration: 2100,
+   132 |         easing: Easing.inOut(Easing.sin),
+   133 |         useNativeDriver: true,
+   134 |       }),
+   135 |       Animated.timing(translateY, {
+
+src\motion\uiMotion.ts:135
+   131 |         duration: 2100,
+   132 |         easing: Easing.inOut(Easing.sin),
+   133 |         useNativeDriver: true,
+   134 |       }),
+>  135 |       Animated.timing(translateY, {
+   136 |         toValue: 0,
+   137 |         duration: 1400,
+   138 |         easing: Easing.inOut(Easing.sin),
+   139 |         useNativeDriver: true,
+   140 |       }),
+   141 |     ]),
+
+src\motion\useScreenEntrance.ts:11
+     7 | // useScreenEntranceV2
+     8 | // Opt-in screen entrance. Self-contained on purpose so it does not depend
+     9 | // on internal semanticMotion export names.
+    10 | export function useScreenEntrance() {
+>   11 |   const opacity = useRef(new Animated.Value(0)).current;
+    12 |   const translateY = useRef(
+    13 |     new Animated.Value(8),
+    14 |   ).current;
+    15 | 
+    16 |   useEffect(() => {
+    17 |     Animated.parallel([
+
+src\motion\useScreenEntrance.ts:13
+     9 | // on internal semanticMotion export names.
+    10 | export function useScreenEntrance() {
+    11 |   const opacity = useRef(new Animated.Value(0)).current;
+    12 |   const translateY = useRef(
+>   13 |     new Animated.Value(8),
+    14 |   ).current;
+    15 | 
+    16 |   useEffect(() => {
+    17 |     Animated.parallel([
+    18 |       Animated.timing(opacity, {
+    19 |         toValue: 1,
+
+src\motion\useScreenEntrance.ts:17
+    13 |     new Animated.Value(8),
+    14 |   ).current;
+    15 | 
+    16 |   useEffect(() => {
+>   17 |     Animated.parallel([
+    18 |       Animated.timing(opacity, {
+    19 |         toValue: 1,
+    20 |         duration: 220,
+    21 |         easing: Easing.out(Easing.cubic),
+    22 |         useNativeDriver: true,
+    23 |       }),
+
+src\motion\useScreenEntrance.ts:18
+    14 |   ).current;
+    15 | 
+    16 |   useEffect(() => {
+    17 |     Animated.parallel([
+>   18 |       Animated.timing(opacity, {
+    19 |         toValue: 1,
+    20 |         duration: 220,
+    21 |         easing: Easing.out(Easing.cubic),
+    22 |         useNativeDriver: true,
+    23 |       }),
+    24 |       Animated.timing(translateY, {
+
+src\motion\useScreenEntrance.ts:24
+    20 |         duration: 220,
+    21 |         easing: Easing.out(Easing.cubic),
+    22 |         useNativeDriver: true,
+    23 |       }),
+>   24 |       Animated.timing(translateY, {
+    25 |         toValue: 0,
+    26 |         duration: 220,
+    27 |         easing: Easing.out(Easing.cubic),
+    28 |         useNativeDriver: true,
+    29 |       }),
+    30 |     ]).start();
+
+src\screens\MemoryRadioScreen.tsx:114
+   110 | 
+   111 |   const [savingTrackMetadata, setSavingTrackMetadata] =
+   112 |     useState(false);
+   113 |   const [error, setError] = useState<string | null>(null);
+>  114 |   const bass = useRef(new Animated.Value(0)).current;
+   115 | 
+   116 |   const load = useCallback(async () => {
+   117 |     setLoading(true);
+   118 |     setError(null);
+   119 |     try {
+   120 |       const [
+
+src\screens\MemoryRadioScreen.tsx:275
+   271 | 
+   272 |   useEffect(() => {
+   273 |     if (!bassActive) {
+   274 |       bass.stopAnimation();
+>  275 |       Animated.spring(bass, { toValue: 0, useNativeDriver: Platform.OS !== 'web' }).start();
+   276 |       return;
+   277 |     }
+   278 |     const loop = Animated.loop(Animated.sequence([
+   279 |       Animated.timing(bass, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   280 |       Animated.timing(bass, { toValue: 0.18, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   281 |       Animated.timing(bass, { toValue: 0.62, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+
+src\screens\MemoryRadioScreen.tsx:278
+   274 |       bass.stopAnimation();
+   275 |       Animated.spring(bass, { toValue: 0, useNativeDriver: Platform.OS !== 'web' }).start();
+   276 |       return;
+   277 |     }
+>  278 |     const loop = Animated.loop(Animated.sequence([
+   279 |       Animated.timing(bass, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   280 |       Animated.timing(bass, { toValue: 0.18, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   281 |       Animated.timing(bass, { toValue: 0.62, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   282 |       Animated.timing(bass, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   283 |     ]));
+   284 |     loop.start();
+
+src\screens\MemoryRadioScreen.tsx:279
+   275 |       Animated.spring(bass, { toValue: 0, useNativeDriver: Platform.OS !== 'web' }).start();
+   276 |       return;
+   277 |     }
+   278 |     const loop = Animated.loop(Animated.sequence([
+>  279 |       Animated.timing(bass, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   280 |       Animated.timing(bass, { toValue: 0.18, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   281 |       Animated.timing(bass, { toValue: 0.62, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   282 |       Animated.timing(bass, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   283 |     ]));
+   284 |     loop.start();
+   285 |     return () => loop.stop();
+
+src\screens\MemoryRadioScreen.tsx:280
+   276 |       return;
+   277 |     }
+   278 |     const loop = Animated.loop(Animated.sequence([
+   279 |       Animated.timing(bass, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+>  280 |       Animated.timing(bass, { toValue: 0.18, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   281 |       Animated.timing(bass, { toValue: 0.62, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   282 |       Animated.timing(bass, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   283 |     ]));
+   284 |     loop.start();
+   285 |     return () => loop.stop();
+   286 |   }, [bass, bassActive]);
+
+src\screens\MemoryRadioScreen.tsx:281
+   277 |     }
+   278 |     const loop = Animated.loop(Animated.sequence([
+   279 |       Animated.timing(bass, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   280 |       Animated.timing(bass, { toValue: 0.18, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+>  281 |       Animated.timing(bass, { toValue: 0.62, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   282 |       Animated.timing(bass, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   283 |     ]));
+   284 |     loop.start();
+   285 |     return () => loop.stop();
+   286 |   }, [bass, bassActive]);
+   287 | 
+
+src\screens\MemoryRadioScreen.tsx:282
+   278 |     const loop = Animated.loop(Animated.sequence([
+   279 |       Animated.timing(bass, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   280 |       Animated.timing(bass, { toValue: 0.18, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   281 |       Animated.timing(bass, { toValue: 0.62, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+>  282 |       Animated.timing(bass, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+   283 |     ]));
+   284 |     loop.start();
+   285 |     return () => loop.stop();
+   286 |   }, [bass, bassActive]);
+   287 | 
+   288 |   const chooseFile = async () => {
+
+src\screens\MemoryRadioScreen.tsx:791
+   787 |           </View>
+   788 |         ) : null}
+   789 | 
+   790 |         <View style={styles.broadcast}>
+>  791 |           <Animated.View
+   792 |             style={[
+   793 |               styles.broadcastGlow,
+   794 |               {
+   795 |                 opacity: bass.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.22] }),
+   796 |                 transform: [{ scale: bass.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }],
+   797 |               },
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:73
+    69 | function formatToday(date: Date) {
+    70 |   return `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]}`;
+    71 | }
+    72 | 
+>   73 | function AeroBubble({ style, float }: { style: object; float: Animated.Value }) {
+    74 |   return (
+    75 |     <Animated.View
+    76 |       style={[
+    77 |         styles.aeroBubble3d,
+    78 |         style,
+    79 |         {
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:75
+    71 | }
+    72 | 
+    73 | function AeroBubble({ style, float }: { style: object; float: Animated.Value }) {
+    74 |   return (
+>   75 |     <Animated.View
+    76 |       style={[
+    77 |         styles.aeroBubble3d,
+    78 |         style,
+    79 |         {
+    80 |           transform: [
+    81 |             { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [18, -32] }) },
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:88
+    84 |         },
+    85 |       ]}
+    86 |     >
+    87 |       <View style={styles.aeroBubbleShine} />
+>   88 |     </Animated.View>
+    89 |   );
+    90 | }
+    91 | 
+    92 | function AeroFish({ style, swim }: { style: object; swim: Animated.Value }) {
+    93 |   return (
+    94 |     <Animated.View
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:92
+    88 |     </Animated.View>
+    89 |   );
+    90 | }
+    91 | 
+>   92 | function AeroFish({ style, swim }: { style: object; swim: Animated.Value }) {
+    93 |   return (
+    94 |     <Animated.View
+    95 |       style={[
+    96 |         styles.aeroFish,
+    97 |         style,
+    98 |         { transform: [{ translateX: swim.interpolate({ inputRange: [0, 1], outputRange: [-120, 920] }) }] },
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:94
+    90 | }
+    91 | 
+    92 | function AeroFish({ style, swim }: { style: object; swim: Animated.Value }) {
+    93 |   return (
+>   94 |     <Animated.View
+    95 |       style={[
+    96 |         styles.aeroFish,
+    97 |         style,
+    98 |         { transform: [{ translateX: swim.interpolate({ inputRange: [0, 1], outputRange: [-120, 920] }) }] },
+    99 |       ]}
+   100 |     >
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:107
+   103 |         <View style={styles.aeroFishStripeOne} />
+   104 |         <View style={styles.aeroFishStripeTwo} />
+   105 |         <View style={styles.aeroFishEye} />
+   106 |       </View>
+>  107 |     </Animated.View>
+   108 |   );
+   109 | }
+   110 | 
+   111 | function AeroAquarium() {
+   112 |   const float = useRef(new Animated.Value(0)).current;
+   113 |   const swim = useRef(new Animated.Value(0)).current;
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:112
+   108 |   );
+   109 | }
+   110 | 
+   111 | function AeroAquarium() {
+>  112 |   const float = useRef(new Animated.Value(0)).current;
+   113 |   const swim = useRef(new Animated.Value(0)).current;
+   114 | 
+   115 |   useEffect(() => {
+   116 |     const bubbles = Animated.loop(
+   117 |       Animated.sequence([
+   118 |         Animated.timing(float, { toValue: 1, duration: 7200, useNativeDriver: false }),
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:113
+   109 | }
+   110 | 
+   111 | function AeroAquarium() {
+   112 |   const float = useRef(new Animated.Value(0)).current;
+>  113 |   const swim = useRef(new Animated.Value(0)).current;
+   114 | 
+   115 |   useEffect(() => {
+   116 |     const bubbles = Animated.loop(
+   117 |       Animated.sequence([
+   118 |         Animated.timing(float, { toValue: 1, duration: 7200, useNativeDriver: false }),
+   119 |         Animated.timing(float, { toValue: 0, duration: 7200, useNativeDriver: false }),
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:116
+   112 |   const float = useRef(new Animated.Value(0)).current;
+   113 |   const swim = useRef(new Animated.Value(0)).current;
+   114 | 
+   115 |   useEffect(() => {
+>  116 |     const bubbles = Animated.loop(
+   117 |       Animated.sequence([
+   118 |         Animated.timing(float, { toValue: 1, duration: 7200, useNativeDriver: false }),
+   119 |         Animated.timing(float, { toValue: 0, duration: 7200, useNativeDriver: false }),
+   120 |       ]),
+   121 |     );
+   122 |     const fish = Animated.loop(
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:117
+   113 |   const swim = useRef(new Animated.Value(0)).current;
+   114 | 
+   115 |   useEffect(() => {
+   116 |     const bubbles = Animated.loop(
+>  117 |       Animated.sequence([
+   118 |         Animated.timing(float, { toValue: 1, duration: 7200, useNativeDriver: false }),
+   119 |         Animated.timing(float, { toValue: 0, duration: 7200, useNativeDriver: false }),
+   120 |       ]),
+   121 |     );
+   122 |     const fish = Animated.loop(
+   123 |       Animated.sequence([
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:118
+   114 | 
+   115 |   useEffect(() => {
+   116 |     const bubbles = Animated.loop(
+   117 |       Animated.sequence([
+>  118 |         Animated.timing(float, { toValue: 1, duration: 7200, useNativeDriver: false }),
+   119 |         Animated.timing(float, { toValue: 0, duration: 7200, useNativeDriver: false }),
+   120 |       ]),
+   121 |     );
+   122 |     const fish = Animated.loop(
+   123 |       Animated.sequence([
+   124 |         Animated.timing(swim, { toValue: 1, duration: 24000, useNativeDriver: false }),
+
+src\screens\TodayScreen.before-final-polish-v3.tsx:119
+   115 |   useEffect(() => {
+   116 |     const bubbles = Animated.loop(
+   117 |       Animated.sequence([
+   118 |         Animated.timing(float, { toValue: 1, duration: 7200, useNativeDriver: false }),
+>  119 |         Animated.timing(float, { toValue: 0, duration: 7200, useNativeDriver: false }),
+   120 |       ]),
+   121 |     );
+   122 |     const fish = Animated.loop(
+   123 |       Animated.sequence([
+   124 |         Animated.timing(swim, { toValue: 1, duration: 24000, useNativeDriver: false }),
+   125 |         Animated.timing(swim, { toValue: 0, duration: 0, useNativeDriver: false }),
+
+... 85 more hits omitted.
+
+QUICK FILE CHECK
+----------------
+src/utils/semanticMotion.ts: YES
+src/utils/semanticFeedback.ts: YES
+src/audio/uiFeedback.ts: YES
+src/components/AnimatedPressable.tsx: YES

@@ -15,8 +15,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EntryLinkPicker } from '../components/EntryLinkPicker';
+import { EntityRelationsPanel } from '../components/EntityRelationsPanel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ApiError, entryApi } from '../services/entryApi';
+import { sharePortableEntry } from '../services/portableExport';
 import { emptyEntryLinks, entryLinksApi } from '../services/entryLinksApi';
 import {
   getEntryImages,
@@ -26,6 +28,10 @@ import {
   type PendingEntryImage,
 } from '../services/entryImages';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+import { createdFeedback } from '../utils/crudFeedback';
+import { ShareGlyph } from '../components/ShareGlyph';
 import {
   entryTypeLabels,
   entryTypeMarks,
@@ -36,6 +42,7 @@ import {
   type EntryType,
 } from '../types/entry';
 
+import { celestial, celestialAlpha } from '../theme/celestial';
 export type EntryFormScreenProps = {
   navigation: {
     goBack: () => void;
@@ -45,6 +52,9 @@ export type EntryFormScreenProps = {
   };
 };
 
+// brutusImageRemoveGlyphV1
+
+const celestialMode = activeVisualSkinId === 'classic';
 export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
   const entryId = route.params?.entryId;
   const editing = Boolean(entryId);
@@ -60,6 +70,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
   const [loadingLinks, setLoadingLinks] = useState(true);
   const [linksError, setLinksError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const contentInputRef = useRef<TextInput>(null);
@@ -218,6 +229,25 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
     };
   };
 
+  const shareEntry = async () => {
+    if (!entryId || sharing) return;
+
+    setSharing(true);
+    setSaveError(null);
+
+    try {
+      await sharePortableEntry(entryId);
+    } catch (caught) {
+      setSaveError(
+        caught instanceof Error
+          ? caught.message
+          : 'Share nije uspio.',
+      );
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const save = async () => {
     if (saving) return;
     const payload = validate();
@@ -233,6 +263,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
       } else {
         const created = await entryApi.create(payload);
         savedEntryId = created.entryId;
+        createdFeedback();
       }
 
       if (savedEntryId) {
@@ -303,15 +334,39 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.hero}>
+          <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+            {celestialMode ? <CelestialAtmosphere variant="entries" /> : null}
             <Text style={styles.eyebrow}>{editing ? 'Uređivanje' : 'Novi trag'}</Text>
-            <Text style={styles.heading}>{editing ? 'Uredi zapis' : 'Novi zapis'}</Text>
+            <View style={styles.portableTitleRow}>
+              <Text
+                style={[styles.heading, styles.portableTitleText]}
+              >
+                {editing ? 'Uredi zapis' : 'Novi zapis'}
+              </Text>
+
+              {editing && entryId ? (
+                <Pressable
+                  accessibilityLabel="Share zapis"
+                  accessibilityRole="button"
+                  disabled={sharing}
+                  onPress={() => void shareEntry()}
+                  style={({ pressed }) => [
+                    styles.portableShare,
+                    pressed && styles.pressed,
+                    sharing && styles.disabled,
+                  ]}
+                >
+                  <ShareGlyph />
+                </Pressable>
+              ) : null}
+            </View>
+            {/* portableVisualPolishV1 */}
             <Text style={styles.intro}>
               Sačuvaj misao samostalno ili je poveži s knjigom, temom i aktivnošću.
             </Text>
-          </View>
+</View>
 
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, celestialMode && styles.celestialModule]}>
             <Text style={styles.sectionTitle}>Vrsta zapisa</Text>
             <View style={styles.typeGrid}>
               {entryTypes.map((option) => (
@@ -324,6 +379,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                   }}
                   style={({ pressed }) => [
                     styles.typeOption,
+                    celestialMode && styles.celestialChip,
                     type === option && styles.typeOptionActive,
                     pressed && styles.pressed,
                   ]}
@@ -353,7 +409,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                 }}
                 placeholder="Neobavezni naslov"
                 placeholderTextColor="#98989D"
-                style={[styles.input, fieldErrors.title && styles.inputError]}
+                style={[styles.input, celestialMode && styles.celestialInput, fieldErrors.title && styles.inputError]}
                 value={title}
               />
               {fieldErrors.title ? (
@@ -391,6 +447,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                 style={[
                   styles.input,
                   styles.contentInput,
+                  celestialMode && styles.celestialInput,
                   { height: contentHeight },
                   fieldErrors.content && styles.inputError,
                 ]}
@@ -404,7 +461,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
             </View>
           </View>
 
-          <View style={styles.imagesCard}>
+          <View style={[styles.imagesCard, celestialMode && styles.celestialModule]}>
             <View style={styles.imagesHeading}>
               <View style={styles.imagesHeadingCopy}>
                 <Text style={styles.sectionTitle}>Slike</Text>
@@ -456,7 +513,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                       }
                       style={styles.removeImageButton}
                     >
-                      <Text style={styles.removeImageText}>?</Text>
+                      <Text style={styles.removeImageText}>×</Text>
                     </Pressable>
                   </View>
                 ))}
@@ -485,7 +542,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                       }
                       style={styles.removeImageButton}
                     >
-                      <Text style={styles.removeImageText}>?</Text>
+                      <Text style={styles.removeImageText}>×</Text>
                     </Pressable>
                   </View>
                 ))}
@@ -499,58 +556,18 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
             )}
           </View>
 
-          <View style={styles.linksCard}>
-            <View style={styles.linksHeading}>
-              <View style={styles.linksHeadingCopy}>
-                <Text style={styles.sectionTitle}>Poveznice</Text>
-                <Text style={styles.sectionCopy}>Sve su neobavezne i mogu se kasnije promijeniti.</Text>
-              </View>
-              {loadingLinks ? <ActivityIndicator color={colors.black} size="small" /> : null}
-            </View>
+                    {editing && entryId ? (
+            <EntityRelationsPanel
+              entityType="ENTRY"
+              entityId={entryId}
+              title={title.trim() || 'Zapis'}
+            />
+          ) : null}
+          {/* entryConnectionsCleanupV1 */}
 
-            {linksError ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void loadLinks()}
-                style={styles.linksError}
-              >
-                <Text style={styles.linksErrorText}>{linksError}</Text>
-                <Text style={styles.linksRetry}>Ponovi</Text>
-              </Pressable>
-            ) : null}
-
-            <EntryLinkPicker
-              disabled={loadingLinks}
-              label="Knjiga"
-              onChange={(value) => setBookId(value)}
-              options={links.books}
-              placeholder="Odaberi knjigu"
-              value={bookId}
-            />
-            <EntryLinkPicker
-              disabled={loadingLinks}
-              label="Tema"
-              onChange={(value) => setTopicId(value)}
-              options={links.topics}
-              placeholder="Odaberi temu"
-              value={topicId}
-            />
-            <EntryLinkPicker
-              disabled={loadingLinks}
-              label="Aktivnost"
-              onChange={(value, option) => {
-                setActivityId(value);
-                if (option?.topicId && !topicId) setTopicId(option.topicId);
-              }}
-              options={links.activities}
-              placeholder="Odaberi aktivnost"
-              value={activityId}
-            />
-          </View>
 
           {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
-
-          <View style={styles.actions}>
+<View style={styles.actions}>
             <View style={styles.actionItem}>
               <PrimaryButton
                 disabled={saving}
@@ -559,7 +576,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                 variant="secondary"
               />
             </View>
-            <View style={styles.actionItemLast}>
+<View style={styles.actionItemLast}>
               <PrimaryButton
                 label={editing ? 'Spremi promjene' : 'Spremi zapis'}
                 loading={saving}
@@ -620,6 +637,32 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -1.4,
     lineHeight: 50,
+  },
+  portableTitleRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+  },
+  portableTitleText: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  portableShare: {
+    width: 30,
+    height: 30,
+    padding: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+  },
+  portableShareText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
   },
   intro: {
     marginTop: 12,
@@ -691,7 +734,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: celestialAlpha(celestial.shadow, 0.72),
   },
   removeImageText: {
     color: '#FFFFFF',
@@ -704,7 +747,7 @@ const styles = StyleSheet.create({
     left: 7,
     bottom: 7,
     borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.70)',
+    backgroundColor: celestialAlpha(celestial.shadow, 0.70),
     paddingHorizontal: 7,
     paddingVertical: 4,
   },
@@ -964,7 +1007,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  disabled: { opacity: 0.45 },
   pressed: {
     opacity: 0.72,
   },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  celestialModule: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  celestialChip: {
+    borderColor: celestialAlpha(celestial.gold, 0.30),
+  },
+  celestialInput: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+  },
+
 });

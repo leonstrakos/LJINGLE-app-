@@ -1,6 +1,16 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+// forkLCelestialFoundationV1
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+} from 'react-native';
 
 import { colors } from '../theme/colors';
+import {
+  celestial,
+  celestialEnabled,
+} from '../theme/celestial';
+import { AnimatedPressable } from './AnimatedPressable';
 
 type Props = {
   label: string;
@@ -19,34 +29,61 @@ export function PrimaryButton({
 }: Props) {
   const isDisabled = disabled || loading;
 
+  const loaderColor =
+    celestialEnabled && variant === 'primary'
+      ? celestial.ivory
+      : variant === 'primary'
+        ? colors.white
+        : variant === 'danger'
+          ? colors.danger
+          : celestialEnabled
+            ? celestial.accentText
+            : colors.black;
+
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
+      cue={false}
       disabled={isDisabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.button,
         styles[variant],
-        pressed && !isDisabled && styles.pressed,
+        celestialEnabled && styles.celestialButton,
+        celestialEnabled &&
+          variant === 'primary' &&
+          styles.celestialPrimary,
+        celestialEnabled &&
+          variant === 'secondary' &&
+          styles.celestialSecondary,
+        celestialEnabled &&
+          variant === 'danger' &&
+          styles.celestialDanger,
         isDisabled && styles.disabled,
       ]}
+      pressedStyle={!isDisabled ? styles.pressed : undefined}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? colors.white : variant === 'danger' ? colors.danger : colors.black}
-        />
+        <ActivityIndicator color={loaderColor} />
       ) : (
         <Text
           style={[
             styles.label,
             variant === 'secondary' && styles.secondaryLabel,
             variant === 'danger' && styles.dangerLabel,
+            celestialEnabled && styles.celestialLabel,
+            celestialEnabled &&
+              variant === 'primary' &&
+              styles.celestialPrimaryLabel,
+            celestialEnabled &&
+              variant === 'secondary' &&
+              styles.celestialSecondaryLabel,
           ]}
         >
           {label}
         </Text>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -81,10 +118,34 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   pressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.86,
   },
   disabled: {
     opacity: 0.55,
+  },
+
+  celestialButton: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: celestial.hairlineStrong,
+  },
+  celestialPrimary: {
+    backgroundColor: celestial.night,
+    borderColor: celestial.goldDeep,
+  },
+  celestialSecondary: {
+    backgroundColor: celestial.goldWash,
+    borderColor: celestial.hairlineStrong,
+  },
+  celestialDanger: {
+    backgroundColor: celestial.panelStrong,
+  },
+  celestialLabel: {
+    letterSpacing: 0.45,
+  },
+  celestialPrimaryLabel: {
+    color: celestial.ivory,
+  },
+  celestialSecondaryLabel: {
+    color: celestial.accentText,
   },
 });

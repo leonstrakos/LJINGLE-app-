@@ -27,8 +27,25 @@ export const bookApi = {
       body: JSON.stringify(payload),
     }),
 
+  // // catalogueJingleProgressSemanticsV1:BookJingle
+  setFavourite: (
+    bookId: string,
+    favourite: boolean,
+  ) =>
+    apiRequest<BookResponse>(
+      `/books/${encodeURIComponent(bookId)}/favourite`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          favourite,
+        }),
+      },
+    ),
+
   remove: (bookId: string) =>
     apiRequest<void>(`/books/${bookId}`, {
       method: 'DELETE',
     }),
 };
+
+// catalogueJingleProgressSemanticsV1

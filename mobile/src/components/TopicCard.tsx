@@ -1,7 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import type { TopicResponse } from '../types/topic';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   topic: TopicResponse;
@@ -20,23 +25,23 @@ export function TopicCard({ topic, onPress }: Props) {
       accessibilityRole="button"
       accessibilityLabel={`Otvori temu ${topic.name}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, celestialMode && styles.celestialCard, pressed && styles.pressed]}
     >
-      <View style={styles.monogram}>
-        <Text style={styles.monogramText}>{topic.name.trim().charAt(0).toUpperCase()}</Text>
+      <View style={[styles.monogram, celestialMode && styles.celestialMonogram]}>
+        <Text style={[styles.monogramText, celestialMode && styles.celestialMonogramText]}>{topic.name.trim().charAt(0).toUpperCase()}</Text>
       </View>
 
       <View style={styles.copy}>
-        <Text numberOfLines={1} style={styles.name}>
+        <Text numberOfLines={1} style={[styles.name, celestialMode && styles.celestialName]}>
           {topic.name}
         </Text>
-        <Text numberOfLines={2} style={styles.description}>
+        <Text numberOfLines={2} style={[styles.description, celestialMode && styles.celestialMuted]}>
           {topic.description || 'Osobni prostor za aktivnosti i vrijeme.'}
         </Text>
-        <Text style={styles.count}>{activityCountLabel(topic.activityCount)}</Text>
+        <Text style={[styles.count, celestialMode && styles.celestialCount]}>{activityCountLabel(topic.activityCount)}</Text>
       </View>
 
-      <Text style={styles.arrow}>›</Text>
+      <Text style={[styles.arrow, celestialMode && styles.celestialArrow]}>✦</Text>
     </Pressable>
   );
 }
@@ -100,4 +105,23 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '300',
   },
+  celestialCard: {
+    backgroundColor: celestial.night,
+    borderColor: celestialAlpha(celestial.gold, 0.42),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  celestialMonogram: {
+    backgroundColor: celestialAlpha(celestial.gold, 0.08),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.55),
+  },
+  celestialMonogramText: { color: celestial.gold },
+  celestialName: { color: celestial.ivory },
+  celestialMuted: { color: celestialAlpha(celestial.ivory, 0.62) },
+  celestialCount: { color: celestial.gold, letterSpacing: 0.8 },
+  celestialArrow: { color: celestial.gold, fontSize: 13 },
 });

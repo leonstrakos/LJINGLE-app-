@@ -11,11 +11,15 @@ import {
 
 import { EntryMarkup } from './EntryMarkup';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 import {
   entryTypeLabels,  type Entry,
   type EntryLinkLabels,
 } from '../types/entry';
 
+import { celestial, celestialAlpha } from '../theme/celestial';
 type Props = {
   entry: Entry;
   linkLabels: EntryLinkLabels;
@@ -65,12 +69,12 @@ export function EntryCard({
   const [viewerImage, setViewerImage] = useState<string | null>(null);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, celestialMode && styles.celestialCard]}>
       <View style={styles.topLine}>
         <View style={styles.typeGroup}>
           <View>
-            <Text style={styles.typeLabel}>{entryTypeLabels[entry.type]}</Text>
-            <Text style={styles.date}>{dateLabel(entry.modifiedAt)}</Text>
+            <Text style={[styles.typeLabel, celestialMode && styles.celestialType]}>{entryTypeLabels[entry.type]}</Text>
+            <Text style={[styles.date, celestialMode && styles.celestialMuted]}>{dateLabel(entry.modifiedAt)}</Text>
           </View>
         </View>
 
@@ -80,9 +84,9 @@ export function EntryCard({
             accessibilityRole="button"
             hitSlop={8}
             onPress={onEdit}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.actionButton, celestialMode && styles.celestialActionButton, pressed && styles.pressed]}
           >
-            <Text style={styles.actionText}>Uredi</Text>
+            <Text style={[styles.actionText, celestialMode && styles.celestialActionText]}>Uredi</Text>
           </Pressable>
           <Pressable
             accessibilityLabel="Obriši zapis"
@@ -95,10 +99,9 @@ export function EntryCard({
           </Pressable>
         </View>
       </View>
-
-      <View style={styles.body}>
+<View style={styles.body}>
         {entry.title ? (
-          <Text numberOfLines={2} style={styles.title}>
+          <Text numberOfLines={2} style={[styles.title, celestialMode && styles.celestialTitle]}>
             {entry.title}
           </Text>
         ) : null}
@@ -166,11 +169,11 @@ export function EntryCard({
 
         {showHighlights ? (
           <View style={styles.highlights}>
-            <Text style={styles.highlightsLabel}>IZDVOJENO IZ ZAPISA</Text>
+            <Text style={[styles.highlightsLabel, celestialMode && styles.celestialHighlightsLabel]}>IZDVOJENO IZ ZAPISA</Text>
             {highlights.map((highlight) => (
               <View key={highlight} style={styles.highlightRow}>
-                <View style={styles.highlightLine} />
-                <Text style={styles.highlightText}>{highlight}</Text>
+                <View style={[styles.highlightLine, celestialMode && styles.celestialHighlightLine]} />
+                <Text style={[styles.highlightText, celestialMode && styles.celestialHighlightText]}>{highlight}</Text>
               </View>
             ))}
           </View>
@@ -179,8 +182,8 @@ export function EntryCard({
         {attachments.length > 0 ? (
           <View style={styles.attachments}>
             {attachments.map((attachment) => (
-              <View key={attachment} style={styles.attachmentPill}>
-                <Text numberOfLines={1} style={styles.attachmentText}>
+              <View key={attachment} style={[styles.attachmentPill, celestialMode && styles.celestialAttachmentPill]}>
+                <Text numberOfLines={1} style={[styles.attachmentText, celestialMode && styles.celestialAttachmentText]}>
                   {attachment}
                 </Text>
               </View>
@@ -289,7 +292,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: celestialAlpha(celestial.shadow, 0.92),
     padding: 20,
   },
   viewerImage: {
@@ -357,4 +360,33 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
+  celestialCard: {
+    backgroundColor: celestial.night,
+    borderColor: celestialAlpha(celestial.gold, 0.44),
+    shadowColor: celestial.gold,
+    shadowOpacity: 0.09,
+  },
+  celestialType: { color: celestial.gold, letterSpacing: 1.0 },
+  celestialMuted: { color: celestialAlpha(celestial.ivory, 0.58) },
+  celestialActionButton: {
+    backgroundColor: celestialAlpha(celestial.gold, 0.08),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.25),
+  },
+  celestialActionText: { color: celestial.gold },
+  celestialTitle: { color: celestial.ivory },
+  celestialHighlightsLabel: { color: celestial.gold, letterSpacing: 1.2 },
+  celestialHighlightLine: { backgroundColor: celestial.gold },
+  celestialHighlightText: { color: celestial.ivory },
+  celestialAttachmentPill: {
+    backgroundColor: celestialAlpha(celestial.ivory, 0.05),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.22),
+  },
+  celestialAttachmentText: { color: celestialAlpha(celestial.ivory, 0.62) },
+  celestialTypeLabel: {
+    color: celestial.gold,
+    letterSpacing: 1.15,
+  },
+
 });

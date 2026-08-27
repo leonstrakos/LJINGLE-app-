@@ -10,13 +10,23 @@ export type BookResponse = {
   publishedYear: number;
   readingStatus: ReadingStatus;
   progress: number;
+  // // catalogueJingleProgressSemanticsV1:BookPages
+  totalPages: number | null;
+  currentPage: number | null;
   enjoyment: Enjoyment | null;
   favourite: boolean;
   startedOn: string | null;
   finishedOn: string | null;
 };
 
-export type BookRequest = Omit<BookResponse, 'bookId'>;
+export type BookRequest =
+  Omit<
+    BookResponse,
+    'bookId' | 'totalPages' | 'currentPage'
+  > & {
+    totalPages?: number | null;
+    currentPage?: number | null;
+  };
 
 export type PagedBooks = {
   content: BookResponse[];
@@ -44,3 +54,5 @@ export const enjoymentLabels: Record<Enjoyment, string> = {
 
 export const readingStatuses = Object.keys(readingStatusLabels) as ReadingStatus[];
 export const enjoymentOptions = Object.keys(enjoymentLabels) as Enjoyment[];
+
+// catalogueJingleProgressSemanticsV1

@@ -19,7 +19,11 @@ import {
 } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import { semanticFeedback } from '../utils/semanticFeedback';
+
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 import { semanticSpring, semanticTiming } from '../utils/semanticMotion';
 
 import {
@@ -29,6 +33,7 @@ import {
 } from '../utils/undoManager';
 
 
+import { celestial, celestialAlpha } from '../theme/celestial';
 export function GlobalUndoToast() {
   const insets = useSafeAreaInsets();
 
@@ -130,6 +135,7 @@ export function GlobalUndoToast() {
       <Animated.View
         style={[
           styles.toast,
+          celestialMode && styles.celestialToast,
           {
             bottom:
               Math.max(
@@ -147,7 +153,7 @@ export function GlobalUndoToast() {
       >
         <Text
           numberOfLines={2}
-          style={styles.label}
+          style={[styles.label, celestialMode && styles.celestialLabel]}
         >
           {action.label}
         </Text>
@@ -164,6 +170,7 @@ export function GlobalUndoToast() {
             pressed,
           }) => [
             styles.undoButton,
+            celestialMode && styles.celestialUndoButton,
 
             pressed &&
               !busy &&
@@ -173,6 +180,7 @@ export function GlobalUndoToast() {
           <Text
             style={[
               styles.undoText,
+              celestialMode && styles.celestialUndoText,
 
               busy &&
                 styles.undoTextBusy,
@@ -180,7 +188,7 @@ export function GlobalUndoToast() {
           >
             {busy
               ? '...'
-              : 'PONITI'}
+              : 'PONIŠTI'}
           </Text>
         </Pressable>
       </Animated.View>
@@ -277,4 +285,18 @@ const styles =
     undoTextBusy: {
       opacity: 0.6,
     },
+    celestialToast: {
+      backgroundColor: celestial.night,
+      borderWidth: 1,
+      borderColor: celestialAlpha(celestial.gold, 0.66),
+      shadowColor: celestial.gold,
+      shadowOpacity: 0.14,
+    },
+    celestialLabel: { color: celestial.ivory },
+    celestialUndoButton: {
+      backgroundColor: celestial.gold,
+      borderWidth: 1,
+      borderColor: celestialAlpha(celestial.ivory, 0.34),
+    },
+    celestialUndoText: { color: celestial.night, letterSpacing: 0.7 },
   });

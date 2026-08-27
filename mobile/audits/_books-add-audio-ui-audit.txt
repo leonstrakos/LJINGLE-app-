@@ -1,0 +1,1910 @@
+LJINGLE — Books add/audio/UI audit
+==================================
+
+### App.tsx
+
+-- lines 1-109 --
+   1 | import { useEffect, useRef, useState } from 'react';
+   2 | import {
+   3 |   NavigationContainer,
+   4 |   DefaultTheme,
+   5 |   useNavigationContainerRef,
+   6 | } from '@react-navigation/native';
+   7 | import { createNativeStackNavigator } from '@react-navigation/native-stack';
+   8 | import { StatusBar, View } from 'react-native';
+   9 | import { SafeAreaProvider } from 'react-native-safe-area-context';
+  10 | 
+  11 | import { BookDetailsScreen } from './src/screens/BookDetailsScreen';
+  12 | import { BookFormScreen } from './src/screens/BookFormScreen';
+  13 | import { BookListScreen } from './src/screens/BookListScreen';
+  14 | import { BookMetadataImportScreen } from './src/screens/BookMetadataImportScreen';
+  15 | import { BookSearchScreen } from './src/screens/BookSearchScreen';
+  16 | import { BookStatsScreen } from './src/screens/BookStatsScreen';
+  17 | import { CatalogueHomeScreen } from './src/screens/CatalogueHomeScreen';
+  18 | import { CollectionsScreen } from './src/screens/CollectionsScreen';
+  19 | import { CollectionDetailsScreen } from './src/screens/CollectionDetailsScreen';
+  20 | import { EntryFormScreen } from './src/screens/EntryFormScreen';
+  21 | import { EntryListScreen } from './src/screens/EntryListScreen';
+  22 | import { MemoryAudioProvider } from './src/audio/MemoryAudioProvider';
+  23 | import { MemoryRadioScreen } from './src/screens/MemoryRadioScreen';
+  24 | import { GamesNavigator } from './src/games';
+  25 | import { HistoryScreen } from './src/screens/HistoryScreen';
+  26 | import { SessionNotePrompt } from './src/components/SessionNotePrompt';
+  27 | import { GlobalUndoToast } from './src/components/GlobalUndoToast';
+  28 | import { StatsScreen } from './src/screens/StatsScreen';
+  29 | import { ReconstructionScreen } from './src/screens/ReconstructionScreen';
+  30 | import { MediaNavigator } from './src/navigation/MediaNavigator';
+  31 | import { ParentBackButton } from './src/components/ParentBackButton';
+  32 | import { CommandPalette } from './src/components/CommandPalette';
+  33 | import { CommandPaletteEdgeGesture } from './src/components/CommandPaletteEdgeGesture';
+  34 | import { TodayScreen } from './src/screens/TodayScreen';
+  35 | import { ThemePickerScreen } from './src/screens/ThemePickerScreen';
+  36 | import { TopicDetailsScreen } from './src/screens/TopicDetailsScreen';
+  37 | import { TopicListScreen } from './src/screens/TopicListScreen';
+  38 | import { colors } from './src/theme/colors';
+  39 | import { semanticFeedback } from './src/utils/semanticFeedback';
+  40 | import type { RootStackParamList } from './src/types/navigation';
+  41 | import { playUiCue } from './src/audio/uiFeedback';
+  42 | import { runCloudSync } from './src/services/cloudSync';
+  43 | 
+  44 | const Stack = createNativeStackNavigator<RootStackParamList>();
+  45 | 
+  46 | const navigationTheme = {
+  47 |   ...DefaultTheme,
+  48 |   colors: {
+  49 |     ...DefaultTheme.colors,
+  50 |     background: colors.background,
+  51 |     card: colors.surface,
+  52 |     primary: colors.black,
+  53 |     text: colors.text,
+  54 |     border: colors.separator,
+  55 |   },
+  56 | };
+  57 | 
+  58 | export default function App() {
+  59 |   // appOpeningSoundFinalV1
+  60 |   useEffect(() => {
+  61 |     void playUiCue('open');
+  62 |   }, []);
+  63 | 
+  64 |   const navigationRef =
+  65 |     useNavigationContainerRef<RootStackParamList>();
+  66 | 
+  67 |   // cloudSyncAppOpenV1
+  68 |   useEffect(() => {
+  69 |     void runCloudSync({
+  70 |       reason: 'APP_OPEN',
+  71 |     });
+  72 |   }, []);
+  73 | 
+  74 |   // commandPalettePeekGestureV1
+  75 | 
+  76 |   // commandPalettePeekGestureV1
+  77 |   const [paletteOpenSignal, setPaletteOpenSignal] =
+  78 |     useState(0);
+  79 | 
+  80 |   // commandPaletteGlobalLongHoldV1
+  81 |   const globalHoldTimer =
+  82 |     useRef<ReturnType<typeof setTimeout> | null>(null);
+  83 |   const globalHoldStart =
+  84 |     useRef<{ x: number; y: number } | null>(null);
+  85 | 
+  86 |   const cancelGlobalHold = () => {
+  87 |     if (globalHoldTimer.current) {
+  88 |       clearTimeout(globalHoldTimer.current);
+  89 |       globalHoldTimer.current = null;
+  90 |     }
+  91 | 
+  92 |     globalHoldStart.current = null;
+  93 |   };
+  94 | 
+  95 |   const touchPoint = (event: any) => {
+  96 |     const touch =
+  97 |       event.nativeEvent?.touches?.[0] ??
+  98 |       event.nativeEvent?.changedTouches?.[0] ??
+  99 |       event.nativeEvent;
+ 100 | 
+ 101 |     return {
+ 102 |       x: Number(touch?.pageX ?? 0),
+ 103 |       y: Number(touch?.pageY ?? 0),
+ 104 |     };
+ 105 |   };
+ 106 | 
+ 107 |   const beginGlobalHold = (event: any) => {
+ 108 |     cancelGlobalHold();
+ 109 | 
+
+-- lines 137-334 --
+ 137 | 
+ 138 |     // Normal scroll/swipe cancels the long hold.
+ 139 |     if (Math.hypot(dx, dy) > 14) {
+ 140 |       cancelGlobalHold();
+ 141 |     }
+ 142 |   };
+ 143 | 
+ 144 |   return (
+ 145 |     <SafeAreaProvider>
+ 146 |       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+ 147 | 
+ 148 |       <MemoryAudioProvider>
+ 149 |       <View
+ 150 |         style={{ flex: 1 }}
+ 151 |         onTouchStart={beginGlobalHold}
+ 152 |         onTouchMove={moveGlobalHold}
+ 153 |         onTouchEnd={cancelGlobalHold}
+ 154 |         onTouchCancel={cancelGlobalHold}
+ 155 |       >
+ 156 |       <SessionNotePrompt />
+ 157 |       <NavigationContainer
+ 158 |         ref={navigationRef}
+ 159 |         theme={navigationTheme}
+ 160 |       >
+ 161 |         <Stack.Navigator
+ 162 |           initialRouteName="Today"
+ 163 |           screenOptions={({ navigation }) => ({
+ 164 |             // globalScreenMotionStableV4
+ 165 |             // globalScreenMotionV1
+ 166 |             animation: 'fade_from_bottom',
+ 167 |             animationDuration: 220,
+ 168 |             headerStyle: { backgroundColor: colors.surface },
+ 169 |             headerTintColor: colors.black,
+ 170 |             headerTitleStyle: {
+ 171 |               color: colors.text,
+ 172 |               fontSize: 17,
+ 173 |               fontWeight: '600',
+ 174 |             },
+ 175 |             headerBackVisible: false,
+ 176 |             headerBackTitle: 'Natrag',
+ 177 |             headerShadowVisible: false,
+ 178 |             contentStyle: { backgroundColor: colors.background },
+ 179 |             headerLeft: () => <ParentBackButton onPress={() => navigation.goBack()} />,
+ 180 |           })}
+ 181 |         >
+ 182 |           <Stack.Screen
+ 183 |             name="Today"
+ 184 |             component={TodayScreen}
+ 185 |             options={{ headerShown: false }}
+ 186 |           />
+ 187 | 
+ 188 |           <Stack.Screen
+ 189 |             name="ThemePicker"
+ 190 |             component={ThemePickerScreen}
+ 191 |             options={{ title: 'Postavke' }}
+ 192 |           />
+ 193 | 
+ 194 |           <Stack.Screen
+ 195 |             name="Catalogue"
+ 196 |             component={CatalogueHomeScreen}
+ 197 |             options={{ title: 'Katalog' }}
+ 198 |           />
+ 199 | 
+ 200 |           <Stack.Screen
+ 201 |             name="Collections"
+ 202 |             component={CollectionsScreen}
+ 203 |             options={{ title: 'Collections' }}
+ 204 |           />
+ 205 | 
+ 206 |           <Stack.Screen
+ 207 |             name="CollectionDetails"
+ 208 |             component={CollectionDetailsScreen}
+ 209 |             options={{ title: 'Collection' }}
+ 210 |           />
+ 211 | 
+ 212 |           <Stack.Screen
+ 213 |             name="BookList"
+ 214 |             component={BookListScreen}
+ 215 |             options={{ title: 'Knjige' }}
+ 216 |           />
+ 217 | 
+ 218 |           <Stack.Screen
+ 219 |             name="Topics"
+ 220 |             component={TopicListScreen}
+ 221 |             options={{ title: 'Teme' }}
+ 222 |           />
+ 223 | 
+ 224 |           <Stack.Screen
+ 225 |             name="TopicDetails"
+ 226 |             component={TopicDetailsScreen}
+ 227 |             options={{ title: 'Tema' }}
+ 228 |           />
+ 229 | 
+ 230 |           <Stack.Screen
+ 231 |             name="History"
+ 232 |             component={HistoryScreen}
+ 233 |             options={{ title: 'Povijest' }}
+ 234 |           />
+ 235 | 
+ 236 |           <Stack.Screen
+ 237 |             name="Stats"
+ 238 |             component={StatsScreen}
+ 239 |             options={{ title: 'Statistika' }}
+ 240 |           />
+ 241 | 
+ 242 |           <Stack.Screen
+ 243 |             name="Reconstruction"
+ 244 |             component={ReconstructionScreen}
+ 245 |             options={{ title: 'Osobni arhiv' }}
+ 246 |           />
+ 247 | 
+ 248 |           <Stack.Screen
+ 249 |             name="Entries"
+ 250 |             component={EntryListScreen}
+ 251 |             options={{ title: 'Zapisi' }}
+ 252 |           />
+ 253 | 
+ 254 |           <Stack.Screen
+ 255 |             name="EntryForm"
+ 256 |             component={EntryFormScreen}
+ 257 |             options={({ route }) => ({
+ 258 |               title: route.params?.entryId ? 'Uredi zapis' : 'Novi zapis',
+ 259 |             })}
+ 260 |           />
+ 261 | 
+ 262 |           <Stack.Screen
+ 263 |             name="MemoryRadio"
+ 264 |             component={MemoryRadioScreen}
+ 265 |             options={{ title: 'Memory Radio' }}
+ 266 |           />
+ 267 | 
+ 268 |           <Stack.Screen
+ 269 |             name="Games"
+ 270 |             component={GamesNavigator}
+ 271 |             options={{ headerShown: false }}
+ 272 |           />
+ 273 | 
+ 274 |           <Stack.Screen
+ 275 |             name="Media"
+ 276 |             component={MediaNavigator}
+ 277 |             options={{ headerShown: false }}
+ 278 |           />
+ 279 | 
+ 280 |           <Stack.Screen
+ 281 |             name="BookDetails"
+ 282 |             component={BookDetailsScreen}
+ 283 |             options={{ title: 'Detalji knjige' }}
+ 284 |           />
+ 285 | 
+ 286 |           <Stack.Screen
+ 287 |             name="BookSearch"
+ 288 |             component={BookSearchScreen}
+ 289 |             options={{ title: 'Pretraži katalog' }}
+ 290 |           />
+ 291 | 
+ 292 |           <Stack.Screen
+ 293 |             name="BookMetadataImport"
+ 294 |             component={BookMetadataImportScreen}
+ 295 |             options={{ title: 'Online pretraga knjiga' }}
+ 296 |           />
+ 297 | 
+ 298 |           <Stack.Screen
+ 299 |             name="BookStats"
+ 300 |             component={BookStatsScreen}
+ 301 |             options={{ title: 'Statistika' }}
+ 302 |           />
+ 303 | 
+ 304 |           <Stack.Screen
+ 305 |             name="BookForm"
+ 306 |             component={BookFormScreen}
+ 307 |             options={({ route }) => ({
+ 308 |               title: route.params?.bookId ? 'Uredi knjigu' : 'Nova knjiga',
+ 309 |             })}
+ 310 |           />
+ 311 |         </Stack.Navigator>
+ 312 |       </NavigationContainer>
+ 313 | 
+ 314 |         {/* globalUndoToastV1 */}
+ 315 |         <GlobalUndoToast />
+ 316 | 
+ 317 |       <CommandPaletteEdgeGesture
+ 318 |         onOpen={() => {
+ 319 |           setPaletteOpenSignal(
+ 320 |             (current) => current + 1
+ 321 |           );
+ 322 |         }}
+ 323 |       />
+ 324 | 
+ 325 |       <CommandPalette
+ 326 |         navigation={navigationRef}
+ 327 |         openSignal={paletteOpenSignal}
+ 328 |       />
+ 329 |       </View>
+ 330 |       </MemoryAudioProvider>
+ 331 |     </SafeAreaProvider>
+ 332 |   );
+ 333 | }
+ 334 | 
+
+### src/audio/uiFeedback.ts
+
+-- lines 58-129 --
+  58 | 
+  59 |     case 'confirm':
+  60 |     case 'start':
+  61 |     case 'create':
+  62 |       await Haptics.impactAsync(
+  63 |         Haptics.ImpactFeedbackStyle.Light,
+  64 |       );
+  65 |       return;
+  66 | 
+  67 |     case 'stop':
+  68 |     case 'delete':
+  69 |       await Haptics.impactAsync(
+  70 |         Haptics.ImpactFeedbackStyle.Medium,
+  71 |       );
+  72 |       return;
+  73 | 
+  74 |     case 'complete':
+  75 |       await Haptics.notificationAsync(
+  76 |         Haptics.NotificationFeedbackType.Success,
+  77 |       );
+  78 |       return;
+  79 |   }
+  80 | }
+  81 | 
+  82 | async function sound(cue: UiCue) {
+  83 |   if (!(await getUiSoundEffectsEnabled())) return;
+  84 | 
+  85 |   if (
+  86 |     cue !== 'open' &&
+  87 |     cue !== 'delete' &&
+  88 |     cue !== 'jingle' &&
+  89 |     cue !== 'create'
+  90 |   ) {
+  91 |     return;
+  92 |   }
+  93 | 
+  94 |   const player = players[cue];
+  95 | 
+  96 |   try {
+  97 |     await player.seekTo(0);
+  98 |   } catch {
+  99 |     // Already at the beginning is fine.
+ 100 |   }
+ 101 | 
+ 102 |   player.play();
+ 103 | }
+ 104 | 
+ 105 | // uiSoundOnlyV2
+ 106 | export async function playUiSound(cue: UiCue) {
+ 107 |   if (!enabled) return;
+ 108 |   if (Platform.OS === 'web') return;
+ 109 | 
+ 110 |   try {
+ 111 |     await sound(cue);
+ 112 |   } catch {
+ 113 |     // Audio must never block the actual app action.
+ 114 |   }
+ 115 | }
+ 116 | 
+ 117 | export async function playUiCue(cue: UiCue) {
+ 118 |   if (!enabled) return;
+ 119 | 
+ 120 |   try {
+ 121 |     await Promise.all([
+ 122 |       haptic(cue),
+ 123 |       sound(cue),
+ 124 |     ]);
+ 125 |   } catch {
+ 126 |     // Feedback must never block the actual app action.
+ 127 |   }
+ 128 | }
+ 129 | 
+
+### src/screens/BookListScreen.tsx
+
+-- lines 6-146 --
+   6 |     RefreshControl,
+   7 |     StyleSheet,
+   8 |     Text,
+   9 |     View,
+  10 | } from 'react-native';
+  11 | import { useFocusEffect } from '@react-navigation/native';
+  12 | import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+  13 | import { SafeAreaView } from 'react-native-safe-area-context';
+  14 | 
+  15 | import { BookCard } from '../components/BookCard';
+  16 | import { FeedbackView } from '../components/FeedbackView';
+  17 | import { bookApi } from '../services/bookApi';
+  18 | import { colors } from '../theme/colors';
+  19 | import { registerUndo } from '../utils/undoManager';
+  20 | import { semanticFeedback } from '../utils/semanticFeedback';
+  21 | import {
+  22 |   catalogueStateKey,
+  23 |   mergeScreenState,
+  24 |   readScreenState,
+  25 | } from '../utils/screenStateCache';
+  26 | import type { BookResponse } from '../types/book';
+  27 | import type { RootStackParamList } from '../types/navigation';
+  28 | import { JingleBellIcon } from '../components/JingleBellIcon';
+  29 | 
+  30 | type Props = NativeStackScreenProps<RootStackParamList, 'BookList'>;
+  31 | 
+  32 | // bookStatePreservationV1
+  33 | type BookListPreservedState = {
+  34 |   jingleOnly: boolean;
+  35 |   scrollOffset: number;
+  36 | };
+  37 | 
+  38 | const BOOK_STATE_KEY =
+  39 |   catalogueStateKey('books');
+  40 | 
+  41 | export function BookListScreen({ navigation }: Props) {
+  42 |   const initialScreenState = useRef(
+  43 |     readScreenState<BookListPreservedState>(
+  44 |       BOOK_STATE_KEY,
+  45 |     ),
+  46 |   ).current;
+  47 | 
+  48 |   const listRef =
+  49 |     useRef<FlatList<BookResponse>>(null);
+  50 | 
+  51 |   const scrollOffsetRef = useRef(
+  52 |     initialScreenState?.scrollOffset ?? 0,
+  53 |   );
+  54 | 
+  55 |   const restoreScrollRef = useRef(
+  56 |     (initialScreenState?.scrollOffset ?? 0) > 0,
+  57 |   );
+  58 | 
+  59 |   const [books, setBooks] =
+  60 |     useState<BookResponse[]>([]);
+  61 | 
+  62 |   // jingleBooksV1
+  63 |   const [jingleOnly, setJingleOnly] =
+  64 |     useState(
+  65 |       initialScreenState?.jingleOnly ?? false,
+  66 |     );
+  67 |   const [loading, setLoading] = useState(true);
+  68 |   const [refreshing, setRefreshing] = useState(false);
+  69 |   const [error, setError] = useState<string | null>(null);
+  70 | 
+  71 |   const selectJingleOnly = (
+  72 |     value: boolean,
+  73 |   ) => {
+  74 |     scrollOffsetRef.current = 0;
+  75 |     restoreScrollRef.current = false;
+  76 | 
+  77 |     mergeScreenState<BookListPreservedState>(
+  78 |       BOOK_STATE_KEY,
+  79 |       {
+  80 |         jingleOnly: value,
+  81 |         scrollOffset: 0,
+  82 |       },
+  83 |     );
+  84 | 
+  85 |     setJingleOnly(value);
+  86 | 
+  87 |     listRef.current?.scrollToOffset({
+  88 |       offset: 0,
+  89 |       animated: false,
+  90 |     });
+  91 |   };
+  92 | 
+  93 |   const rememberBookScroll = (
+  94 |     offset: number,
+  95 |   ) => {
+  96 |     scrollOffsetRef.current = offset;
+  97 | 
+  98 |     mergeScreenState<BookListPreservedState>(
+  99 |       BOOK_STATE_KEY,
+ 100 |       {
+ 101 |         jingleOnly,
+ 102 |         scrollOffset: offset,
+ 103 |       },
+ 104 |     );
+ 105 |   };
+ 106 | 
+ 107 |   const restoreBookScroll = () => {
+ 108 |     if (!restoreScrollRef.current) {
+ 109 |       return;
+ 110 |     }
+ 111 | 
+ 112 |     const offset = scrollOffsetRef.current;
+ 113 | 
+ 114 |     if (offset <= 0) {
+ 115 |       restoreScrollRef.current = false;
+ 116 |       return;
+ 117 |     }
+ 118 | 
+ 119 |     requestAnimationFrame(() => {
+ 120 |       try {
+ 121 |         listRef.current?.scrollToOffset({
+ 122 |           offset,
+ 123 |           animated: false,
+ 124 |         });
+ 125 | 
+ 126 |         restoreScrollRef.current = false;
+ 127 |       } catch {
+ 128 |         // Content can still be measuring.
+ 129 |       }
+ 130 |     });
+ 131 |   };
+ 132 | 
+ 133 |   const loadBooks = useCallback(async (asRefresh = false) => {
+ 134 |     asRefresh ? setRefreshing(true) : setLoading(true);
+ 135 |     setError(null);
+ 136 |     try {
+ 137 |       setBooks(await bookApi.getAll());
+ 138 |     } catch (caught) {
+ 139 |       setError(caught instanceof Error ? caught.message : 'Dohvat knjiga nije uspio.');
+ 140 |     } finally {
+ 141 |       setLoading(false);
+ 142 |       setRefreshing(false);
+ 143 |     }
+ 144 |   }, []);
+ 145 | 
+ 146 |   useFocusEffect(
+
+-- lines 194-491 --
+ 194 |             book.bookId,
+ 195 |             undoPayload as any,
+ 196 |           );
+ 197 | 
+ 198 |           setBooks((current) =>
+ 199 |             current.map((row) =>
+ 200 |               row.bookId === book.bookId
+ 201 |                 ? reverted
+ 202 |                 : row,
+ 203 |             ),
+ 204 |           );
+ 205 |         },
+ 206 |       });
+ 207 |     } catch (caught) {
+ 208 |       setError(
+ 209 |         caught instanceof Error
+ 210 |           ? caught.message
+ 211 |           : 'Jingle nije spremljen.'
+ 212 |       );
+ 213 |     }
+ 214 |   }, []);
+ 215 | 
+ 216 |   return (
+ 217 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+ 218 |       <View style={styles.hero}>
+ 219 |         <Text style={styles.eyebrow}>Katalog · Knjige</Text>
+ 220 |         <Text style={styles.heading}>Moje knjige</Text>
+ 221 |         {!loading && !error ? (
+ 222 |           <Text style={styles.count}>
+ 223 |             {visibleBooks.length === 1 ? '1 knjiga u zbirci' : `${visibleBooks.length} knjiga u zbirci`}
+ 224 |           </Text>
+ 225 |         ) : null}
+ 226 | 
+ 227 |         <View style={styles.quickActions}>
+ 228 |           <Pressable
+ 229 |             accessibilityRole="button"
+ 230 |             onPress={() => navigation.navigate('BookMetadataImport')}
+ 231 |             style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
+ 232 |           >
+ 233 |             <Text style={styles.quickActionIcon}>⌕</Text>
+ 234 |             <Text style={styles.quickActionLabel}>Online pretraga</Text>
+ 235 |           </Pressable>
+ 236 |           <Pressable
+ 237 |             accessibilityRole="button"
+ 238 |             onPress={() => navigation.navigate('BookStats')}
+ 239 |             style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
+ 240 |           >
+ 241 |             <Text style={styles.quickActionIcon}>▥</Text>
+ 242 |             <Text style={styles.quickActionLabel}>Statistika</Text>
+ 243 |           </Pressable>
+ 244 |         </View>
+ 245 |         <View style={styles.jingleFilters}>
+ 246 |           <Pressable
+ 247 |             accessibilityRole="button"
+ 248 |             onPress={() => selectJingleOnly(false)}
+ 249 |             style={[
+ 250 |               styles.jingleFilter,
+ 251 |               !jingleOnly && styles.jingleFilterSelected,
+ 252 |             ]}
+ 253 |           >
+ 254 |             <Text
+ 255 |               style={[
+ 256 |                 styles.jingleFilterText,
+ 257 |                 !jingleOnly && styles.jingleFilterTextSelected,
+ 258 |               ]}
+ 259 |             >
+ 260 |               Sve
+ 261 |             </Text>
+ 262 |           </Pressable>
+ 263 | 
+ 264 |           <Pressable
+ 265 |             accessibilityRole="button"
+ 266 |             onPress={() => selectJingleOnly(true)}
+ 267 |             style={[
+ 268 |               styles.jingleFilter,
+ 269 |               jingleOnly && styles.jingleFilterSelected,
+ 270 |             ]}
+ 271 |           >
+ 272 |             <Text
+ 273 |               style={[
+ 274 |                 styles.jingleFilterText,
+ 275 |                 jingleOnly && styles.jingleFilterTextSelected,
+ 276 |               ]}
+ 277 |             >
+ 278 |               Jingle
+ 279 |             </Text>
+ 280 |           </Pressable>
+ 281 |         </View>
+ 282 |       </View>
+ 283 | 
+ 284 |       {loading && books.length === 0 ? (
+ 285 |         <FeedbackView type="loading" />
+ 286 |       ) : error && books.length === 0 ? (
+ 287 |         <FeedbackView type="error" message={error} onRetry={() => void loadBooks()} />
+ 288 |       ) : (
+ 289 |         <FlatList
+ 290 |           ref={listRef}
+ 291 |           data={visibleBooks}
+ 292 |           onScroll={(event) => {
+ 293 |             rememberBookScroll(
+ 294 |               event.nativeEvent.contentOffset.y,
+ 295 |             );
+ 296 |           }}
+ 297 |           scrollEventThrottle={100}
+ 298 |           onContentSizeChange={restoreBookScroll}
+ 299 |           keyExtractor={(item) => item.bookId}
+ 300 |           renderItem={({ item }) => (
+ 301 |             <View style={styles.jingleRow}>
+ 302 |               <BookCard
+ 303 |                 book={item}
+ 304 |                 onPress={() =>
+ 305 |                   navigation.navigate('BookDetails', { bookId: item.bookId })
+ 306 |                 }
+ 307 |               />
+ 308 | 
+ 309 |               <Pressable
+ 310 |                 accessibilityRole="button"
+ 311 |                 accessibilityLabel={
+ 312 |                   item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
+ 313 |                 }
+ 314 |                 onPress={() => void toggleBookJingle(item)}
+ 315 |                 style={({ pressed }) => [
+ 316 |                   styles.jingleButton,
+ 317 |                   pressed && styles.jinglePressed,
+ 318 |                 ]}
+ 319 |               >
+ 320 |                 <JingleBellIcon
+ 321 |                   active={item.favourite}
+ 322 |                   inactiveOpacity={0.5}
+ 323 |                   style={styles.jingleIcon}
+ 324 |                 />
+ 325 |               </Pressable>
+ 326 |             </View>
+ 327 |           )}
+ 328 |           contentContainerStyle={styles.list}
+ 329 |           ListEmptyComponent={<FeedbackView type="empty" />}
+ 330 |           refreshControl={
+ 331 |             <RefreshControl
+ 332 |               refreshing={refreshing}
+ 333 |               onRefresh={() => void loadBooks(true)}
+ 334 |               tintColor={colors.black}
+ 335 |               colors={[colors.black]}
+ 336 |             />
+ 337 |           }
+ 338 |         />
+ 339 |       )}
+ 340 | 
+ 341 |       <Pressable
+ 342 |         accessibilityRole="button"
+ 343 |         accessibilityLabel="Dodaj novu knjigu"
+ 344 |         onPress={() => navigation.navigate('BookForm')}
+ 345 |         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+ 346 |       >
+ 347 |         <Text style={styles.fabPlus}>+</Text>
+ 348 |         <Text style={styles.fabLabel}>Nova knjiga</Text>
+ 349 |       </Pressable>
+ 350 |     </SafeAreaView>
+ 351 |   );
+ 352 | }
+ 353 | 
+ 354 | const styles = StyleSheet.create({
+ 355 |   safeArea: {
+ 356 |     flex: 1,
+ 357 |     backgroundColor: colors.background,
+ 358 |   },
+ 359 |   hero: {
+ 360 |     paddingHorizontal: 22,
+ 361 |     paddingTop: 20,
+ 362 |     paddingBottom: 22,
+ 363 |   },
+ 364 |   eyebrow: {
+ 365 |     color: colors.textMuted,
+ 366 |     fontWeight: '600',
+ 367 |     fontSize: 15,
+ 368 |   },
+ 369 |   heading: {
+ 370 |     marginTop: 3,
+ 371 |     color: colors.text,
+ 372 |     fontSize: 34,
+ 373 |     lineHeight: 40,
+ 374 |     fontWeight: '800',
+ 375 |     letterSpacing: -0.8,
+ 376 |   },
+ 377 |   count: {
+ 378 |     marginTop: 7,
+ 379 |     color: colors.textMuted,
+ 380 |     fontSize: 14,
+ 381 |   },
+ 382 |   quickActions: {
+ 383 |     flexDirection: 'row',
+ 384 |     gap: 10,
+ 385 |     marginTop: 18,
+ 386 |   },
+ 387 |   quickAction: {
+ 388 |     flex: 1,
+ 389 |     minHeight: 48,
+ 390 |     flexDirection: 'row',
+ 391 |     alignItems: 'center',
+ 392 |     justifyContent: 'center',
+ 393 |     borderRadius: 14,
+ 394 |     backgroundColor: colors.surface,
+ 395 |     borderWidth: 1,
+ 396 |     borderColor: colors.separator,
+ 397 |   },
+ 398 |   quickActionPressed: {
+ 399 |     opacity: 0.65,
+ 400 |   },
+ 401 |   quickActionIcon: {
+ 402 |     color: colors.black,
+ 403 |     fontSize: 21,
+ 404 |     marginRight: 7,
+ 405 |   },
+ 406 |   quickActionLabel: {
+ 407 |     color: colors.text,
+ 408 |     fontSize: 14,
+ 409 |     fontWeight: '600',
+ 410 |   },
+ 411 |   list: {
+ 412 |     flexGrow: 1,
+ 413 |     paddingHorizontal: 16,
+ 414 |     paddingBottom: 112,
+ 415 |   },
+ 416 |   fab: {
+ 417 |     position: 'absolute',
+ 418 |     right: 18,
+ 419 |     bottom: 22,
+ 420 |     minHeight: 54,
+ 421 |     flexDirection: 'row',
+ 422 |     alignItems: 'center',
+ 423 |     backgroundColor: colors.black,
+ 424 |     borderRadius: 27,
+ 425 |     paddingHorizontal: 20,
+ 426 |     shadowColor: colors.black,
+ 427 |     shadowOffset: { width: 0, height: 5 },
+ 428 |     shadowOpacity: 0.2,
+ 429 |     shadowRadius: 10,
+ 430 |     elevation: 6,
+ 431 |   },
+ 432 |   fabPressed: {
+ 433 |     opacity: 0.86,
+ 434 |     transform: [{ scale: 0.98 }],
+ 435 |   },
+ 436 |   fabPlus: {
+ 437 |     color: colors.white,
+ 438 |     fontSize: 24,
+ 439 |     lineHeight: 25,
+ 440 |     fontWeight: '400',
+ 441 |     marginRight: 8,
+ 442 |   },
+ 443 |   fabLabel: {
+ 444 |     color: colors.white,
+ 445 |     fontSize: 15,
+ 446 |     fontWeight: '700',
+ 447 |   },
+ 448 |   jingleFilters: {
+ 449 |     flexDirection: 'row',
+ 450 |     gap: 8,
+ 451 |     marginTop: 16,
+ 452 |   },
+ 453 |   jingleFilter: {
+ 454 |     paddingHorizontal: 14,
+ 455 |     paddingVertical: 8,
+ 456 |     borderRadius: 999,
+ 457 |     borderWidth: 1,
+ 458 |     borderColor: colors.border,
+ 459 |     backgroundColor: colors.surface,
+ 460 |   },
+ 461 |   jingleFilterSelected: {
+ 462 |     backgroundColor: colors.black,
+ 463 |     borderColor: colors.black,
+ 464 |   },
+ 465 |   jingleFilterText: {
+ 466 |     color: colors.text,
+ 467 |     fontSize: 12,
+ 468 |     fontWeight: '700',
+ 469 |   },
+ 470 |   jingleFilterTextSelected: {
+ 471 |     color: colors.white,
+ 472 |   },
+ 473 |   jingleRow: {
+ 474 |     position: 'relative',
+ 475 |   },
+ 476 |   jingleButton: {
+ 477 |     position: 'absolute',
+ 478 |     top: 1,
+ 479 |     right: 2,
+ 480 |     zIndex: 30,
+ 481 |     width: 76,
+ 482 |     height: 80,
+ 483 |     alignItems: 'center',
+ 484 |     justifyContent: 'center',
+ 485 |     backgroundColor: 'transparent',
+ 486 |     borderWidth: 0,
+ 487 |   },
+ 488 |   jingleIcon: {
+ 489 |     width: 62,
+ 490 |     height: 74,
+ 491 |   },
+
+### src/screens/BookFormScreen.tsx
+
+-- lines 10-126 --
+  10 |   Text,
+  11 |   TextInput,
+  12 |   View,
+  13 | } from 'react-native';
+  14 | import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+  15 | import { SafeAreaView } from 'react-native-safe-area-context';
+  16 | 
+  17 | import { FeedbackView } from '../components/FeedbackView';
+  18 | import { PrimaryButton } from '../components/PrimaryButton';
+  19 | import { bookApi } from '../services/bookApi';
+  20 | import { colors } from '../theme/colors';
+  21 | import { semanticFeedback } from '../utils/semanticFeedback';
+  22 | import {
+  23 |   enjoymentLabels,
+  24 |   enjoymentOptions,
+  25 |   readingStatusLabels,
+  26 |   readingStatuses,
+  27 |   type BookRequest,
+  28 |   type Enjoyment,
+  29 |   type ReadingStatus,
+  30 | } from '../types/book';
+  31 | import type { RootStackParamList } from '../types/navigation';
+  32 | import { createdFeedback } from '../utils/crudFeedback';
+  33 | 
+  34 | type Props = NativeStackScreenProps<RootStackParamList, 'BookForm'>;
+  35 | 
+  36 | const isValidIsoDate = (value: string) => {
+  37 |   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  38 |   const parsed = new Date(`${value}T00:00:00Z`);
+  39 |   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  40 | };
+  41 | 
+  42 | type FieldProps = {
+  43 |   label: string;
+  44 |   value: string;
+  45 |   onChangeText: (value: string) => void;
+  46 |   placeholder: string;
+  47 |   error?: string;
+  48 |   keyboardType?: 'default' | 'number-pad';
+  49 |   autoCapitalize?: 'none' | 'sentences' | 'words';
+  50 | };
+  51 | 
+  52 | function FormField({
+  53 |   label,
+  54 |   value,
+  55 |   onChangeText,
+  56 |   placeholder,
+  57 |   error,
+  58 |   keyboardType = 'default',
+  59 |   autoCapitalize = 'sentences',
+  60 | }: FieldProps) {
+  61 |   return (
+  62 |     <View style={styles.field}>
+  63 |       <Text style={styles.label}>{label}</Text>
+  64 |       <TextInput
+  65 |         value={value}
+  66 |         onChangeText={onChangeText}
+  67 |         placeholder={placeholder}
+  68 |         placeholderTextColor="#98989D"
+  69 |         keyboardType={keyboardType}
+  70 |         autoCapitalize={autoCapitalize}
+  71 |         style={[styles.input, error && styles.inputError]}
+  72 |       />
+  73 |       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+  74 |     </View>
+  75 |   );
+  76 | }
+  77 | 
+  78 | export function BookFormScreen({ route, navigation }: Props) {
+  79 |   const bookId = route.params?.bookId;
+  80 |   const editing = Boolean(bookId);
+  81 | 
+  82 |   const [title, setTitle] = useState('');
+  83 |   const [author, setAuthor] = useState('');
+  84 |   const [isbn, setIsbn] = useState('');
+  85 |   const [publishedYear, setPublishedYear] = useState('');
+  86 |   const [readingStatus, setReadingStatus] = useState<ReadingStatus>('LATER');
+  87 |   const [progress, setProgress] = useState('0');
+  88 |   const [enjoyment, setEnjoyment] = useState<Enjoyment | null>(null);
+  89 |   const [favourite, setFavourite] = useState(false);
+  90 |   const [startedOn, setStartedOn] = useState('');
+  91 |   const [finishedOn, setFinishedOn] = useState('');
+  92 |   const [errors, setErrors] = useState<Record<string, string>>({});
+  93 |   const [loading, setLoading] = useState(editing);
+  94 |   const [saving, setSaving] = useState(false);
+  95 |   const [loadError, setLoadError] = useState<string | null>(null);
+  96 | 
+  97 |   useEffect(() => {
+  98 |     if (!bookId) return;
+  99 | 
+ 100 |     const loadBook = async () => {
+ 101 |       setLoading(true);
+ 102 |       setLoadError(null);
+ 103 |       try {
+ 104 |         const book = await bookApi.getById(bookId);
+ 105 |         setTitle(book.title);
+ 106 |         setAuthor(book.author || '');
+ 107 |         setIsbn(book.isbn || '');
+ 108 |         setPublishedYear(book.publishedYear > 0 ? String(book.publishedYear) : '');
+ 109 |         setReadingStatus(book.readingStatus);
+ 110 |         setProgress(String(book.progress));
+ 111 |         setEnjoyment(book.enjoyment);
+ 112 |         setFavourite(book.favourite);
+ 113 |         setStartedOn(book.startedOn ?? '');
+ 114 |         setFinishedOn(book.finishedOn ?? '');
+ 115 |       } catch (caught) {
+ 116 |         setLoadError(caught instanceof Error ? caught.message : 'Dohvat knjige nije uspio.');
+ 117 |       } finally {
+ 118 |         setLoading(false);
+ 119 |       }
+ 120 |     };
+ 121 | 
+ 122 |     void loadBook();
+ 123 |   }, [bookId]);
+ 124 | 
+ 125 |   const validate = (): BookRequest | null => {
+ 126 |     const nextErrors: Record<string, string> = {};
+
+-- lines 191-263 --
+ 191 |     }
+ 192 |   };
+ 193 | 
+ 194 |   if (loading) {
+ 195 |     return <FeedbackView type="loading" message="Učitavanje podataka…" />;
+ 196 |   }
+ 197 | 
+ 198 |   if (loadError) {
+ 199 |     return <FeedbackView type="error" message={loadError} />;
+ 200 |   }
+ 201 | 
+ 202 |   return (
+ 203 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+ 204 |       <KeyboardAvoidingView
+ 205 |         style={styles.flex}
+ 206 |         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+ 207 |         keyboardVerticalOffset={90}
+ 208 |       >
+ 209 |         <ScrollView
+ 210 |           keyboardShouldPersistTaps="handled"
+ 211 |           contentContainerStyle={styles.content}
+ 212 |         >
+ 213 |           <View style={styles.intro}>
+ 214 |             <Text style={styles.eyebrow}>{editing ? 'Uređivanje' : 'Dodavanje'}</Text>
+ 215 |             <Text style={styles.heading}>{editing ? 'Uredi knjigu' : 'Nova knjiga'}</Text>
+ 216 |             <Text style={styles.introText}>
+ 217 |               {editing
+ 218 |                 ? 'Promijenite podatke koje želite ažurirati.'
+ 219 |                 : 'Unesite osnovne podatke i dodajte knjigu u zbirku.'}
+ 220 |             </Text>
+ 221 |           </View>
+ 222 | 
+ 223 |           <View style={styles.formCard}>
+ 224 |             <FormField
+ 225 |               label="Naslov *"
+ 226 |               value={title}
+ 227 |               onChangeText={(value) => {
+ 228 |                 setTitle(value);
+ 229 |                 setErrors((current) => ({ ...current, title: '' }));
+ 230 |               }}
+ 231 |               placeholder="npr. Sto godina samoće"
+ 232 |               error={errors.title}
+ 233 |             />
+ 234 |             <FormField
+ 235 |               label="Autor"
+ 236 |               value={author}
+ 237 |               onChangeText={(value) => {
+ 238 |                 setAuthor(value);
+ 239 |                 setErrors((current) => ({ ...current, author: '' }));
+ 240 |               }}
+ 241 |               placeholder="npr. Gabriel García Márquez"
+ 242 |               error={errors.author}
+ 243 |               autoCapitalize="words"
+ 244 |             />
+ 245 |             <FormField
+ 246 |               label="ISBN"
+ 247 |               value={isbn}
+ 248 |               onChangeText={(value) => {
+ 249 |                 setIsbn(value);
+ 250 |                 setErrors((current) => ({ ...current, isbn: '' }));
+ 251 |               }}
+ 252 |               placeholder="978-…"
+ 253 |               error={errors.isbn}
+ 254 |               autoCapitalize="none"
+ 255 |             />
+ 256 |             <FormField
+ 257 |               label="Godina izdanja"
+ 258 |               value={publishedYear}
+ 259 |               onChangeText={(value) => {
+ 260 |                 setPublishedYear(value.replace(/[^0-9]/g, ''));
+ 261 |                 setErrors((current) => ({ ...current, publishedYear: '' }));
+ 262 |               }}
+ 263 |               placeholder="npr. 1967"
+
+-- lines 381-453 --
+ 381 | }
+ 382 | 
+ 383 | const styles = StyleSheet.create({
+ 384 |   safeArea: {
+ 385 |     flex: 1,
+ 386 |     backgroundColor: colors.background,
+ 387 |   },
+ 388 |   flex: {
+ 389 |     flex: 1,
+ 390 |   },
+ 391 |   content: {
+ 392 |     paddingHorizontal: 16,
+ 393 |     paddingTop: 16,
+ 394 |     paddingBottom: 36,
+ 395 |   },
+ 396 |   intro: {
+ 397 |     paddingHorizontal: 6,
+ 398 |     marginBottom: 22,
+ 399 |   },
+ 400 |   eyebrow: {
+ 401 |     color: colors.textMuted,
+ 402 |     fontWeight: '600',
+ 403 |     fontSize: 15,
+ 404 |   },
+ 405 |   heading: {
+ 406 |     color: colors.text,
+ 407 |     fontSize: 32,
+ 408 |     lineHeight: 38,
+ 409 |     fontWeight: '800',
+ 410 |     letterSpacing: -0.7,
+ 411 |     marginTop: 3,
+ 412 |   },
+ 413 |   introText: {
+ 414 |     color: colors.textMuted,
+ 415 |     fontSize: 15,
+ 416 |     lineHeight: 21,
+ 417 |     marginTop: 8,
+ 418 |   },
+ 419 |   formCard: {
+ 420 |     backgroundColor: colors.surface,
+ 421 |     borderRadius: 20,
+ 422 |     borderWidth: 1,
+ 423 |     borderColor: colors.separator,
+ 424 |     padding: 16,
+ 425 |   },
+ 426 |   field: {
+ 427 |     marginBottom: 20,
+ 428 |   },
+ 429 |   label: {
+ 430 |     color: colors.text,
+ 431 |     fontSize: 13,
+ 432 |     fontWeight: '600',
+ 433 |     marginBottom: 8,
+ 434 |   },
+ 435 |   input: {
+ 436 |     minHeight: 52,
+ 437 |     color: colors.text,
+ 438 |     backgroundColor: colors.fill,
+ 439 |     borderWidth: 0,
+ 440 |     borderRadius: 12,
+ 441 |     paddingHorizontal: 15,
+ 442 |     fontSize: 16,
+ 443 |   },
+ 444 |   inputError: {
+ 445 |     borderWidth: 1,
+ 446 |     borderColor: colors.danger,
+ 447 |     backgroundColor: colors.dangerSoft,
+ 448 |   },
+ 449 |   errorText: {
+ 450 |     color: colors.danger,
+ 451 |     fontSize: 12,
+ 452 |     fontWeight: '500',
+ 453 |     marginTop: 6,
+
+### src/types/navigation.ts
+
+-- lines 1-24 --
+   1 | export type RootStackParamList = {
+   2 |   Today: undefined;
+   3 |   ThemePicker: undefined;
+   4 |   Catalogue: undefined;
+   5 |   Collections: undefined;
+   6 |   CollectionDetails: { collectionId: string };
+   7 |   Topics: undefined;
+   8 |   TopicDetails: { topicId: string };
+   9 |   History: undefined;
+  10 |   Stats: undefined;
+  11 |   Reconstruction: undefined;
+  12 |   Entries: undefined;
+  13 |   EntryForm: { entryId?: string } | undefined;
+  14 |   MemoryRadio: { trackId?: string } | undefined;
+  15 |   Games: undefined;
+  16 |   Media: undefined;
+  17 |   BookList: undefined;
+  18 |   BookSearch: undefined;
+  19 |   BookMetadataImport: undefined;
+  20 |   BookStats: undefined;
+  21 |   BookDetails: { bookId: string };
+  22 |   BookForm: { bookId?: string } | undefined;
+  23 | };
+  24 | 
+
+### src/navigation/RootNavigator.tsx
+
+MISSING
+
+### src/navigation/CatalogueNavigator.tsx
+
+MISSING
+
+### src/screens/MediaListScreen.tsx
+
+-- lines 279-428 --
+ 279 |         mediaType: typeFilter === 'ALL' ? undefined : typeFilter,
+ 280 |         status:
+ 281 |           statusFilter === 'ALL' || statusFilter === 'JINGLE' || statusFilter === 'NEBITNO'
+ 282 |             ? undefined
+ 283 |             : statusFilter,
+ 284 |         favourite: statusFilter === 'JINGLE' ? true : undefined,
+ 285 |         ignored: statusFilter === 'NEBITNO' ? 'NEBITNO' : undefined,
+ 286 |       }));
+ 287 |     } catch (caught) {
+ 288 |       setError(caught instanceof Error ? caught.message : 'Dohvat kataloga nije uspio.');
+ 289 |     } finally {
+ 290 |       setLoading(false);
+ 291 |       setRefreshing(false);
+ 292 |     }
+ 293 |   }, [statusFilter, typeFilter]);
+ 294 | 
+ 295 |   useFocusEffect(
+ 296 |     useCallback(() => {
+ 297 |       void load();
+ 298 |     }, [load]),
+ 299 |   );
+ 300 | 
+ 301 |   return (
+ 302 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+ 303 |       <View style={styles.hero}>
+ 304 |         <Text style={styles.eyebrow}>Katalog</Text>
+ 305 |         <Text style={styles.heading}>Filmovi i serije</Text>
+ 306 |         <Text style={styles.count}>
+ 307 |           {!loading && !error ? `${items.length} naslova u prikazu` : 'Osobna povijest gledanja'}
+ 308 |         </Text>
+ 309 |         <View style={styles.actions}>
+ 310 |           <Pressable
+ 311 |             onPress={() => navigation.navigate('MediaSearch')}
+ 312 |             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+ 313 |           >
+ 314 |             <Text style={styles.actionIcon}>⌕</Text>
+ 315 |             <Text style={styles.actionLabel}>Online pretraga</Text>
+ 316 |           </Pressable>
+ 317 |           <Pressable
+ 318 |             onPress={() => navigation.navigate('MediaForm')}
+ 319 |             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+ 320 |           >
+ 321 |             <Text style={styles.actionIcon}>+</Text>
+ 322 |             <Text style={styles.actionLabel}>Ručni unos</Text>
+ 323 |           </Pressable>
+ 324 |         </View>
+ 325 |       </View>
+ 326 | 
+ 327 |       <View style={styles.filters}>
+ 328 |         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+ 329 |           {typeFilters.map((value) => (
+ 330 |             <FilterChip
+ 331 |               key={value}
+ 332 |               active={typeFilter === value}
+ 333 |               label={value === 'ALL' ? 'Sve vrste' : mediaTypeLabels[value]}
+ 334 |               onPress={() => selectTypeFilter(value)}
+ 335 |             />
+ 336 |           ))}
+ 337 |         </ScrollView>
+ 338 |         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+ 339 |           {statusFilters.map((value) => (
+ 340 |             <FilterChip
+ 341 |               key={value}
+ 342 |               active={statusFilter === value}
+ 343 |               label={
+ 344 |                 value === 'ALL'
+ 345 |                   ? 'Svi statusi'
+ 346 |                   : value === 'JINGLE'
+ 347 |                     ? 'Jingle'
+ 348 |                     : value === 'NEBITNO'
+ 349 |                       ? 'Nebitno'
+ 350 |                       : watchStatusLabels[value]
+ 351 |               }
+ 352 |               onPress={() => selectStatusFilter(value)}
+ 353 |             />
+ 354 |           ))}
+ 355 |         </ScrollView>
+ 356 |       </View>
+ 357 | 
+ 358 |       {loading && items.length === 0 ? (
+ 359 |         <MediaFeedbackView type="loading" />
+ 360 |       ) : error && items.length === 0 ? (
+ 361 |         <MediaFeedbackView type="error" message={error} onRetry={() => void load()} />
+ 362 |       ) : (
+ 363 |         <FlatList
+ 364 |           ref={listRef}
+ 365 |           data={items}
+ 366 |           onScroll={(event) => {
+ 367 |             rememberScroll(
+ 368 |               event.nativeEvent.contentOffset.y,
+ 369 |             );
+ 370 |           }}
+ 371 |           scrollEventThrottle={100}
+ 372 |           onContentSizeChange={restoreScroll}
+ 373 |           onViewableItemsChanged={onViewableItemsChanged}
+ 374 |           viewabilityConfig={moviePosterViewability}
+ 375 |           keyExtractor={(item) => item.mediaId}
+ 376 |           renderItem={({ item }) => (
+ 377 |             <View style={styles.jingleRow}>
+ 378 |               <MediaCard
+ 379 |                             item={item}
+ 380 |                             onPress={() => navigation.navigate('MediaDetails', { mediaId: item.mediaId })}
+ 381 |                           />
+ 382 |               <Pressable
+ 383 |                 accessibilityRole="button"
+ 384 |                 accessibilityLabel={item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'}
+ 385 |                 hitSlop={8}
+ 386 |                 disabled={jingleBusy === item.mediaId}
+ 387 |                 onPress={() => void toggleJingle(item)}
+ 388 |                 style={({ pressed }) => [styles.jingleButton, pressed && styles.jingleButtonPressed]}
+ 389 |               >
+ 390 |                 <JingleBellIcon
+ 391 |                   active={item.favourite}
+ 392 |                   inactiveOpacity={0.5}
+ 393 |                   style={styles.jingleIcon}
+ 394 |                 />
+ 395 |               </Pressable>
+ 396 |             </View>
+ 397 |           )}
+ 398 |           contentContainerStyle={styles.list}
+ 399 |           ListEmptyComponent={
+ 400 |             <MediaFeedbackView
+ 401 |               type="empty"
+ 402 |               message="Nema naslova koji odgovaraju odabranim filtrima."
+ 403 |             />
+ 404 |           }
+ 405 |           refreshControl={
+ 406 |             <RefreshControl
+ 407 |               refreshing={refreshing}
+ 408 |               onRefresh={() => void load(true)}
+ 409 |               tintColor={colors.black}
+ 410 |               colors={[colors.black]}
+ 411 |             />
+ 412 |           }
+ 413 |         />
+ 414 |       )}
+ 415 |     </SafeAreaView>
+ 416 |   );
+ 417 | }
+ 418 | 
+ 419 | type FilterChipProps = {
+ 420 |   label: string;
+ 421 |   active: boolean;
+ 422 |   onPress: () => void;
+ 423 | };
+ 424 | 
+ 425 | function FilterChip({ label, active, onPress }: FilterChipProps) {
+ 426 |   return (
+ 427 |     <Pressable
+ 428 |       onPress={onPress}
+
+-- lines 435-501 --
+ 435 | 
+ 436 | const styles = StyleSheet.create({
+ 437 |   // jingleCatalogueV3
+ 438 |   jingleRow: { position: 'relative' },
+ 439 |   jingleButton: {
+ 440 |     // mediaJingleMatchesGamesV1
+ 441 |     position: 'absolute',
+ 442 |     top: 2,
+ 443 |     right: 2,
+ 444 |     zIndex: 40,
+ 445 |     width: 76,
+ 446 |     height: 80,
+ 447 |     alignItems: 'center',
+ 448 |     justifyContent: 'center',
+ 449 |     backgroundColor: 'transparent',
+ 450 |     borderWidth: 0,
+ 451 |   },
+ 452 |   jingleButtonPressed: { opacity: 0.72, transform: [{ scale: 0.95 }] },
+ 453 |   jingleIcon: {
+ 454 |     width: 62,
+ 455 |     height: 74,
+ 456 |   },
+ 457 |   jingleIconInactive: { opacity: 0.22 },
+ 458 |   safeArea: { flex: 1, backgroundColor: colors.background },
+ 459 |   hero: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 17 },
+ 460 |   eyebrow: { color: colors.textMuted, fontSize: 15, fontWeight: '600' },
+ 461 |   heading: {
+ 462 |     color: colors.text,
+ 463 |     fontSize: 34,
+ 464 |     lineHeight: 40,
+ 465 |     fontWeight: '800',
+ 466 |     letterSpacing: -0.8,
+ 467 |     marginTop: 3,
+ 468 |   },
+ 469 |   count: { color: colors.textMuted, fontSize: 14, marginTop: 7 },
+ 470 |   actions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+ 471 |   action: {
+ 472 |     flex: 1,
+ 473 |     minHeight: 48,
+ 474 |     flexDirection: 'row',
+ 475 |     alignItems: 'center',
+ 476 |     justifyContent: 'center',
+ 477 |     borderRadius: 14,
+ 478 |     backgroundColor: colors.surface,
+ 479 |     borderWidth: 1,
+ 480 |     borderColor: colors.separator,
+ 481 |   },
+ 482 |   actionIcon: { color: colors.text, fontSize: 20, marginRight: 6 },
+ 483 |   actionLabel: { color: colors.text, fontSize: 13, fontWeight: '700' },
+ 484 |   pressed: { opacity: 0.65 },
+ 485 |   filters: { gap: 8, paddingBottom: 14 },
+ 486 |   filterRow: { gap: 8, paddingHorizontal: 16 },
+ 487 |   chip: {
+ 488 |     paddingHorizontal: 14,
+ 489 |     paddingVertical: 9,
+ 490 |     borderRadius: 999,
+ 491 |     backgroundColor: colors.surface,
+ 492 |     borderWidth: 1,
+ 493 |     borderColor: colors.separator,
+ 494 |   },
+ 495 |   chipActive: { backgroundColor: colors.black, borderColor: colors.black },
+ 496 |   chipText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
+ 497 |   chipTextActive: { color: colors.white },
+ 498 |   list: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 35 },
+ 499 | });
+ 500 | 
+ 501 | 
+
+### src/games/screens/GameListScreen.tsx
+
+-- lines 262-488 --
+ 262 |               return current.filter(
+ 263 |                 (row) => row.gameId !== reverted.gameId,
+ 264 |               );
+ 265 |             }
+ 266 | 
+ 267 |             return current.map((row) =>
+ 268 |               row.gameId === reverted.gameId
+ 269 |                 ? reverted
+ 270 |                 : row,
+ 271 |             );
+ 272 |           });
+ 273 |         },
+ 274 |       });
+ 275 |     } catch (caught) {
+ 276 |       setError(
+ 277 |         caught instanceof Error
+ 278 |           ? caught.message
+ 279 |           : 'Jingle nije spremljen.'
+ 280 |       );
+ 281 |     }
+ 282 |   }, [status]);
+ 283 | 
+ 284 |   return (
+ 285 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+ 286 |       <View style={styles.hero}>
+ 287 |         <Text style={styles.eyebrow}>Katalog</Text>
+ 288 |         <Text style={styles.heading}>Moje igre</Text>
+ 289 |         {!loading && !error ? (
+ 290 |           <Text style={styles.count}>
+ 291 |             {games.length === 1 ? '1 igra u prikazu' : `${games.length} igara u prikazu`}
+ 292 |           </Text>
+ 293 |         ) : null}
+ 294 | 
+ 295 |         <View style={styles.quickActions}>
+ 296 |           <Pressable
+ 297 |             accessibilityRole="button"
+ 298 |             onPress={() => navigation.navigate('GameMetadataSearch')}
+ 299 |             style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}
+ 300 |           >
+ 301 |             <Text style={styles.quickIcon}>⌕</Text>
+ 302 |             <Text style={styles.quickLabel}>Online pretraga</Text>
+ 303 |           </Pressable>
+ 304 |           <Pressable
+ 305 |             accessibilityRole="button"
+ 306 |             onPress={() => navigation.navigate('GameForm')}
+ 307 |             style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}
+ 308 |           >
+ 309 |             <Text style={styles.quickIcon}>+</Text>
+ 310 |             <Text style={styles.quickLabel}>Ručno dodaj</Text>
+ 311 |           </Pressable>
+ 312 |         </View>
+ 313 | 
+ 314 |         <ScrollView
+ 315 |           horizontal
+ 316 |           showsHorizontalScrollIndicator={false}
+ 317 |           contentContainerStyle={styles.filters}
+ 318 |         >
+ 319 |           <Pressable
+ 320 |             accessibilityRole="button"
+ 321 |             onPress={() => selectGameStatus(null)}
+ 322 |             style={[styles.filter, status === null && styles.filterSelected]}
+ 323 |           >
+ 324 |             <Text style={[styles.filterText, status === null && styles.filterTextSelected]}>Sve</Text>
+ 325 |           </Pressable>
+ 326 |           {gameStatuses.map((option) => (
+ 327 |             <Pressable
+ 328 |               key={option}
+ 329 |               accessibilityRole="button"
+ 330 |               onPress={() => selectGameStatus(option)}
+ 331 |               style={[styles.filter, status === option && styles.filterSelected]}
+ 332 |             >
+ 333 |               <Text style={[styles.filterText, status === option && styles.filterTextSelected]}>
+ 334 |                 {gameStatusLabels[option]}
+ 335 |               </Text>
+ 336 |             </Pressable>
+ 337 |           ))}
+ 338 | 
+ 339 |           <Pressable
+ 340 |             accessibilityRole="button"
+ 341 |             onPress={() => selectGameStatus('JINGLE')}
+ 342 |             style={[
+ 343 |               styles.filter,
+ 344 |               status === 'JINGLE' && styles.filterSelected,
+ 345 |             ]}
+ 346 |           >
+ 347 |             <Text
+ 348 |               style={[
+ 349 |                 styles.filterText,
+ 350 |                 status === 'JINGLE' && styles.filterTextSelected,
+ 351 |               ]}
+ 352 |             >
+ 353 |               Jingle
+ 354 |             </Text>
+ 355 |           </Pressable>
+ 356 |         </ScrollView>
+ 357 |       </View>
+ 358 | 
+ 359 |       {loading && games.length === 0 ? (
+ 360 |         <FeedbackView type="loading" />
+ 361 |       ) : error && games.length === 0 ? (
+ 362 |         <FeedbackView type="error" message={error} onRetry={() => void loadGames()} />
+ 363 |       ) : (
+ 364 |         <FlatList
+ 365 |           ref={listRef}
+ 366 |           data={games}
+ 367 |           onScroll={(event) => {
+ 368 |             rememberGameScroll(
+ 369 |               event.nativeEvent.contentOffset.y,
+ 370 |             );
+ 371 |           }}
+ 372 |           scrollEventThrottle={100}
+ 373 |           onContentSizeChange={restoreGameScroll}
+ 374 |           onViewableItemsChanged={onGameViewableItemsChanged}
+ 375 |           viewabilityConfig={gameCoverViewability}
+ 376 |           keyExtractor={(item) => item.gameId}
+ 377 |           renderItem={({ item }) => (
+ 378 |             <View style={styles.jingleRow}>
+ 379 |               <GameCard
+ 380 |                 game={item}
+ 381 |                 onPress={() =>
+ 382 |                   navigation.navigate('GameDetails', { gameId: item.gameId })
+ 383 |                 }
+ 384 |               />
+ 385 | 
+ 386 |               <Pressable
+ 387 |                 accessibilityRole="button"
+ 388 |                 accessibilityLabel={
+ 389 |                   item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
+ 390 |                 }
+ 391 |                 onPress={() => void toggleGameJingle(item)}
+ 392 |                 style={({ pressed }) => [
+ 393 |                   styles.jingleButton,
+ 394 |                   pressed && styles.jinglePressed,
+ 395 |                 ]}
+ 396 |               >
+ 397 |                 <JingleBellIcon
+ 398 |                   active={item.favourite}
+ 399 |                   inactiveOpacity={0.5}
+ 400 |                   style={styles.jingleIcon}
+ 401 |                 />
+ 402 |               </Pressable>
+ 403 |             </View>
+ 404 |           )}
+ 405 |           contentContainerStyle={styles.list}
+ 406 |           ListEmptyComponent={(
+ 407 |             <FeedbackView
+ 408 |               type="empty"
+ 409 |               message={status ? 'Nema igara s odabranim statusom.' : 'Još nema igara u katalogu.'}
+ 410 |             />
+ 411 |           )}
+ 412 |           refreshControl={(
+ 413 |             <RefreshControl
+ 414 |               refreshing={refreshing}
+ 415 |               onRefresh={() => void loadGames(true)}
+ 416 |               tintColor={colors.black}
+ 417 |               colors={[colors.black]}
+ 418 |             />
+ 419 |           )}
+ 420 |         />
+ 421 |       )}
+ 422 |     </SafeAreaView>
+ 423 |   );
+ 424 | }
+ 425 | 
+ 426 | const styles = StyleSheet.create({
+ 427 |   safeArea: { flex: 1, backgroundColor: colors.background },
+ 428 |   hero: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10 },
+ 429 |   eyebrow: { color: colors.textMuted, fontSize: 15, fontWeight: '600' },
+ 430 |   heading: {
+ 431 |     color: colors.text,
+ 432 |     fontSize: 34,
+ 433 |     lineHeight: 40,
+ 434 |     fontWeight: '800',
+ 435 |     letterSpacing: -0.8,
+ 436 |     marginTop: 3,
+ 437 |   },
+ 438 |   count: { color: colors.textMuted, fontSize: 14, marginTop: 7 },
+ 439 |   quickActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+ 440 |   quickAction: {
+ 441 |     flex: 1,
+ 442 |     minHeight: 48,
+ 443 |     flexDirection: 'row',
+ 444 |     alignItems: 'center',
+ 445 |     justifyContent: 'center',
+ 446 |     backgroundColor: colors.surface,
+ 447 |     borderWidth: 1,
+ 448 |     borderColor: colors.separator,
+ 449 |     borderRadius: 14,
+ 450 |   },
+ 451 |   quickIcon: { color: colors.black, fontSize: 21, marginRight: 7 },
+ 452 |   quickLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
+ 453 |   pressed: { opacity: 0.65 },
+ 454 |   filters: { gap: 8, paddingTop: 16, paddingBottom: 6 },
+ 455 |   filter: {
+ 456 |     paddingHorizontal: 13,
+ 457 |     paddingVertical: 8,
+ 458 |     borderRadius: 999,
+ 459 |     borderWidth: 1,
+ 460 |     borderColor: colors.border,
+ 461 |     backgroundColor: colors.surface,
+ 462 |   },
+ 463 |   filterSelected: { backgroundColor: colors.black, borderColor: colors.black },
+ 464 |   filterText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+ 465 |   filterTextSelected: { color: colors.white },
+ 466 |   list: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 34 },
+ 467 |   jingleRow: {
+ 468 |     position: 'relative',
+ 469 |   },
+ 470 |   jingleButton: {
+ 471 |     position: 'absolute',
+ 472 |     top: 2,
+ 473 |     right: 2,
+ 474 |     zIndex: 30,
+ 475 |     width: 76,
+ 476 |     height: 80,
+ 477 |     alignItems: 'center',
+ 478 |     justifyContent: 'center',
+ 479 |     backgroundColor: 'transparent',
+ 480 |     borderWidth: 0,
+ 481 |   },
+ 482 |   jingleIcon: {
+ 483 |     width: 62,
+ 484 |     height: 74,
+ 485 |   },
+ 486 |   jinglePressed: {
+ 487 |     opacity: 0.72,
+ 488 |   },
+
+### src/screens/TopicListScreen.tsx
+
+-- lines 76-308 --
+  76 |     if (!trimmedName || saving) return;
+  77 | 
+  78 |     setSaving(true);
+  79 |     setFormError(null);
+  80 |     try {
+  81 |       const trimmedDescription = description.trim();
+  82 |       const created = await topicApi.create({
+  83 |         name: trimmedName,
+  84 |         ...(trimmedDescription ? { description: trimmedDescription } : {}),
+  85 |       });
+  86 |       createdFeedback();
+  87 |       setTopics((current) => [created, ...current]);
+  88 |       setFormVisible(false);
+  89 |       setName('');
+  90 |       setDescription('');
+  91 |     } catch (caught) {
+  92 |       setFormError(caught instanceof Error ? caught.message : 'Stvaranje teme nije uspjelo.');
+  93 |     } finally {
+  94 |       setSaving(false);
+  95 |     }
+  96 |   };
+  97 | 
+  98 |   const header = (
+  99 |     <>
+ 100 |       <View style={styles.hero}>
+ 101 |         <Text style={styles.eyebrow}>Tvoj osobni indeks</Text>
+ 102 |         <Text style={styles.heading}>Teme</Text>
+ 103 |         <Text style={styles.intro}>
+ 104 |           Okupi aktivnosti, katalog i vrijeme oko onoga što ti je doista važno.
+ 105 |         </Text>
+ 106 | 
+ 107 |         <View style={styles.summaryRow}>
+ 108 |           <View style={styles.summaryNumber}>
+ 109 |             <Text style={styles.summaryValue}>{topics.length}</Text>
+ 110 |           </View>
+ 111 |           <Text style={styles.summaryLabel}>
+ 112 |             {topicCountLabel(topics.length)}
+ 113 |           </Text>
+ 114 |         </View>
+ 115 |       </View>
+ 116 | 
+ 117 |       {formVisible ? (
+ 118 |         <TopicCreateForm
+ 119 |           name={name}
+ 120 |           description={description}
+ 121 |           saving={saving}
+ 122 |           errorMessage={formError}
+ 123 |           onNameChange={setName}
+ 124 |           onDescriptionChange={setDescription}
+ 125 |           onCancel={closeForm}
+ 126 |           onSubmit={() => void createTopic()}
+ 127 |         />
+ 128 |       ) : (
+ 129 |         <Pressable
+ 130 |           accessibilityRole="button"
+ 131 |           onPress={() => {
+ 132 |             setFormError(null);
+ 133 |             setFormVisible(true);
+ 134 |           }}
+ 135 |           style={({ pressed }) => [styles.addCard, pressed && styles.addCardPressed]}
+ 136 |         >
+ 137 |           <View style={styles.addIcon}>
+ 138 |             <Text style={styles.addIconText}>+</Text>
+ 139 |           </View>
+ 140 |           <View style={styles.addCopy}>
+ 141 |             <Text style={styles.addTitle}>Nova tema</Text>
+ 142 |             <Text style={styles.addSubtitle}>Stvori prostor za interes ili projekt</Text>
+ 143 |           </View>
+ 144 |           <Text style={styles.addArrow}>›</Text>
+ 145 |         </Pressable>
+ 146 |       )}
+ 147 | 
+ 148 |       <View style={styles.sectionHeading}>
+ 149 |         <Text style={styles.sectionTitle}>Sve teme</Text>
+ 150 |         {refreshing ? <Text style={styles.syncText}>Osvježavanje…</Text> : null}
+ 151 |       </View>
+ 152 | 
+ 153 |       {error && topics.length > 0 ? (
+ 154 |         <Pressable
+ 155 |           accessibilityRole="button"
+ 156 |           onPress={() => void loadTopics(true)}
+ 157 |           style={styles.errorBanner}
+ 158 |         >
+ 159 |           <Text style={styles.errorText}>{error}</Text>
+ 160 |           <Text style={styles.errorRetry}>Ponovi</Text>
+ 161 |         </Pressable>
+ 162 |       ) : null}
+ 163 |     </>
+ 164 |   );
+ 165 | 
+ 166 |   if (loading && topics.length === 0) {
+ 167 |     return (
+ 168 |       <SafeAreaView style={styles.safeArea}>
+ 169 |         <View style={styles.loadingState}>
+ 170 |           <ActivityIndicator size="large" color={colors.black} />
+ 171 |           <Text style={styles.loadingText}>Slažemo tvoj indeks tema…</Text>
+ 172 |         </View>
+ 173 |       </SafeAreaView>
+ 174 |     );
+ 175 |   }
+ 176 | 
+ 177 |   if (error && topics.length === 0) {
+ 178 |     return <FeedbackView type="error" message={error} onRetry={() => void loadTopics()} />;
+ 179 |   }
+ 180 | 
+ 181 |   return (
+ 182 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+ 183 |       <KeyboardAvoidingView
+ 184 |         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+ 185 |         style={styles.flex}
+ 186 |       >
+ 187 |         <FlatList
+ 188 |           data={topics}
+ 189 |           keyExtractor={(item) => item.topicId}
+ 190 |           keyboardShouldPersistTaps="handled"
+ 191 |           renderItem={({ item }) => (
+ 192 |             <TopicCard
+ 193 |               topic={item}
+ 194 |               onPress={() => navigation.navigate('TopicDetails', { topicId: item.topicId })}
+ 195 |             />
+ 196 |           )}
+ 197 |           ListHeaderComponent={header}
+ 198 |           ListEmptyComponent={
+ 199 |             <View style={styles.emptyCard}>
+ 200 |               <Text style={styles.emptyMark}>○</Text>
+ 201 |               <Text style={styles.emptyTitle}>Tvoj indeks još je prazan</Text>
+ 202 |               <Text style={styles.emptyMessage}>
+ 203 |                 Započni temom poput Filozofija, Francuski ili Šah, a zatim joj dodaj
+ 204 |                 različite aktivnosti.
+ 205 |               </Text>
+ 206 |             </View>
+ 207 |           }
+ 208 |           contentContainerStyle={styles.content}
+ 209 |           refreshControl={
+ 210 |             <RefreshControl
+ 211 |               refreshing={refreshing}
+ 212 |               onRefresh={() => void loadTopics(true)}
+ 213 |               tintColor={colors.black}
+ 214 |               colors={[colors.black]}
+ 215 |             />
+ 216 |           }
+ 217 |           showsVerticalScrollIndicator={false}
+ 218 |         />
+ 219 |       </KeyboardAvoidingView>
+ 220 |     </SafeAreaView>
+ 221 |   );
+ 222 | }
+ 223 | 
+ 224 | const styles = StyleSheet.create({
+ 225 |   safeArea: {
+ 226 |     flex: 1,
+ 227 |     backgroundColor: colors.background,
+ 228 |   },
+ 229 |   flex: {
+ 230 |     flex: 1,
+ 231 |   },
+ 232 |   loadingState: {
+ 233 |     flex: 1,
+ 234 |     alignItems: 'center',
+ 235 |     justifyContent: 'center',
+ 236 |     padding: 32,
+ 237 |   },
+ 238 |   loadingText: {
+ 239 |     marginTop: 14,
+ 240 |     color: colors.textMuted,
+ 241 |     fontSize: 14,
+ 242 |   },
+ 243 |   content: {
+ 244 |     flexGrow: 1,
+ 245 |     paddingHorizontal: 18,
+ 246 |     paddingBottom: 38,
+ 247 |   },
+ 248 |   hero: {
+ 249 |     paddingTop: 24,
+ 250 |     paddingHorizontal: 3,
+ 251 |     paddingBottom: 22,
+ 252 |   },
+ 253 |   eyebrow: {
+ 254 |     color: colors.textMuted,
+ 255 |     fontSize: 12,
+ 256 |     fontWeight: '800',
+ 257 |     letterSpacing: 0.7,
+ 258 |     textTransform: 'uppercase',
+ 259 |   },
+ 260 |   heading: {
+ 261 |     marginTop: 4,
+ 262 |     color: colors.text,
+ 263 |     fontSize: 42,
+ 264 |     lineHeight: 49,
+ 265 |     fontWeight: '900',
+ 266 |     letterSpacing: -1.3,
+ 267 |   },
+ 268 |   intro: {
+ 269 |     maxWidth: 355,
+ 270 |     marginTop: 7,
+ 271 |     color: colors.textMuted,
+ 272 |     fontSize: 15,
+ 273 |     lineHeight: 22,
+ 274 |   },
+ 275 |   summaryRow: {
+ 276 |     marginTop: 17,
+ 277 |     flexDirection: 'row',
+ 278 |     alignItems: 'center',
+ 279 |   },
+ 280 |   summaryNumber: {
+ 281 |     minWidth: 34,
+ 282 |     height: 30,
+ 283 |     alignItems: 'center',
+ 284 |     justifyContent: 'center',
+ 285 |     paddingHorizontal: 9,
+ 286 |     borderRadius: 10,
+ 287 |     backgroundColor: colors.black,
+ 288 |   },
+ 289 |   summaryValue: {
+ 290 |     color: colors.white,
+ 291 |     fontSize: 14,
+ 292 |     fontWeight: '800',
+ 293 |   },
+ 294 |   summaryLabel: {
+ 295 |     marginLeft: 9,
+ 296 |     color: colors.textMuted,
+ 297 |     fontSize: 13,
+ 298 |   },
+ 299 |   addCard: {
+ 300 |     minHeight: 77,
+ 301 |     marginBottom: 22,
+ 302 |     paddingHorizontal: 14,
+ 303 |     flexDirection: 'row',
+ 304 |     alignItems: 'center',
+ 305 |     borderRadius: 18,
+ 306 |     backgroundColor: colors.black,
+ 307 |   },
+ 308 |   addCardPressed: {
+
+-- lines 320-392 --
+ 320 |   addIconText: {
+ 321 |     color: colors.black,
+ 322 |     fontSize: 25,
+ 323 |     lineHeight: 28,
+ 324 |     fontWeight: '400',
+ 325 |   },
+ 326 |   addCopy: {
+ 327 |     flex: 1,
+ 328 |     paddingHorizontal: 13,
+ 329 |   },
+ 330 |   addTitle: {
+ 331 |     color: colors.white,
+ 332 |     fontSize: 16,
+ 333 |     fontWeight: '800',
+ 334 |   },
+ 335 |   addSubtitle: {
+ 336 |     marginTop: 3,
+ 337 |     color: '#AEAEB2',
+ 338 |     fontSize: 12,
+ 339 |   },
+ 340 |   addArrow: {
+ 341 |     color: '#AEAEB2',
+ 342 |     fontSize: 27,
+ 343 |   },
+ 344 |   sectionHeading: {
+ 345 |     marginBottom: 11,
+ 346 |     paddingHorizontal: 3,
+ 347 |     flexDirection: 'row',
+ 348 |     alignItems: 'center',
+ 349 |     justifyContent: 'space-between',
+ 350 |   },
+ 351 |   sectionTitle: {
+ 352 |     color: colors.text,
+ 353 |     fontSize: 19,
+ 354 |     fontWeight: '800',
+ 355 |   },
+ 356 |   syncText: {
+ 357 |     color: colors.textMuted,
+ 358 |     fontSize: 11,
+ 359 |   },
+ 360 |   errorBanner: {
+ 361 |     marginBottom: 12,
+ 362 |     padding: 12,
+ 363 |     flexDirection: 'row',
+ 364 |     alignItems: 'center',
+ 365 |     borderRadius: 13,
+ 366 |     backgroundColor: colors.dangerSoft,
+ 367 |   },
+ 368 |   errorText: {
+ 369 |     flex: 1,
+ 370 |     color: colors.danger,
+ 371 |     fontSize: 12,
+ 372 |   },
+ 373 |   errorRetry: {
+ 374 |     marginLeft: 8,
+ 375 |     color: colors.danger,
+ 376 |     fontSize: 12,
+ 377 |     fontWeight: '800',
+ 378 |   },
+ 379 |   emptyCard: {
+ 380 |     minHeight: 230,
+ 381 |     alignItems: 'center',
+ 382 |     justifyContent: 'center',
+ 383 |     padding: 26,
+ 384 |     borderRadius: 20,
+ 385 |     borderWidth: 1,
+ 386 |     borderColor: colors.separator,
+ 387 |     borderStyle: 'dashed',
+ 388 |   },
+ 389 |   emptyMark: {
+ 390 |     color: colors.black,
+ 391 |     fontSize: 37,
+ 392 |     fontWeight: '300',
+

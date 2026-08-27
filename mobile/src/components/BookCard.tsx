@@ -3,9 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BookCover } from './BookCover';
 import { CatalogueCoverDisplay } from './CatalogueCoverOverride';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 // catalogueQuietModeV1
 import { useCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
 import { readingStatusLabels, type BookResponse } from '../types/book';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   book: BookResponse;
@@ -22,6 +27,7 @@ export function BookCard({ book, onPress }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
+        celestialMode && styles.celestialCard,
         compactMode && styles.cardCompact,
         pressed && styles.pressed,
       ]}
@@ -44,28 +50,30 @@ export function BookCard({ book, onPress }: Props) {
 
       <View style={[styles.content, compactMode && styles.contentCompact]}>
         <View style={styles.topRow}>
-          <Text style={styles.title} numberOfLines={compactMode ? 1 : 2}>
+          <Text style={[styles.title, celestialMode && styles.celestialTitle]} numberOfLines={compactMode ? 1 : 2}>
             {book.title}
           </Text>
         </View>
 
-        <Text style={styles.author}>
-          {book.author}
-        </Text>
+        {book.author.trim() ? (
+          <Text style={[styles.author, celestialMode && styles.celestialMuted]}>{book.author}</Text>
+        ) : null}
 
         <View style={styles.bottomRow}>
-          <Text style={styles.year}>
-            {book.publishedYear}
-          </Text>
+          {book.publishedYear > 0 ? (
+            <Text style={[styles.year, celestialMode && styles.celestialGoldText]}>{book.publishedYear}</Text>
+          ) : null}
 
           <View
             style={[
               styles.badge,
+              celestialMode && styles.celestialBadge,
               book.readingStatus === 'IN_PROGRESS' && styles.inProgressBadge,
               book.readingStatus === 'COMPLETED' && styles.completedBadge,
+              celestialMode && styles.celestialBadge,
             ]}
           >
-            <Text style={styles.badgeText}>
+            <Text style={[styles.badgeText, celestialMode && styles.celestialBadgeText]}>
               {readingStatusLabels[book.readingStatus]}
               {book.progress > 0 ? ` · ${book.progress}%` : ''}
             </Text>
@@ -73,7 +81,7 @@ export function BookCard({ book, onPress }: Props) {
         </View>
       </View>
 
-      <Text style={styles.arrow}>›</Text>
+      <Text style={[styles.arrow, celestialMode && styles.celestialArrow]}>✦</Text>
     </Pressable>
   );
 }
@@ -159,4 +167,30 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginLeft: 10,
   },
+  celestialCard: {
+    backgroundColor: celestial.night,
+    borderColor: celestialAlpha(celestial.gold, 0.42),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  celestialTitle: { color: celestial.ivory },
+  celestialMuted: { color: celestialAlpha(celestial.ivory, 0.64) },
+  celestialGoldText: { color: celestial.gold },
+  celestialBadge: {
+    backgroundColor: celestialAlpha(celestial.gold, 0.10),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.32),
+  },
+  celestialBadgeText: { color: celestial.gold },
+  celestialArrow: { color: celestial.gold, fontSize: 13, lineHeight: 16 },
+  celestialStar: {
+    color: celestial.gold,
+    fontSize: 10,
+    marginLeft: 8,
+    opacity: 0.8,
+  },
+
 });

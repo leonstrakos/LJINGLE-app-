@@ -16,6 +16,8 @@ import { colors } from '../theme/colors';
 import { semanticFeedback } from '../utils/semanticFeedback';
 import { semanticSpring } from '../utils/semanticMotion';
 import { useReducedMotion } from '../utils/useReducedMotion';
+import { isPaletteInteractionLocked } from '../utils/paletteInteractionLock';
+// forkLCollectionsMemoryBoxV2
 
 type Props = {
   onOpen: () => void;
@@ -58,6 +60,11 @@ export function CommandPaletteEdgeGesture({
   };
 
   const completeGesture = () => {
+    if (isPaletteInteractionLocked()) {
+      animateBack();
+      return;
+    }
+
     if (reducedMotion) {
       progress.setValue(0);
       reset();
@@ -87,7 +94,10 @@ export function CommandPaletteEdgeGesture({
           _event,
           gesture,
         ) => {
-          if (Platform.OS === 'web') {
+          if (
+            Platform.OS === 'web' ||
+            isPaletteInteractionLocked()
+          ) {
             return false;
           }
 
@@ -158,6 +168,11 @@ export function CommandPaletteEdgeGesture({
           _event,
           gesture,
         ) => {
+          if (isPaletteInteractionLocked()) {
+            animateBack();
+            return;
+          }
+
           const fastInwardFlick =
             gesture.vx < -FLICK_THRESHOLD &&
             gesture.vy < -FLICK_THRESHOLD * 0.55;

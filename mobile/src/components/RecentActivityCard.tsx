@@ -37,6 +37,7 @@ const activityLabels: Record<ActivityTimerResponse['activityType'], string> = {
   WORK: 'Rad',
   EXERCISE: 'Vježbanje',
   CUSTOM: 'Aktivnost',
+  GLOBAL: 'Quick Timer'
 };
 
 export function RecentActivityCard({ activity, starting, onStart, onDismiss }: Props) {

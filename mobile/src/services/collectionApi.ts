@@ -9,36 +9,78 @@ import type {
   RelationType,
 } from '../types/collection';
 import { apiRequest } from './apiClient';
+import { normalizeCollectionSymbol } from '../utils/collectionSymbols';
+
+// forkFCollectionSymbolNormalizationV1
 
 function query(value: string) {
   return encodeURIComponent(value);
 }
 
+function normalizeSummary(item: CollectionSummary): CollectionSummary {
+  return {
+    ...item,
+    symbol: normalizeCollectionSymbol(item.symbol),
+  };
+}
+
+function normalizeDetail(item: CollectionDetail): CollectionDetail {
+  return {
+    ...item,
+    symbol: normalizeCollectionSymbol(item.symbol),
+  };
+}
+
+function normalizeRequest(payload: CollectionRequest): CollectionRequest {
+  return {
+    ...payload,
+    symbol: normalizeCollectionSymbol(payload.symbol),
+  };
+}
+
 export const collectionApi = {
-  getAll: () => apiRequest<CollectionSummary[]>('/collections'),
+  getAll: async () =>
+    (await apiRequest<CollectionSummary[]>('/collections')).map(normalizeSummary),
 
-  getById: (collectionId: string) =>
-    apiRequest<CollectionDetail>(`/collections/${query(collectionId)}`),
-
-  getForEntity: (entityType: EntityReferenceType, entityId: string) =>
-    apiRequest<CollectionSummary[]>(
-      `/collections/for-entity?entityType=${query(entityType)}&entityId=${query(entityId)}`,
+  getById: async (collectionId: string) =>
+    normalizeDetail(
+      await apiRequest<CollectionDetail>(`/collections/${query(collectionId)}`),
     ),
 
-  create: (payload: CollectionRequest) =>
-    apiRequest<CollectionSummary>('/collections', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+  getForEntity: async (entityType: EntityReferenceType, entityId: string) =>
+    (
+      await apiRequest<CollectionSummary[]>(
+        `/collections/for-entity?entityType=${query(entityType)}&entityId=${query(entityId)}`,
+      )
+    ).map(normalizeSummary),
 
-  update: (collectionId: string, payload: CollectionRequest) =>
-    apiRequest<CollectionSummary>(`/collections/${query(collectionId)}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
+  create: async (payload: CollectionRequest) =>
+    normalizeSummary(
+      await apiRequest<CollectionSummary>('/collections', {
+        method: 'POST',
+        body: JSON.stringify(normalizeRequest(payload)),
+      }),
+    ),
+
+  update: async (collectionId: string, payload: CollectionRequest) =>
+    normalizeSummary(
+      await apiRequest<CollectionSummary>(`/collections/${query(collectionId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(normalizeRequest(payload)),
+      }),
+    ),
 
   remove: (collectionId: string) =>
     apiRequest<void>(`/collections/${query(collectionId)}`, { method: 'DELETE' }),
+
+  // forkLCollectionsMemoryBoxV2
+  reorder: async (collectionIds: string[]) =>
+    (
+      await apiRequest<CollectionSummary[]>('/collections/order', {
+        method: 'PUT',
+        body: JSON.stringify({ collectionIds }),
+      })
+    ).map(normalizeSummary),
 
   addItem: (
     collectionId: string,
@@ -76,6 +118,21 @@ export const collectionApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  updateLink: (
+    linkId: string,
+    payload: {
+      relationType: RelationType;
+      note?: string | null;
+    },
+  ) =>
+    apiRequest<EntityLink>(
+      `/entity-links/${query(linkId)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      },
+    ),
 
   removeLink: (linkId: string) =>
     apiRequest<void>(`/entity-links/${query(linkId)}`, { method: 'DELETE' }),

@@ -1,7 +1,12 @@
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import type { Entry } from '../types/entry';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   entry: Entry | null;
@@ -25,13 +30,14 @@ export function EntryDeleteModal({
       transparent
       visible={entry !== null}
     >
-      <View style={styles.backdrop}>
-        <View accessibilityRole="alert" style={styles.dialog}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.icon}>!</Text>
+      <View style={[styles.backdrop, celestialMode && styles.celestialBackdrop]}>
+        <View accessibilityRole="alert" style={[styles.dialog, celestialMode && styles.celestialDialog]}>
+          {celestialMode ? <Text style={styles.celestialOrnament}>✦ · ✧ · ✦</Text> : null}
+          <View style={[styles.iconCircle, celestialMode && styles.celestialIconCircle]}>
+            <Text style={[styles.icon, celestialMode && styles.celestialIcon]}>!</Text>
           </View>
-          <Text style={styles.title}>Obrisati zapis?</Text>
-          <Text style={styles.message}>
+          <Text style={[styles.title, celestialMode && styles.celestialTitle]}>Obrisati zapis?</Text>
+          <Text style={[styles.message, celestialMode && styles.celestialMessage]}>
             {entry?.title
               ? `„${entry.title}” bit će trajno uklonjen.`
               : 'Ovaj zapis bit će trajno uklonjen.'}
@@ -47,11 +53,12 @@ export function EntryDeleteModal({
               style={({ pressed }) => [
                 styles.button,
                 styles.cancelButton,
+                celestialMode && styles.celestialCancelButton,
                 pressed && !loading && styles.pressed,
                 loading && styles.disabled,
               ]}
             >
-              <Text style={styles.cancelLabel}>Odustani</Text>
+              <Text style={[styles.cancelLabel, celestialMode && styles.celestialCancelLabel]}>Odustani</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -60,6 +67,7 @@ export function EntryDeleteModal({
               style={({ pressed }) => [
                 styles.button,
                 styles.confirmButton,
+                celestialMode && styles.celestialConfirmButton,
                 pressed && !loading && styles.pressed,
                 loading && styles.disabled,
               ]}
@@ -173,4 +181,33 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.6,
   },
+  celestialBackdrop: { backgroundColor: celestialAlpha(celestial.night, 0.72) },
+  celestialDialog: {
+    backgroundColor: celestial.night,
+    borderColor: celestialAlpha(celestial.gold, 0.64),
+    shadowColor: celestial.gold,
+    shadowOpacity: 0.15,
+  },
+  celestialOrnament: {
+    alignSelf: 'center',
+    marginBottom: 10,
+    color: celestial.gold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+  },
+  celestialIconCircle: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.45),
+    backgroundColor: 'rgba(215,0,21,0.12)',
+  },
+  celestialIcon: { color: '#FF747D' },
+  celestialTitle: { color: celestial.ivory },
+  celestialMessage: { color: celestialAlpha(celestial.ivory, 0.70) },
+  celestialCancelButton: {
+    backgroundColor: celestialAlpha(celestial.ivory, 0.06),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+  },
+  celestialConfirmButton: { borderWidth: 1, borderColor: 'rgba(255,116,125,0.46)' },
+  celestialCancelLabel: { color: celestial.gold },
 });

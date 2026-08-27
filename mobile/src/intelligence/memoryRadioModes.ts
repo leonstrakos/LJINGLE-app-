@@ -248,6 +248,17 @@ function circularDayDistance(
   );
 }
 
+// jingleRadioDirectGraphV1
+let directJingleTrackIds =
+  new Set<string>();
+
+export function setMemoryRadioJingleTrackIds(
+  trackIds: Iterable<string>,
+) {
+  directJingleTrackIds =
+    new Set(trackIds);
+}
+
 export function buildMemoryRadioStation(
   options: {
     mode: MemoryRadioMode;
@@ -291,9 +302,14 @@ export function buildMemoryRadioStation(
     const pool =
       memories.filter(
         (memory) =>
-          contexts.get(
-            memory.trackId
-          )?.isJingle === true
+          (
+            contexts.get(
+              memory.trackId,
+            )?.isJingle === true ||
+            directJingleTrackIds.has(
+              memory.trackId,
+            )
+          )
       );
 
     return {

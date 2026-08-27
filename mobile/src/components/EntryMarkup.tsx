@@ -1,6 +1,11 @@
 import { StyleSheet, Text } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   content: string;
@@ -23,7 +28,7 @@ function InlineMarkup({ text, onOpenReference }: InlineProps) {
         if (part.startsWith('[[') && part.endsWith(']]')) {
           const title = part.slice(2, -2).trim();
           return (
-            <Text key={`${part}-${index}`} onPress={() => onOpenReference?.(title)} style={styles.reference}>
+            <Text key={`${part}-${index}`} onPress={() => onOpenReference?.(title)} style={[styles.reference, celestialMode && styles.celestialReference]}>
               {title}
             </Text>
           );
@@ -32,7 +37,7 @@ function InlineMarkup({ text, onOpenReference }: InlineProps) {
           return <Text key={`${part}-${index}`} style={styles.bold}>{part.slice(2, -2)}</Text>;
         }
         if (part.startsWith('==') && part.endsWith('==')) {
-          return <Text key={`${part}-${index}`} style={styles.highlight}>{part.slice(2, -2)}</Text>;
+          return <Text key={`${part}-${index}`} style={[styles.highlight, celestialMode && styles.celestialHighlight]}>{part.slice(2, -2)}</Text>;
         }
         return <Text key={`${part}-${index}`}>{part}</Text>;
       })}
@@ -44,7 +49,7 @@ export function EntryMarkup({ content, onOpenReference, quote = false, numberOfL
   const lines = content.split('\n');
 
   return (
-    <Text numberOfLines={numberOfLines} style={[styles.content, quote && styles.quote]}>
+    <Text numberOfLines={numberOfLines} style={[styles.content, celestialMode && styles.celestialContent, quote && styles.quote, quote && celestialMode && styles.celestialQuote]}>
       {quote ? '“' : ''}
       {lines.map((line, index) => {
         const isList = line.startsWith('- ');
@@ -87,5 +92,12 @@ const styles = StyleSheet.create({
     color: colors.navySoft,
     fontWeight: '800',
     textDecorationLine: 'underline',
+  },
+  celestialContent: { color: celestial.ivory },
+  celestialQuote: { color: celestial.gold },
+  celestialReference: { color: celestial.gold },
+  celestialHighlight: {
+    color: celestial.ivory,
+    backgroundColor: celestialAlpha(celestial.gold, 0.22),
   },
 });

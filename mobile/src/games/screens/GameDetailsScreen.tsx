@@ -1,7 +1,7 @@
 // jingleReasonV1
 import { JingleReasonCard } from '../../components/JingleReasonCard';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,11 +18,16 @@ import { ApproximateDateCard } from '../../components/ApproximateDateCard';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
+import { activeVisualSkinId } from '../../theme/visualSkins';
+import { CelestialAtmosphere } from '../../components/CelestialAtmosphere';
 import type { ActivityTimerResponse } from '../../types/activity';
 import { GameTimerCard } from '../components/GameTimerCard';
 import { deleteCatalogueCoverOverride } from '../../services/catalogueCoverOverrides';
 import { gameApi } from '../services/gameApi';
 import { hydrateGameMetadata } from '../services/gameMetadataHydrator';
+import { deletedFeedback } from '../../utils/crudFeedback';
+import { TimerMotionView } from '../../components/TimerMotionView';
+import { semanticFeedback } from '../../utils/semanticFeedback';
 import {
   enjoymentLabels,
   gameStatusLabels,
@@ -30,7 +35,12 @@ import {
   type GameStackParamList,
 } from '../types/game';
 
+import { celestial, celestialAlpha } from '../../theme/celestial';
+import { JingleBellIcon } from '../../components/JingleBellIcon';
+
 type Props = NativeStackScreenProps<GameStackParamList, 'GameDetails'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -52,6 +62,7 @@ export function GameDetailsScreen({ route, navigation }: Props) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jingleBusy, setJingleBusy] = useState(false);
 
   const loadGame = useCallback(async () => {
     setLoading(true);
@@ -82,14 +93,51 @@ export function GameDetailsScreen({ route, navigation }: Props) {
     return navigation.addListener('focus', () => void loadGame());
   }, [loadGame, navigation]);
 
+  const toggleJingle = async () => {
+    if (
+      !game ||
+      jingleBusy
+    ) {
+      return;
+    }
+
+    setJingleBusy(true);
+
+    try {
+      const updated =
+        await gameApi.setFavourite(
+          game.gameId,
+          !game.favourite,
+        );
+
+      setGame(updated);
+
+      void semanticFeedback.jingle(
+        updated.favourite,
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Jingle promjena nije spremljena.',
+      );
+    } finally {
+      setJingleBusy(false);
+    }
+  };
+
   const toggleTimer = async () => {
     if (!timer || timerLoading) return;
     setTimerLoading(true);
     setTimerError(null);
     try {
-      setTimer(timer.running
+      const updated = timer.running
         ? await gameApi.stopTimer(gameId)
-        : await gameApi.startTimer(gameId));
+        : await gameApi.startTimer(gameId);
+      setTimer(updated);
+      void (updated.running
+        ? semanticFeedback.timerStart()
+        : semanticFeedback.timerStop());
     } catch (caught) {
       setTimerError(caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.');
     } finally {
@@ -102,6 +150,8 @@ export function GameDetailsScreen({ route, navigation }: Props) {
     setDeleteError(null);
     try {
       await gameApi.remove(gameId);
+
+      deletedFeedback();
       await deleteCatalogueCoverOverride('GAME', gameId).catch(() => undefined);
       setConfirmVisible(false);
       navigation.popToTop();
@@ -132,7 +182,8 @@ export function GameDetailsScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* mobileStabilityUiPolishV1 */}
-        <View style={styles.hero}>
+        <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+          {celestialMode ? <CelestialAtmosphere variant="games" /> : null}
           <CatalogueCoverDisplay
             entityType="GAME"
             entityId={gameId}
@@ -181,17 +232,29 @@ export function GameDetailsScreen({ route, navigation }: Props) {
               {game.platform}
             </Text>
 
-            {game.favourite ? (
-              <Image
-                source={require('../../assets/aero/fav.png')}
-                resizeMode="contain"
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                game.favourite
+                  ? 'Makni iz Jingle'
+                  : 'Dodaj u Jingle'
+              }
+              disabled={jingleBusy}
+              hitSlop={10}
+              onPress={() =>
+                void toggleJingle()
+              }
+              style={styles.heroJingleButton}
+            >
+              <JingleBellIcon
+                active={game.favourite}
+                inactiveOpacity={0.28}
                 style={styles.heroJingle}
               />
-            ) : null}
+            </Pressable>
           </View>
         </View>
-
-        <CatalogueCoverOverrideControls
+<CatalogueCoverOverrideControls
           entityType="GAME"
           entityId={gameId}
         />
@@ -214,12 +277,14 @@ export function GameDetailsScreen({ route, navigation }: Props) {
         </View>
 
         {timer ? (
-          <GameTimerCard
+          <TimerMotionView active={timer.running}>
+            <GameTimerCard
             timer={timer}
             loading={timerLoading}
             errorMessage={timerError}
             onToggle={() => void toggleTimer()}
           />
+          </TimerMotionView>
         ) : null}
 
         {/* backdatedSessionsV1 */}
@@ -328,10 +393,14 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 20 },
   titleCopy: { flex: 1 },
   title: { color: colors.text, fontSize: 29, lineHeight: 35, fontWeight: '900' },
+  // // catalogueJingleProgressSemanticsV1:GameJingle
+  heroJingleButton: {
+    alignSelf: 'flex-start',
+    marginTop: 9,
+  },
   heroJingle: {
     width: 34,
     height: 41,
-    marginTop: 9,
   },
   subtitle: { color: colors.textMuted, fontSize: 15, lineHeight: 21, marginTop: 6 },
   favourite: { color: colors.black, fontSize: 25 },
@@ -377,4 +446,19 @@ const styles = StyleSheet.create({
   detailValue: { color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '600', marginTop: 5 },
   actions: { marginTop: 24 },
   actionGap: { height: 12 },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingTop: 6,
+  },
+  celestialCard: {
+    borderColor: celestialAlpha(celestial.gold, 0.36),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+  },
+
 });
+
+// catalogueJingleProgressSemanticsV1

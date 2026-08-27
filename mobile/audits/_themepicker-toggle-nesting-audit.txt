@@ -1,0 +1,399 @@
+LJINGLE — ThemePicker nested button + toggle audit
+===================================================
+
+### Switch: Sound effects
+-- lines 795-839 --
+ 795 |                 Bez covera i postera u listama. Čisti tileovi, manje buke i više sadržaja na ekranu.
+ 796 |               </Text>
+ 797 |               <Text style={styles.displayModeNote}>
+ 798 |                 Detaljni ekran i dalje može prikazati sliku.
+ 799 |               </Text>
+ 800 |             </Pressable>
+ 801 |           </View>
+ 802 |         </View>
+ 803 | 
+ 804 |         <View style={styles.section}>
+ 805 |           <View style={styles.soundSettingRow}>
+ 806 |             <View style={styles.soundSettingCopy}>
+ 807 |               <Text style={styles.sectionLabel}>Sound effects</Text>
+ 808 |               <Text style={styles.soundSettingHint}>
+ 809 |                 Zvuk pri otvaranju appa, stvaranju, brisanju i Jingleu. Haptics i motion ostaju aktivni.
+ 810 |               </Text>
+ 811 |             </View>
+ 812 |             <Switch
+ 813 |               accessibilityLabel="Sound effects"
+ 814 |               disabled={!soundPreferenceReady}
+ 815 |               onValueChange={(value) => void changeSoundEffects(value)}
+ 816 |               ios_backgroundColor={colors.fillStrong}
+ 817 |               thumbColor="#FFFFFF"
+ 818 |               trackColor={{ false: colors.fillStrong, true: accent }}
+ 819 |               style={Platform.OS === 'web' ? ({ accentColor: accent } as any) : undefined}
+ 820 |               value={soundEffectsEnabled}
+ 821 |             />
+ 822 |           </View>
+ 823 |         </View>
+ 824 | 
+ 825 |                 <View style={styles.section}>
+ 826 |           <View style={styles.soundSettingRow}>
+ 827 |             <View style={styles.soundSettingCopy}>
+ 828 |               <Text style={styles.sectionLabel}>Jingle button</Text>
+ 829 |               <Text style={styles.soundSettingHint}>
+ 830 |                 Prikaži plutajuće Jingle zvono. Kad je isključeno, Command Palette i gesture prečaci i dalje rade.
+ 831 |               </Text>
+ 832 |             </View>
+ 833 |             <Switch
+ 834 |               accessibilityLabel="Jingle button"
+ 835 |               disabled={!jinglePreferenceReady}
+ 836 |               ios_backgroundColor={colors.fillStrong}
+ 837 |               onValueChange={(value) => void changeJinglePortal(value)}
+ 838 |               thumbColor="#FFFFFF"
+ 839 |               trackColor={{ false: colors.fillStrong, true: accent }}
+
+### Switch: Jingle button
+-- lines 816-860 --
+ 816 |               ios_backgroundColor={colors.fillStrong}
+ 817 |               thumbColor="#FFFFFF"
+ 818 |               trackColor={{ false: colors.fillStrong, true: accent }}
+ 819 |               style={Platform.OS === 'web' ? ({ accentColor: accent } as any) : undefined}
+ 820 |               value={soundEffectsEnabled}
+ 821 |             />
+ 822 |           </View>
+ 823 |         </View>
+ 824 | 
+ 825 |                 <View style={styles.section}>
+ 826 |           <View style={styles.soundSettingRow}>
+ 827 |             <View style={styles.soundSettingCopy}>
+ 828 |               <Text style={styles.sectionLabel}>Jingle button</Text>
+ 829 |               <Text style={styles.soundSettingHint}>
+ 830 |                 Prikaži plutajuće Jingle zvono. Kad je isključeno, Command Palette i gesture prečaci i dalje rade.
+ 831 |               </Text>
+ 832 |             </View>
+ 833 |             <Switch
+ 834 |               accessibilityLabel="Jingle button"
+ 835 |               disabled={!jinglePreferenceReady}
+ 836 |               ios_backgroundColor={colors.fillStrong}
+ 837 |               onValueChange={(value) => void changeJinglePortal(value)}
+ 838 |               thumbColor="#FFFFFF"
+ 839 |               trackColor={{ false: colors.fillStrong, true: accent }}
+ 840 |               style={Platform.OS === 'web' ? ({ accentColor: accent } as any) : undefined}
+ 841 |               value={jinglePortalEnabled}
+ 842 |             />
+ 843 |           </View>
+ 844 |         </View>
+ 845 | 
+ 846 | <View style={styles.section}>
+ 847 |           <View style={styles.sectionHeading}>
+ 848 |             <View>
+ 849 |               <Text style={styles.sectionLabel}>
+ 850 |                 {colorTarget === 'accent' ? 'Boja naglaska' : 'Boja pozadine'}
+ 851 |               </Text>
+ 852 |               <Text style={styles.sectionHint}>Klikni ili povuci po mapi</Text>
+ 853 |             </View>
+ 854 |             <View style={[styles.colorChip, { backgroundColor: editingColor }]}>
+ 855 |               <Text style={styles.colorChipText}>{editingColor}</Text>
+ 856 |             </View>
+ 857 |           </View>
+ 858 | 
+ 859 |           <View style={styles.colorTargetRow}>
+ 860 |             <Pressable
+
+### Button role near line 861
+-- lines 853-879 --
+ 853 |             </View>
+ 854 |             <View style={[styles.colorChip, { backgroundColor: editingColor }]}>
+ 855 |               <Text style={styles.colorChipText}>{editingColor}</Text>
+ 856 |             </View>
+ 857 |           </View>
+ 858 | 
+ 859 |           <View style={styles.colorTargetRow}>
+ 860 |             <Pressable
+ 861 |               accessibilityRole="button"
+ 862 |               onPress={() => setColorTarget('accent')}
+ 863 |               style={[
+ 864 |                 styles.colorTargetButton,
+ 865 |                 colorTarget === 'accent' && styles.colorTargetButtonSelected,
+ 866 |                 colorTarget === 'accent' && { borderColor: accent },
+ 867 |               ]}
+ 868 |             >
+ 869 |               <View style={[styles.colorTargetDot, { backgroundColor: accent }]} />
+ 870 |               <Text
+ 871 |                 style={[
+ 872 |                   styles.colorTargetText,
+ 873 |                   colorTarget === 'accent' && styles.colorTargetTextSelected,
+ 874 |                 ]}
+ 875 |               >
+ 876 |                 Accent
+ 877 |               </Text>
+ 878 |             </Pressable>
+ 879 | 
+
+### Button role near line 881
+-- lines 873-899 --
+ 873 |                   colorTarget === 'accent' && styles.colorTargetTextSelected,
+ 874 |                 ]}
+ 875 |               >
+ 876 |                 Accent
+ 877 |               </Text>
+ 878 |             </Pressable>
+ 879 | 
+ 880 |             <Pressable
+ 881 |               accessibilityRole="button"
+ 882 |               onPress={() => setColorTarget('background')}
+ 883 |               style={[
+ 884 |                 styles.colorTargetButton,
+ 885 |                 colorTarget === 'background' && styles.colorTargetButtonSelected,
+ 886 |                 colorTarget === 'background' && { borderColor: accent },
+ 887 |               ]}
+ 888 |             >
+ 889 |               <View
+ 890 |                 style={[
+ 891 |                   styles.colorTargetDot,
+ 892 |                   { backgroundColor: backgroundColor },
+ 893 |                 ]}
+ 894 |               />
+ 895 |               <Text
+ 896 |                 style={[
+ 897 |                   styles.colorTargetText,
+ 898 |                   colorTarget === 'background' && styles.colorTargetTextSelected,
+ 899 |                 ]}
+
+### Button role near line 909
+-- lines 901-927 --
+ 901 |                 Pozadina
+ 902 |               </Text>
+ 903 |             </Pressable>
+ 904 |           </View>
+ 905 | 
+ 906 |           {colorTarget === 'background' ? (
+ 907 |             <Pressable
+ 908 |               // originalBackgroundResetV1
+ 909 |               accessibilityRole="button"
+ 910 |               accessibilityLabel="Vrati originalnu pozadinu"
+ 911 |               onPress={() => setBackgroundColor(DEFAULT_BACKGROUND)}
+ 912 |               style={({ pressed }) => [
+ 913 |                 styles.originalBackgroundButton,
+ 914 |                 pressed && styles.pressed,
+ 915 |               ]}
+ 916 |             >
+ 917 |               <View
+ 918 |                 style={[
+ 919 |                   styles.originalBackgroundSwatch,
+ 920 |                   { backgroundColor: DEFAULT_BACKGROUND },
+ 921 |                 ]}
+ 922 |               />
+ 923 |               <View style={styles.originalBackgroundCopy}>
+ 924 |                 <Text style={styles.originalBackgroundTitle}>
+ 925 |                   Vrati originalnu pozadinu
+ 926 |                 </Text>
+ 927 |                 <Text style={styles.originalBackgroundValue}>
+
+### Button role near line 1019
+-- lines 1011-1037 --
+1011 |           </View>
+1012 |           <View style={[styles.previewButton, { backgroundColor: accent }]}>
+1013 |             <Text style={styles.previewButtonText}>Primjer</Text>
+1014 |           </View>
+1015 |         </View>
+1016 | 
+1017 |         <View style={styles.actions}>
+1018 |           <Pressable
+1019 |             accessibilityRole="button"
+1020 |             onPress={() => {
+1021 |               setAccent(DEFAULT_ACCENT);
+1022 |               setBackgroundColor(DEFAULT_BACKGROUND);
+1023 |             }}
+1024 |             style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}
+1025 |           >
+1026 |             <Text style={styles.resetText}>Vrati zadano</Text>
+1027 |           </Pressable>
+1028 |           <Pressable
+1029 |             accessibilityRole="button"
+1030 |             disabled={saving}
+1031 |             onPress={() => void save()}
+1032 |             style={({ pressed }) => [styles.saveButton, { backgroundColor: accent }, pressed && styles.pressed]}
+1033 |           >
+1034 |             {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Primijeni</Text>}
+1035 |           </Pressable>
+1036 |         </View>
+1037 | 
+
+### Button role near line 1029
+-- lines 1021-1047 --
+1021 |               setAccent(DEFAULT_ACCENT);
+1022 |               setBackgroundColor(DEFAULT_BACKGROUND);
+1023 |             }}
+1024 |             style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}
+1025 |           >
+1026 |             <Text style={styles.resetText}>Vrati zadano</Text>
+1027 |           </Pressable>
+1028 |           <Pressable
+1029 |             accessibilityRole="button"
+1030 |             disabled={saving}
+1031 |             onPress={() => void save()}
+1032 |             style={({ pressed }) => [styles.saveButton, { backgroundColor: accent }, pressed && styles.pressed]}
+1033 |           >
+1034 |             {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Primijeni</Text>}
+1035 |           </Pressable>
+1036 |         </View>
+1037 | 
+1038 |         <View style={styles.importBox}>
+1039 |           <Text style={styles.importLabel}>CLOUD SYNC</Text>
+1040 | 
+1041 |           <Text style={styles.importTitle}>
+1042 |             Osobni cloud archive
+1043 |           </Text>
+1044 | 
+1045 |           <Text style={styles.importCopy}>
+1046 |             {cloudState?.lastSyncedAt
+1047 |               ? `Last sync: ${new Date(cloudState.lastSyncedAt).toLocaleString('hr-HR')}`
+
+### Button role near line 1080
+-- lines 1072-1098 --
+1072 |                 {cloudSnapshots.length > 0
+1073 |                   ? `${cloudSnapshots.length} retained checkpoints`
+1074 |                   : 'No checkpoints yet'}
+1075 |               </Text>
+1076 |             </View>
+1077 | 
+1078 |             {cloudSnapshots.length > 1 ? (
+1079 |               <Pressable
+1080 |                 accessibilityRole="button"
+1081 |                 disabled={cloudHistoryBusy}
+1082 |                 onPress={() =>
+1083 |                   setCloudHistoryExpanded(
+1084 |                     (current) => !current,
+1085 |                   )
+1086 |                 }
+1087 |                 style={({ pressed }) => [
+1088 |                   styles.cloudHistoryToggle,
+1089 |                   pressed && styles.pressed,
+1090 |                 ]}
+1091 |               >
+1092 |                 <Text style={styles.cloudHistoryToggleText}>
+1093 |                   {cloudHistoryExpanded
+1094 |                     ? 'HIDE'
+1095 |                     : 'OLDER'}
+1096 |                 </Text>
+1097 |               </Pressable>
+1098 |             ) : null}
+
+### Button role near line 1234
+-- lines 1226-1252 --
+1226 |         
+1227 | 
+1228 |         
+1229 | 
+1230 | 
+1231 |         <PortableImportPanel />
+1232 | 
+1233 |         <Pressable
+1234 |           accessibilityRole="button"
+1235 |           disabled={saving}
+1236 |           onPress={() => void exportData()}
+1237 |           style={({ pressed }) => [
+1238 |             styles.exportButton,
+1239 |             pressed && styles.pressed,
+1240 |             saving && styles.exportDisabled,
+1241 |           ]}
+1242 |         >
+1243 |           <Text style={styles.exportTitle}>
+1244 | 
+1245 | 
+1246 |             {saving ? 'Pripremam backup…' : 'Preuzmi JSON backup'}
+1247 |           </Text>
+1248 |           <Text style={styles.exportCopy}>
+1249 |             Sprema puni lokalni backup kao datoteku bez prikazivanja golemog JSON-a na ekranu.
+1250 |           </Text>
+1251 |         </Pressable>
+1252 | 
+
+### Button role near line 1271
+-- lines 1263-1289 --
+1263 |         <View style={styles.importBox}>
+1264 |           <Text style={styles.importLabel}>JSON RESTORE</Text>
+1265 |           <Text style={styles.importTitle}>Uvezi postojeći backup</Text>
+1266 |           <Text style={styles.importCopy}>
+1267 |             Odaberi JSON koji je izvezen iz LJinglea. Prvo ga provjeravamo; ništa se ne mijenja dok ne potvrdiš vraćanje.
+1268 |           </Text>
+1269 | 
+1270 |           <Pressable
+1271 |             accessibilityRole="button"
+1272 |             disabled={saving || restoreBusy}
+1273 |             onPress={() => void chooseBackupFile()}
+1274 |             style={({ pressed }) => [
+1275 |               styles.importButton,
+1276 |               pressed && styles.pressed,
+1277 |               (saving || restoreBusy) && styles.exportDisabled,
+1278 |             ]}
+1279 |           >
+1280 |             <Text style={styles.importButtonText}>
+1281 |               {restoreBusy ? 'Vraćam backup…' : 'Odaberi JSON backup'}
+1282 |             </Text>
+1283 |           </Pressable>
+1284 | 
+1285 |           {backupInspection ? (
+1286 |             <View style={styles.importSelected}>
+1287 |               <Text numberOfLines={1} style={styles.importFilename}>{selectedBackupName}</Text>
+1288 |               <Text style={styles.importMeta}>
+1289 |                 {backupInspection.tableCount} tablica · {backupInspection.rowCount} redaka
+
+### Button role near line 1298
+-- lines 1290-1316 --
+1290 |                 {backupInspection.exportedAt
+1291 |                   ? ` · ${new Date(backupInspection.exportedAt).toLocaleString('hr-HR')}`
+1292 |                   : ''}
+1293 |               </Text>
+1294 |               {backupInspection.legacy ? (
+1295 |                 <Text style={styles.importWarning}>Stari V1 backup — vraćaju se samo tablice koje taj backup sadrži.</Text>
+1296 |               ) : null}
+1297 |               <Pressable
+1298 |                 accessibilityRole="button"
+1299 |                 disabled={restoreBusy || saving}
+1300 |                 onPress={restoreSelectedBackup}
+1301 |                 style={({ pressed }) => [styles.restoreButton, pressed && styles.pressed]}
+1302 |               >
+1303 |                 <Text style={styles.restoreButtonText}>Vrati ovaj backup</Text>
+1304 |               </Pressable>
+1305 |             </View>
+1306 |           ) : null}
+1307 | 
+1308 |           <Text style={styles.importNote}>
+1309 |             Memory Radio audio datoteke nisu ugrađene u JSON; backup čuva njihove zapise i veze, ali ne i same MP3/M4A/WAV bajtove.
+1310 |           </Text>
+1311 |         </View>
+1312 | 
+1313 |               <BridgePanel />
+1314 |       </ScrollView>
+1315 | 
+1316 |       {/* themeRestartPromptV1 */}
+
+### Button role near line 1338
+-- lines 1330-1356 --
+1330 |               Nova boja i vizualni svijet učitat će se nakon brzog ponovnog pokretanja aplikacije.
+1331 |             </Text>
+1332 | 
+1333 |             {restartError ? (
+1334 |               <Text style={styles.restartError}>{restartError}</Text>
+1335 |             ) : null}
+1336 | 
+1337 |             <Pressable
+1338 |               accessibilityRole="button"
+1339 |               disabled={restarting}
+1340 |               onPress={() => void restartAfterThemeSave()}
+1341 |               style={({ pressed }) => [
+1342 |                 styles.restartButton,
+1343 |                 { backgroundColor: accent },
+1344 |                 pressed && !restarting && styles.pressed,
+1345 |               ]}
+1346 |             >
+1347 |               {restarting ? (
+1348 |                 <ActivityIndicator color="#FFFFFF" />
+1349 |               ) : (
+1350 |                 <Text style={styles.restartButtonText}>Ponovno pokreni</Text>
+1351 |               )}
+1352 |             </Pressable>
+1353 |           </View>
+1354 |         </View>
+1355 |       </Modal>
+1356 |     </SafeAreaView>
+

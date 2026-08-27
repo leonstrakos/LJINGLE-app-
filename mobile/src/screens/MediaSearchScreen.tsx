@@ -23,6 +23,7 @@ import {
   type TmdbMediaResponse,
 } from '../types/media';
 import type { MediaStackParamList } from '../types/mediaNavigation';
+import { createdFeedback } from '../utils/crudFeedback';
 
 type Props = NativeStackScreenProps<MediaStackParamList, 'MediaSearch'>;
 
@@ -72,6 +73,7 @@ export function MediaSearchScreen({ navigation }: Props) {
         completedOn: null,
       };
       const created = await mediaApi.create(payload);
+      createdFeedback();
       navigation.replace('MediaDetails', { mediaId: created.mediaId });
     } catch (caught) {
       Alert.alert(

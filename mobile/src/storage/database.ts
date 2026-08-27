@@ -1,10 +1,13 @@
-import * as SQLite from 'expo-sqlite';
+﻿import * as SQLite from 'expo-sqlite';
 import { importGamesNotesOnce } from './gamesNotesImport';
 import { importTvTimeOnce } from './tvTimeImport';
 import { repairTvTimeOnce } from './tvTimeRepair';
+import { restoreProfileWatchHistoryOnce } from './profileWatchRescue';
+import { restoreProfileWatchlistOnce } from './profileWatchlistRescue';
+import { repairProfileSeriesRescueOnce } from './profileSeriesRescueRepair';
 import { getDatabaseConnectionAsync } from './databaseConnection'; // sqlitePlatformConnectionV2
 
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 7;
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -205,6 +208,39 @@ async function migrate(database: SQLite.SQLiteDatabase) {
     `);
   }
 
+  // architectureBatchA_v1
+  if (currentVersion < 5) {
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS session_contexts (
+        context_id TEXT PRIMARY KEY NOT NULL,
+        session_id TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES time_sessions(session_id) ON DELETE CASCADE,
+        UNIQUE(session_id, entity_type, entity_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_session_contexts_session
+        ON session_contexts(session_id, created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_session_contexts_entity
+        ON session_contexts(entity_type, entity_id, created_at);
+
+      INSERT OR IGNORE INTO activities
+        (activity_id, label, activity_type, book_id, topic_id, media_id, created_at, modified_at)
+      VALUES
+        ('00000000-0000-4000-8000-000000000001',
+         'Quick Timer',
+         'GLOBAL',
+         NULL,
+         NULL,
+         NULL,
+         datetime('now'),
+         datetime('now'));
+    `);
+  }
+
   // collectionsSchemaEnsureV2
   // Always ensure these optional polymorphic tables exist. CREATE IF NOT EXISTS
   // + INSERT OR IGNORE makes this safe on every app startup.
@@ -255,14 +291,79 @@ async function migrate(database: SQLite.SQLiteDatabase) {
     INSERT OR IGNORE INTO collections
       (collection_id, name, description, symbol, created_at, modified_at)
     VALUES
-      ('00000000-0000-4000-8000-000000000101', 'Childhood', 'Stvari koje pripadaju djetinjstvu i ranim uspomenama.', '◌', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000102', 'Rainy Night Movies', 'Filmovi i serije za kišne noći.', '☂', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000103', 'Philosophy', 'Knjige, teme, citati i bilješke povezani s filozofijom.', '◇', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000104', 'Weird Internet', 'Čudni kutovi interneta, rabbit holes i reference.', '⌁', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000105', 'Comfort Games', 'Igre kojima se vraćaš radi poznatog osjećaja.', '☆', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000106', 'Summer 2026', 'Stvari koje pripadaju ljetu 2026.', '☼', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000107', 'To Revisit', 'Stvari kojima se želiš vratiti kasnije.', '↻', datetime('now'), datetime('now'));
+      ('00000000-0000-4000-8000-000000000101', 'Childhood', 'Stvari koje pripadaju djetinjstvu i ranim uspomenama.', 'â—Ś', datetime('now'), datetime('now')),
+      ('00000000-0000-4000-8000-000000000102', 'Rainy Night Movies', 'Filmovi i serije za kiĹˇne noÄ‡i.', 'â‚', datetime('now'), datetime('now')),
+      ('00000000-0000-4000-8000-000000000103', 'Philosophy', 'Knjige, teme, citati i biljeĹˇke povezani s filozofijom.', 'â—‡', datetime('now'), datetime('now')),
+      ('00000000-0000-4000-8000-000000000104', 'Weird Internet', 'ÄŚudni kutovi interneta, rabbit holes i reference.', 'âŚ', datetime('now'), datetime('now')),
+      ('00000000-0000-4000-8000-000000000105', 'Comfort Games', 'Igre kojima se vraÄ‡aĹˇ radi poznatog osjeÄ‡aja.', 'â†', datetime('now'), datetime('now')),
+      ('00000000-0000-4000-8000-000000000106', 'Summer 2026', 'Stvari koje pripadaju ljetu 2026.', 'âĽ', datetime('now'), datetime('now')),
+      ('00000000-0000-4000-8000-000000000107', 'To Revisit', 'Stvari kojima se ĹľeliĹˇ vratiti kasnije.', 'â†»', datetime('now'), datetime('now'));
   `);
+
+  // topicActivityLinksV1
+  if (currentVersion < 6) {
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS topic_activity_links (
+        link_id TEXT PRIMARY KEY NOT NULL,
+        topic_id TEXT NOT NULL,
+        activity_id TEXT NOT NULL,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        modified_at TEXT NOT NULL,
+        FOREIGN KEY (topic_id) REFERENCES topics(topic_id) ON DELETE CASCADE,
+        FOREIGN KEY (activity_id) REFERENCES activities(activity_id) ON DELETE CASCADE,
+        UNIQUE(topic_id, activity_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_topic_activity_links_topic
+        ON topic_activity_links(topic_id, position, created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_topic_activity_links_activity
+        ON topic_activity_links(activity_id, created_at);
+
+      INSERT OR IGNORE INTO topic_activity_links
+        (link_id, topic_id, activity_id, position, created_at, modified_at)
+      SELECT
+        'legacy-' || activity_id || '-' || topic_id,
+        topic_id,
+        activity_id,
+        0,
+        created_at,
+        modified_at
+      FROM activities
+      WHERE topic_id IS NOT NULL;
+    `);
+  }
+
+  // forkLCollectionsMemoryBoxV2
+  // Persistent user-defined order for top-level Memory Boxes.
+  if (currentVersion < 7) {
+    const collectionColumns = await database.getAllAsync<{ name: string }>(
+      'PRAGMA table_info(collections)',
+    );
+
+    const hasCollectionPosition = collectionColumns.some(
+      (column) => column.name === 'position',
+    );
+
+    if (!hasCollectionPosition) {
+      await database.execAsync(
+        'ALTER TABLE collections ADD COLUMN position INTEGER NOT NULL DEFAULT 0',
+      );
+
+      const existingCollections = await database.getAllAsync<{ collection_id: string }>(
+        'SELECT collection_id FROM collections ORDER BY name COLLATE NOCASE, created_at',
+      );
+
+      for (let index = 0; index < existingCollections.length; index += 1) {
+        await database.runAsync(
+          'UPDATE collections SET position=? WHERE collection_id=?',
+          index,
+          existingCollections[index]!.collection_id,
+        );
+      }
+    }
+  }
 
   if (currentVersion < DATABASE_VERSION) {
     await database.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
@@ -274,14 +375,23 @@ export function getDatabase() {
     // sqlitePlatformConnectionV2
     databasePromise = getDatabaseConnectionAsync().then(async (database) => {
       await migrate(database);
-      // tvTimeImportV1 — one-time idempotent TV Time migration
+      // tvTimeImportV1 â€” one-time idempotent TV Time migration
       await importTvTimeOnce(database);
-      // tvTimeRepairV3Fast — cached series metadata, ignored flags, stats and recent-dismiss schema
+      // tvTimeRepairV3Fast â€” cached series metadata, ignored flags, stats and recent-dismiss schema
       await repairTvTimeOnce(database);
-      // gamesNotesImportV1 — one-time Notes history import, SQLite only
+      // gamesNotesImportV1 â€” one-time Notes history import, SQLite only
       await importGamesNotesOnce(database);
+      // profileWatchRescueV1
+      await restoreProfileWatchHistoryOnce(database);
+      // profileWatchlistRescueV1
+      await restoreProfileWatchlistOnce(database);
+      // profileSeriesRescueRepairV1
+      await repairProfileSeriesRescueOnce(database);
       return database;
     });
   }
   return databasePromise;
 }
+
+
+

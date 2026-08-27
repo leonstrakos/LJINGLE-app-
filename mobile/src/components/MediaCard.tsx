@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 // catalogueQuietModeV1
 import { useCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
 import {
@@ -9,8 +10,12 @@ import {
   type MediaResponse,
 } from '../types/media';
 import { CatalogueCoverDisplay } from './CatalogueCoverOverride';
+
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 import { MediaPoster } from './MediaPoster';
 
+import { celestial, celestialAlpha } from '../theme/celestial';
 type Props = {
   item: MediaResponse;
   onPress: () => void;
@@ -25,6 +30,7 @@ export function MediaCard({ item, onPress }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
+        celestialMode && styles.celestialCard,
         compactMode && styles.cardCompact,
         pressed && styles.pressed,
       ]}
@@ -48,18 +54,18 @@ export function MediaCard({ item, onPress }: Props) {
       ) : null}
       <View style={styles.content}>
         <View style={styles.metaRow}>
-          <Text style={styles.type}>{mediaTypeLabels[item.mediaType]}</Text>
+          <Text style={[styles.type, celestialMode && styles.celestialType]}>{mediaTypeLabels[item.mediaType]}</Text>
         </View>
-        <Text numberOfLines={compactMode ? 1 : 2} style={styles.title}>{item.title}</Text>
-        <Text style={styles.subtitle}>
+        <Text numberOfLines={compactMode ? 1 : 2} style={[styles.title, celestialMode && styles.celestialTitle]}>{item.title}</Text>
+        <Text style={[styles.subtitle, celestialMode && styles.celestialMuted]}>
           {[item.releaseYear, watchStatusLabels[item.watchStatus]].filter(Boolean).join(' · ')}
         </Text>
         {!compactMode ? (
           <>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
+            <View style={[styles.progressTrack, celestialMode && styles.celestialTrack]}>
+              <View style={[styles.progressFill, celestialMode && styles.celestialFill, { width: `${item.progress}%` }]} />
             </View>
-            <Text style={styles.progressLabel}>{item.progress}%</Text>
+            <Text style={[styles.progressLabel, celestialMode && styles.celestialProgressLabel]}>{item.progress}%</Text>
           </>
         ) : null}
       </View>
@@ -135,4 +141,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 5,
   },
+  celestialCard: {
+    backgroundColor: celestial.night,
+    borderColor: celestialAlpha(celestial.gold, 0.42),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  celestialType: { color: celestial.gold, letterSpacing: 1.05 },
+  celestialTitle: { color: celestial.ivory },
+  celestialMuted: { color: celestialAlpha(celestial.ivory, 0.64) },
+  celestialTrack: {
+    backgroundColor: celestialAlpha(celestial.ivory, 0.08),
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.20),
+  },
+  celestialFill: { backgroundColor: celestial.gold },
+  celestialProgressLabel: { color: celestial.gold },
+  celestialStar: {
+    color: celestial.gold,
+    fontSize: 10,
+    opacity: 0.82,
+  },
+  celestialProgressFill: {
+    backgroundColor: celestial.gold,
+  },
+
 });

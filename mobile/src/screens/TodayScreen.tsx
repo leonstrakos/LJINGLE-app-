@@ -1,4 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -10,17 +15,20 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+  } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActiveTimerCard } from '../components/ActiveTimerCard';
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { RecentActivityCard } from '../components/RecentActivityCard';
 import { activityApi } from '../services/activityApi';
 import { entryApi } from '../services/entryApi';
 import { statsApi } from '../services/statsApi';
-import { colors } from '../theme/colors';
+import { colors,
+  isDarkBackground,
+} from '../theme/colors';
 import { activeAeroBackgroundId } from '../theme/aeroBackground';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { activeRadioThemeId } from '../theme/radioTheme';
@@ -31,10 +39,39 @@ import type { DailyTimeResponse } from '../types/stats';
 import { formatDuration } from '../utils/activityTime';
 import { semanticFeedback } from '../utils/semanticFeedback';
 
+import { celestial, celestialAlpha } from '../theme/celestial';
+import { ConstellationGridGlyph } from '../components/ConstellationGridGlyph';
+
+// forkN5GlyphReorderV1
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Today'>;
 
 const pixelMode = activeVisualSkinId === 'pixel';
 const aeroMode = activeVisualSkinId === 'aero';
+
+// aeroSearchQuoteTimerHygieneV3
+// Aero is an authored visual skin, not a semantic accent variant.
+// Keep its Home accent fixed while Classic/Pixel keep the existing theme token.
+const AERO_HOME_ACCENT = '#505359';
+const AERO_METAL_MID = '#73777D';
+const AERO_GLASS_EDGE = 'rgba(104,108,114,0.42)';
+const AERO_GLASS_WHITE = 'rgba(255,255,255,0.72)';
+const AERO_GLASS_WHITE_STRONG = 'rgba(255,255,255,0.90)';
+const AERO_METAL_SOFT = 'rgba(80,83,89,0.58)';
+
+// aeroVistaNeutralFinalV32
+// Final Aero UI palette: Vista white glass + neutral graphite/silver.
+// No semantic blue/cyan is used for UI chrome.
+const homeAccent =
+  aeroMode
+    ? AERO_HOME_ACCENT
+    : colors.navy;
+
+// aeroVistaWhiteGlassV31
+// Vista Aero is neutral silver/graphite: no saturated semantic accent bleed.
+const celestialMode = activeVisualSkinId === 'classic';
+// forkKDarkBackgroundContrastV1
+// forkN1CelestialHomeCommandBellV1
 const radioInverted = activeRadioThemeId === 'inverted';
 const aeroOcean =
   aeroMode && activeAeroBackgroundId === 'ocean';
@@ -68,6 +105,27 @@ const monthNames = [
 
 function formatToday(date: Date) {
   return `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]}`;
+}
+
+
+function CelestialHomeField() {
+  return (
+    <View pointerEvents="none" style={styles.celestialFieldN1}>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA1N1]}>✦</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA2N1]}>·</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA3N1]}>✧</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA4N1]}>✦</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA5N1]}>·</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA6N1]}>✧</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA7N1]}>✦</Text>
+      <Text style={[styles.celestialStarN1, styles.celestialStarA8N1]}>·</Text>
+      <View style={[styles.celestialLineN1, styles.celestialLineOneN1]} />
+      <View style={[styles.celestialLineN1, styles.celestialLineTwoN1]} />
+      <View style={styles.celestialOrbitN1}>
+        <View style={styles.celestialOrbitCoreN1} />
+      </View>
+    </View>
+  );
 }
 
 function AeroBubble({ style, float }: { style: object; float: Animated.Value }) {
@@ -298,6 +356,11 @@ export function TodayScreen({ navigation }: Props) {
   const [timers, setTimers] = useState<ActivityTimerResponse[]>([]);
   const [recentActivities, setRecentActivities] = useState<ActivityTimerResponse[]>([]);
   const [dailyTime, setDailyTime] = useState<DailyTimeResponse | null>(null);
+  // globalTimerInsideDailyCardV1
+  const [globalTimer, setGlobalTimer] =
+    useState<ActivityTimerResponse | null>(null);
+  const [globalTimerBusy, setGlobalTimerBusy] =
+    useState(false);
   const [quotes, setQuotes] = useState<Entry[]>([]);
   const [dailyMeasuredAt, setDailyMeasuredAt] = useState(Date.now());
   const [loading, setLoading] = useState(true);
@@ -326,6 +389,7 @@ export function TodayScreen({ navigation }: Props) {
         entryApi.getAll({ type: 'QUOTE' }),
       ]);
       setTimers(activeTimers);
+      setGlobalTimer(await activityApi.getGlobal());
       setRecentActivities(recent);
       setDailyTime(today);
       setQuotes(savedQuotes);
@@ -350,12 +414,17 @@ export function TodayScreen({ navigation }: Props) {
   );
 
   useEffect(() => {
-    if (timers.length === 0) return undefined;
+    if (
+      timers.length === 0 &&
+      !globalTimer?.running
+    ) {
+      return undefined;
+    }
 
     setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [timers.length]);
+  }, [timers.length, globalTimer?.running]);
 
   const stopTimer = async (timer: ActivityTimerResponse) => {
     if (!timer.activityId || stoppingIds.has(timer.activityId)) return;
@@ -406,6 +475,39 @@ export function TodayScreen({ navigation }: Props) {
     }
   };
 
+  const toggleGlobalTimer = async () => {
+    if (globalTimerBusy) return;
+
+    setGlobalTimerBusy(true);
+    setError(null);
+
+    try {
+      const updated = globalTimer?.running
+        ? (await activityApi.stopGlobal()).timer
+        : await activityApi.startGlobal();
+
+      setGlobalTimer(updated);
+      setNow(Date.now());
+
+      void (
+        updated.running
+          ? semanticFeedback.timerStart()
+          : semanticFeedback.timerStop()
+      );
+
+      // Refresh daily totals + breakdown immediately.
+      await loadActiveTimers(true);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Globalni timer nije promijenjen.',
+      );
+    } finally {
+      setGlobalTimerBusy(false);
+    }
+  };
+
   const liveDailyIncrement = Math.max(0, Math.floor((now - dailyMeasuredAt) / 1000));
   const liveDailyTotal = dailyTime
     ? dailyTime.totalSeconds
@@ -414,7 +516,8 @@ export function TodayScreen({ navigation }: Props) {
 
   const header = (
     <>
-      <View style={[styles.hero, aeroMode && styles.aeroHero]}>
+      <View style={[styles.hero, aeroMode && styles.aeroHero, celestialMode && styles.celestialHeroN1]}>
+        <CelestialAtmosphere variant="home" />
         {oceanAero ? <AeroAquarium /> : null}
         <Pressable
           accessibilityRole="button"
@@ -423,9 +526,25 @@ export function TodayScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('ThemePicker')}
           style={({ pressed }) => [styles.themeButton, pressed && styles.themeButtonPressed]}
         >
-          <Text style={styles.themeButtonIcon}>{'\u25D0'}</Text>
+          {/* settingsGearIconV1 */}
+          <Image
+            source={require('../assets/ui/settings-gear.png')}
+            resizeMode="cover"
+            style={[
+              styles.settingsGearIcon,
+              {
+                tintColor: aeroMode
+                  ? '#666A70'
+                  : celestialMode
+                    ? celestial.gold
+                    : pixelMode
+                      ? colors.text
+                      : homeAccent,
+              },
+            ]}
+          />
         </Pressable>
-        <Text style={[styles.date, pixelMode && styles.pixelText]}>{dateLabel}</Text>
+        <Text style={[styles.date, pixelMode && styles.pixelText, celestialMode && styles.celestialDateN1]}>{dateLabel}</Text>
         {pixelMode ? (
           <>
             <Text style={styles.pixelBoot}>LJINGLE_OS / TODAY.LOG / READY</Text>
@@ -436,10 +555,16 @@ export function TodayScreen({ navigation }: Props) {
             </View>
           </>
         ) : null}
-        <View style={styles.quoteHero}>
-          <Text style={[styles.quoteMark, pixelMode && styles.pixelText]}>{pixelMode ? '"' : '\u201C'}</Text>
-          <Text style={[styles.quoteText, pixelMode && styles.pixelText]} numberOfLines={4}>
-            {dailyQuote?.content ?? 'Dodaj citat u Zapisima i ovdje će se pojavljivati svaki dan.'}
+        <View style={[styles.quoteHero, celestialMode && styles.celestialQuoteHeroN1]}>
+          <Text
+            style={[
+              styles.quoteText,
+              pixelMode && styles.pixelText,
+              !dailyQuote?.content && styles.aeroEmptyQuoteV31,
+            ]}
+            numberOfLines={4}
+          >
+            {dailyQuote?.content ?? (pixelMode ? '"' : '\u201C')}
           </Text>
           {dailyQuote?.title ? (
             <Text style={styles.quoteSource}>{dailyQuote.title}</Text>
@@ -449,45 +574,39 @@ export function TodayScreen({ navigation }: Props) {
 
 
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Pretraži cijeli katalog"
-        onPress={() => navigation.navigate('BookSearch')}
-        style={({ pressed }) => [styles.globalCatalogueSearch, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed]}
-      >
-        {aeroMode ? (
-          <AeroReflection variant="search" />
-        ) : null}
-        <View style={[
-          styles.globalSearchIcon,
-          oceanAero && styles.aeroSearchIcon,
-          oceanAero && styles.aeroOrbShell,
-          oceanAero && styles.aeroBubbleHostClean,
-        ]}>
-          {aeroOcean ? (
-            <Image
-              
-              source={require('../assets/aero/bubble.png')}
-              resizeMode="contain"
-              style={[styles.aeroBubbleAsset, !oceanAero && { display: 'none' }]}
-            />
-          ) : null}
-          <Text style={[styles.globalSearchIconText, aeroOcean && styles.aeroSearchIconText,
-              aeroOcean && styles.aeroSearchMagnifierGray,
-            ]}>⌕</Text></View>
-        <View style={styles.globalSearchCopy}>
-          <Text style={styles.globalSearchTitle}>Pretraži cijeli katalog</Text>
-          <Text style={styles.globalSearchSubtitle}>Knjige, filmovi, serije i igre koje si već spremio/la</Text>
-        </View>
-        <Text style={styles.globalSearchArrow}>›</Text>
-      </Pressable>
+      {/* forkIHomeProfileV1: Home search removed — Bell Menu, Command Palette and Catalogue own search. */}
 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Otvori katalog"
         onPress={() => navigation.navigate('Catalogue')}
-        style={({ pressed }) => [styles.catalogueCard, aeroMode && styles.aeroGlassCard, pressed && styles.cataloguePressed]}
+        style={({ pressed }) => [
+          styles.catalogueCard,
+          celestialMode && styles.jinglePolishCatalogueCard,
+          aeroMode && styles.aeroGlassCard,
+          pressed && styles.cataloguePressed,
+        ]}
       >
+        {celestialMode ? (
+          <>
+            <Text
+              pointerEvents="none"
+              style={styles.jinglePolishCatalogueStar}
+            >
+              ✦
+            </Text>
+            <Text
+              pointerEvents="none"
+              style={styles.jinglePolishCatalogueSpark}
+            >
+              ✧
+            </Text>
+            <View
+              pointerEvents="none"
+              style={styles.jinglePolishCatalogueOrbit}
+            />
+          </>
+        ) : null}
         {aeroMode ? (
           <AeroReflection variant="catalogue" />
         ) : null}
@@ -516,11 +635,29 @@ export function TodayScreen({ navigation }: Props) {
             />
           </View>
         ) : (
-          <View style={styles.catalogueIcon}>
-          <View style={styles.bookSpine} />
-          <View style={styles.bookSpineWide} />
-          <View style={styles.bookSpineShort} />
-        </View>
+          <View
+            style={[
+              styles.catalogueIcon,
+              celestialMode &&
+                styles.catalogueJingleIconV1,
+            ]}
+          >
+            {celestialMode ? (
+              <>
+                {/* forkN5GlyphReorderV1:today-catalogue */}
+                <ConstellationGridGlyph
+                  color={homeAccent}
+                  size={48}
+                />
+              </>
+            ) : (
+              <>
+                <View style={styles.bookSpine} />
+                <View style={styles.bookSpineWide} />
+                <View style={styles.bookSpineShort} />
+              </>
+            )}
+          </View>
         )}
         <View style={styles.catalogueCopy}>
           <Text style={styles.catalogueEyebrow}></Text>
@@ -531,16 +668,23 @@ export function TodayScreen({ navigation }: Props) {
       </Pressable>
 
 
-      <View style={styles.radioTimerRow}>
+      <View
+        style={[
+          styles.radioTimerRow,
+          celestialMode && styles.jinglePolishTimerRadioStack,
+          aeroMeadow ? styles.meadowTopRowV3 : null,
+          aeroMode ? styles.aeroRestoreTopRowV3 : null,
+        ]}
+      >
         {aeroMode ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Otvori Memory Radio"
           onPress={() => navigation.navigate('MemoryRadio')}
-          style={({ pressed }) => [
+          style={(state) => [(({ pressed }) => [
             styles.aeroRadioImageButton,
             pressed && styles.quickPressed,
-          ]}
+          ])(state), aeroMeadow ? styles.meadowRadioSlotV3 : null, aeroMode ? styles.aeroRestoreRadioSlotV3 : null]}
         >
           <Image
             
@@ -550,11 +694,11 @@ export function TodayScreen({ navigation }: Props) {
                 : require('../assets/aero/radio.png')
             }
             resizeMode={aeroMeadow ? 'contain' : 'stretch'}
-            style={[
+            style={[[
               styles.aeroRadioImage,
               aeroMeadow && styles.aeroMeadowRadioImage,
               aeroMeadow && styles.aeroMeadowRadioImageFinal,
-            ]}
+            ], aeroMeadow ? styles.meadowRadioImageV3 : null, aeroMode ? styles.aeroRestoreRadioImageV3 : null]}
           />
         </Pressable>
       ) : (
@@ -564,17 +708,41 @@ export function TodayScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('MemoryRadio')}
         style={({ pressed }) => [
           styles.memoryRadioCard,
+          celestialMode && styles.jinglePolishRadioCard,
           !pixelMode &&
             Platform.OS !== 'web' &&
             styles.classicMobileRadioCompact,
           radioInverted && {
             backgroundColor: colors.surface,
-            borderColor: colors.navy,
+            borderColor: homeAccent,
           },
-          pressed && styles.quickPressed,
+          pressed &&
+            (celestialMode && Platform.OS !== 'web'
+              ? styles.classicRadioPressedN51
+              : styles.quickPressed),
         ]}
       >
         <View style={styles.radioAntenna} />
+        {celestialMode ? (
+          <>
+            <Text
+              pointerEvents="none"
+              style={styles.jinglePolishRadioStar}
+            >
+              ✦
+            </Text>
+            <Text
+              pointerEvents="none"
+              style={styles.jinglePolishRadioSpark}
+            >
+              ✧
+            </Text>
+            <View
+              pointerEvents="none"
+              style={styles.jinglePolishRadioOrbit}
+            />
+          </>
+        ) : null}
 
         <View style={styles.radioSpeaker}>
           {Array.from({ length: 15 }, (_, index) => (
@@ -591,7 +759,7 @@ export function TodayScreen({ navigation }: Props) {
         <View
           style={[
             styles.radioDisplay,
-            radioInverted && { backgroundColor: colors.navy },
+            radioInverted && { backgroundColor: homeAccent },
           ]}
         >
           <Text
@@ -605,11 +773,11 @@ export function TodayScreen({ navigation }: Props) {
               styles.radioFrequency,
               radioInverted && { color: colors.white },
             ]}
-          >15.9305</Text>
+          >15.9MHz</Text>
           <Text
             style={[
               styles.radioStation,
-              radioInverted && { color: 'rgba(255,255,255,0.72)' },
+              radioInverted && { color: celestialAlpha(celestial.ivory, 0.72) },
             ]}
           >MEMORY RADIO ? FM</Text>
 
@@ -617,7 +785,7 @@ export function TodayScreen({ navigation }: Props) {
             style={[
               styles.radioSignal,
               radioInverted && {
-                backgroundColor: 'rgba(255,255,255,0.24)',
+                backgroundColor: celestialAlpha(celestial.ivory, 0.24),
               },
             ]}
           >
@@ -634,8 +802,8 @@ export function TodayScreen({ navigation }: Props) {
           style={[
             styles.radioKnob,
             radioInverted && {
-              backgroundColor: colors.navy,
-              borderColor: colors.navy,
+              backgroundColor: homeAccent,
+              borderColor: homeAccent,
             },
           ]}
         >
@@ -650,20 +818,41 @@ export function TodayScreen({ navigation }: Props) {
         <Text
           style={[
             styles.radioHint,
-            radioInverted && { color: colors.navy },
+            radioInverted && { color: homeAccent },
           ]}
         >TAP TO TUNE IN</Text>
       </Pressable>
       )}
 
-        <View style={styles.timerColumn}>
-          <View style={[styles.dailyCard, styles.dailyCardInRow, aeroMode && styles.aeroTimerGlass]}>
+        <View
+          style={[
+            styles.timerColumn,
+            aeroMeadow ? styles.meadowTimerSlotV3 : null,
+            aeroMode ? styles.aeroRestoreTimerSlotV3 : null,
+          ]}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Otvori povijest mjerenja"
+            accessibilityHint="Prikazuje sesije i vremensku crtu"
+            onPress={() => navigation.navigate('History')}
+            style={(state) => [
+              [
+                styles.dailyCard,
+                styles.dailyCardInRow,
+                aeroMode && styles.aeroTimerGlass,
+                aeroMeadow && styles.meadowTimerCleanGlass,
+              ],
+              aeroMeadow ? styles.meadowGlassCardV3 : null,
+              state.pressed && styles.dailyHistoryPressedForkIV1,
+            ]}
+          >
           {aeroMode ? (
             <AeroReflection variant="daily" />
           ) : null}
         
         {pixelMode ? <Text style={styles.pixelBuffer}>██████░░░░ MEMORY BUFFER</Text> : null}
-        {aeroMode ? (
+        {aeroMode && !(aeroMeadow && Platform.OS !== 'web') ? (
           <Image
             
             source={require('../assets/aero/timer.png')}
@@ -684,15 +873,104 @@ export function TodayScreen({ navigation }: Props) {
             <Text style={styles.dailyTotal}>
               {formatDuration(liveDailyTotal)}
             </Text>
+
+            {!celestialMode ? (
+<Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                globalTimer?.running
+                  ? 'Zaustavi globalni timer'
+                  : 'Pokreni globalni timer'
+              }
+              disabled={globalTimerBusy}
+              onPress={(event) => {
+                event.stopPropagation();
+                void toggleGlobalTimer();
+              }}
+              style={({ pressed }) => [
+                styles.dailyGlobalTimerButton,
+                globalTimer?.running &&
+                  styles.dailyGlobalTimerButtonRunning,
+                pressed &&
+                  !globalTimerBusy &&
+                  styles.dailyGlobalTimerButtonPressed,
+                globalTimerBusy &&
+                  styles.dailyGlobalTimerButtonDisabled,
+              ]}
+            >
+              {globalTimerBusy ? (
+                <ActivityIndicator
+                  color={colors.white}
+                  size="small"
+                />
+              ) : (
+                <Text style={styles.dailyGlobalTimerButtonText}>
+                  {globalTimer?.running ? 'STOP' : 'START'}
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
+          {/* finalJingleHomeCatalogueControlsV2:timer-button-relocated */}
           </View>
-          <View
+          <Pressable
             style={[
               styles.dailyMark,
+              celestialMode &&
+                styles.jingleTimerStartSlotV2,
+              celestialMode &&
+                globalTimer?.running &&
+                styles.jingleTimerStartSlotRunningV2,
               aeroOcean && styles.aeroBlueOrbShell,
               aeroOcean && styles.aeroBlueOrbHost,
               aeroMeadow && styles.aeroMeadow24HostFinal,
             ]}
+          
+            accessibilityRole={
+              celestialMode
+                ? 'button'
+                : undefined
+            }
+            accessibilityLabel={
+              celestialMode
+                ? globalTimer?.running
+                  ? 'Zaustavi globalni timer'
+                  : 'Pokreni globalni timer'
+                : undefined
+            }
+            disabled={
+              celestialMode
+                ? globalTimerBusy
+                : true
+            }
+            onPress={() => {
+              if (celestialMode) {
+                void toggleGlobalTimer();
+              }
+            }}
           >
+            {celestialMode ? (
+              globalTimerBusy ? (
+                <ActivityIndicator
+                  color={colors.background}
+                  size="small"
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.dailyMarkText,
+                    styles.jingleTimerStartSlotTextV2,
+                    globalTimer?.running &&
+                      styles.jingleTimerStartSlotTextRunningV2,
+                  ]}
+                >
+                  {globalTimer?.running
+                    ? 'STOP'
+                    : 'START'}
+                </Text>
+              )
+            ) : (
+              <>
+
             {aeroMeadow ? (
               <Image
                 source={require('../assets/aero/24-meadow.png')}
@@ -720,7 +998,11 @@ export function TodayScreen({ navigation }: Props) {
             >
               24
             </Text>
-          </View>
+          
+              </>
+            )}
+          </Pressable>
+          {/* finalJingleHomeCatalogueControlsV2:timer-slot */}
         </View>
 
         {dailyTime && dailyTime.activities.length > 0 ? (
@@ -741,15 +1023,15 @@ export function TodayScreen({ navigation }: Props) {
         ) : (
           <Text style={styles.dailyEmpty}>Provedeno vremena</Text>
         )}
-      </View>
+          </Pressable>
         </View>
       </View>
 
-      <View style={styles.quickGrid}>
+      <View style={[styles.quickGrid, aeroMeadow && styles.meadowQuickGridV4]}>
         <Pressable
           accessibilityRole="button"
           onPress={() => navigation.navigate('Topics')}
-          style={({ pressed }) => [styles.quickCard, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed]}
+          style={(state) => [(({ pressed }) => [styles.quickCard, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed])(state), aeroMeadow ? styles.meadowGlassCardV3 : null, aeroMeadow ? styles.meadowQuickGlassV4 : null]}
         >
           {aeroOcean ? (
           <View style={[oceanAero ? styles.aeroTopicOrb : styles.aeroPlainIconHost, oceanAero && styles.aeroBubbleHostClean]}>
@@ -777,7 +1059,7 @@ export function TodayScreen({ navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           onPress={() => navigation.navigate('Entries')}
-          style={({ pressed }) => [styles.quickCard, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed]}
+          style={(state) => [(({ pressed }) => [styles.quickCard, aeroMode && styles.aeroGlassCard, pressed && styles.quickPressed])(state), aeroMeadow ? styles.meadowGlassCardV3 : null, aeroMeadow ? styles.meadowQuickGlassV4 : null]}
         >
           {aeroOcean ? (
           <View style={[
@@ -807,40 +1089,69 @@ export function TodayScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <View style={[styles.quickGrid, { marginTop: 10 }]}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('History')}
-          style={({ pressed }) => [
-            styles.quickCard,
-            aeroMode && styles.aeroGlassCard,
-            pressed && styles.quickPressed,
-          ]}
-        >
-          <Text style={styles.quickSymbol}>{'\u21BA'}</Text>
-          <Text style={styles.quickTitle}>Povijest</Text>
-          <Text style={styles.quickSubtitle}>Sesije i vremenska crta</Text>
-        </Pressable>
+      {/* forkIHomeProfileV1: History moved onto the timer card; Stats becomes full-width Profile. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Otvori profil"
+        onPress={() => navigation.navigate('Stats')}
+        style={(state) => [
+          styles.profileCardForkIV1,
+          celestialMode && styles.profileCardCompactN51,
+          aeroMode && styles.aeroGlassCard,
+          aeroMeadow ? styles.meadowGlassCardV3 : null,
+          aeroMeadow ? styles.meadowQuickGlassV4 : null,
+          state.pressed && styles.quickPressed,
+        ]}
+      >
+        {aeroMode ? <AeroReflection variant="wide" /> : null}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('Stats')}
-          style={({ pressed }) => [
-            styles.quickCard,
-            aeroMode && styles.aeroGlassCard,
-            pressed && styles.quickPressed,
+        <View
+          style={[
+            styles.profileTopForkIV1,
+            celestialMode && styles.profileTopCompactN51,
           ]}
         >
-          <Text style={styles.quickSymbol}>{'\u25A5'}</Text>
-          <Text style={styles.quickTitle}>Statistika</Text>
-          <Text style={styles.quickSubtitle}>Vrijeme, gledanje i trendovi</Text>
-        </Pressable>
-      </View>
+          {/* forkN5GlyphReorderV1:profile-clean */}
+          <Text
+            style={[
+              styles.profileArrowForkIV1,
+              aeroMode && styles.aeroProfileArrowV33,
+            ]}
+          >
+            {'\u203A'}
+          </Text>
+        </View>
+
+        <Text
+          style={[
+            styles.profileEyebrowForkIV1,
+            aeroMode && styles.aeroProfileEyebrowV33,
+            celestialMode && styles.profileEyebrowCompactN51,
+          ]}
+        >
+          TVOJA ARHIVA
+        </Text>
+        <Text
+          style={[
+            styles.profileTitleForkIV1,
+            aeroMode && styles.aeroProfileTitleV33,
+          ]}
+        >
+          Profil
+        </Text>
+        <Text
+          style={[
+            styles.profileSubtitleForkIV1,
+            aeroMode && styles.aeroProfileSubtitleV33,
+          ]}
+        >
+          Vrijeme, katalog, čitanje i trendovi na jednom mjestu.
+        </Text>
+      </Pressable>
 
       {/* Katalog sadržava knjige, filmove/serije i igre; Teme i Zapisi ostaju
           zasebni jer se mogu povezati sa svim vrstama sadržaja. */}
-
-      <View style={styles.sectionHeading}>
+<View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Aktivno sada</Text>
         {timers.length > 0 ? (
           <View style={styles.countBadge}>
@@ -880,7 +1191,7 @@ export function TodayScreen({ navigation }: Props) {
     <View style={styles.recentSection}>
       <View style={styles.recentHeadingRow}>
         <View style={styles.recentHeadingCopy}>
-          <Text style={styles.recentKicker}>Continue</Text>
+          <Text style={styles.recentKicker}></Text>
           <Text style={styles.recentTitle}>Nedavno</Text>
           <Text style={styles.recentSubtitle}>
             Pauzirane aktivnosti.
@@ -906,7 +1217,7 @@ export function TodayScreen({ navigation }: Props) {
           />
         ))
       ) : (
-        <View style={styles.recentEmpty}>
+        <View style={[styles.recentEmpty, aeroMeadow ? styles.meadowRecentCardV3 : null]}>
           <Text style={styles.recentEmptyText}>
             Zaustavljena aktivnost pojavit će se ovdje...
           </Text>
@@ -953,7 +1264,14 @@ export function TodayScreen({ navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, aeroMode && styles.aeroSafeArea]} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        aeroMode && styles.aeroSafeArea,
+        aeroMeadow && styles.meadowSafeAreaForkCV1,
+      ]}
+      edges={['top', 'left', 'right']}
+    >
       {aeroMode ? (
         <>
           <Image
@@ -963,12 +1281,16 @@ export function TodayScreen({ navigation }: Props) {
           />
           <View
             pointerEvents="none"
-            style={styles.aeroWorldVeil}
+            style={[
+              styles.aeroWorldVeil,
+              aeroMeadow && styles.meadowWorldVeilForkCV1,
+            ]}
           />
         </>
       ) : null}
 
       {oceanAero ? <AeroScreenBubbles /> : null}
+      {celestialMode ? <CelestialHomeField /> : null}
       <FlatList
         data={timers}
         keyExtractor={(item) => item.activityId ?? item.activeSessionId ?? item.label}
@@ -989,24 +1311,65 @@ export function TodayScreen({ navigation }: Props) {
         )}
         ListHeaderComponent={header}
         ListEmptyComponent={
-          <View style={styles.emptyCard}>
+          <View
+            style={[
+              styles.emptyCard,
+              aeroMeadow ? styles.meadowGlassCardV3 : null,
+              aeroMode && styles.aeroEmptyCardV33,
+            ]}
+          >
             {aeroMode ? (
               <AeroReflection variant="soft" />
             ) : null}
-            <View style={styles.emptyIcon}>
-              <Text style={styles.emptyIconText}>{'\uFF0B'}</Text>
+            <View
+              style={[
+                styles.emptyIcon,
+                aeroMode && styles.aeroEmptyIconV33,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.emptyIconText,
+                  aeroMode && styles.aeroEmptyIconTextV33,
+                ]}
+              >
+                {'\uFF0B'}
+              </Text>
             </View>
-            <Text style={styles.emptyTitle}>Nema aktivnih timera</Text>
-            <Text style={styles.emptyMessage}>
+            <Text
+              style={[
+                styles.emptyTitle,
+                aeroMode && styles.aeroEmptyTitleV33,
+              ]}
+            >
+              Nema aktivnih timera
+            </Text>
+            <Text
+              style={[
+                styles.emptyMessage,
+                aeroMode && styles.aeroEmptyMessageV33,
+              ]}
+            >
               Ništa trenutačno ne bilježi vrijeme. Nastavi nešto nedavno ispod ili
               započni novu aktivnost iz kataloga.
             </Text>
             <Pressable
               accessibilityRole="button"
               onPress={() => navigation.navigate('Catalogue')}
-              style={({ pressed }) => [styles.emptyButton, pressed && styles.emptyButtonPressed]}
+              style={({ pressed }) => [
+                styles.emptyButton,
+                aeroMode && styles.aeroEmptyButtonV33,
+                pressed && styles.emptyButtonPressed,
+              ]}
             >
-              <Text style={styles.emptyButtonText}>Otvori katalog</Text>
+              <Text
+                style={[
+                  styles.emptyButtonText,
+                  aeroMode && styles.aeroEmptyButtonTextV33,
+                ]}
+              >
+                Otvori katalog
+              </Text>
             </Pressable>
           </View>
         }
@@ -1054,6 +1417,151 @@ export function TodayScreen({ navigation }: Props) {
 // aeroIconAssetSweepV1
 // aeroMobileFinalFitV1
 const styles = StyleSheet.create({
+  // forkN1CelestialHomeCommandBellV1 — Classic-only celestial archive ornaments.
+  celestialFieldN1: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    backgroundColor: celestial.night,
+  },
+  celestialStarN1: {
+    position: 'absolute',
+    color: celestial.gold,
+    opacity: 0.34,
+    fontSize: 15,
+  },
+  celestialStarA1N1: { left: '8%', top: '6%' },
+  celestialStarA2N1: { left: '22%', top: '15%', fontSize: 20, opacity: 0.18 },
+  celestialStarA3N1: { right: '12%', top: '9%', fontSize: 12 },
+  celestialStarA4N1: { right: '25%', top: '27%', fontSize: 19, opacity: 0.20 },
+  celestialStarA5N1: { left: '10%', top: '46%', fontSize: 22, opacity: 0.14 },
+  celestialStarA6N1: { right: '7%', top: '58%', fontSize: 15, opacity: 0.26 },
+  celestialStarA7N1: { left: '27%', top: '74%', fontSize: 11, opacity: 0.28 },
+  celestialStarA8N1: { right: '30%', top: '88%', fontSize: 24, opacity: 0.14 },
+  celestialLineN1: {
+    position: 'absolute',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: celestialAlpha(celestial.gold, 0.17),
+  },
+  celestialLineOneN1: { width: 110, right: -18, top: 190, transform: [{ rotate: '-24deg' }] },
+  celestialLineTwoN1: { width: 86, left: -16, top: 520, transform: [{ rotate: '18deg' }] },
+  celestialOrbitN1: {
+    position: 'absolute',
+    right: -92,
+    top: 360,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.08),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  celestialOrbitCoreN1: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.08),
+  },
+  celestialHeroN1: {
+    marginTop: 8,
+    paddingTop: 22,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.22),
+  },
+  celestialKickerN1: {
+    alignSelf: 'center',
+    color: celestial.gold,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 2.2,
+    opacity: 0.90,
+    marginBottom: 9,
+  },
+  celestialDateN1: {
+    alignSelf: 'center',
+    color: celestial.gold,
+    textAlign: 'center',
+    fontFamily: Platform.select({ web: 'Georgia, Times New Roman, serif', ios: 'Georgia', android: 'serif' }),
+    fontSize: Platform.OS === 'web' ? 18 : 15,
+    lineHeight: Platform.OS === 'web' ? 23 : 20,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
+  },
+  celestialQuoteHeroN1: {
+    minHeight: 142,
+    marginTop: 6,
+    marginHorizontal: 2,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.16),
+    backgroundColor: celestialAlpha(celestial.night, 0.48),
+  },
+
+
+
+  // Meadow Home glass polish — isolated additive styles.
+  meadowRadioStageV4: {
+    borderRadius: Platform.OS === 'web' ? 28 : 24,
+    paddingHorizontal: Platform.OS === 'web' ? 14 : 10,
+    paddingVertical: Platform.OS === 'web' ? 10 : 8,
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(248,250,247,0.44)'
+        : 'rgba(248,250,247,0.52)',
+    borderWidth: 1.25,
+    borderColor: celestialAlpha(celestial.ivory, 0.92),
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 2,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: `0 8px 24px rgba(38,54,40,0.08), inset 0 1px 0 ${celestialAlpha(celestial.ivory, 0.88)}`,
+          backdropFilter: 'blur(11px) saturate(1.08)',
+        } as any)
+      : {}),
+  },
+
+  // forkCMeadowHomeV1
+  // On Android, native elevation/shadows create visible rectangular layers
+  // behind translucent rounded Meadow cards. Keep the frosted surface, but let
+  // the white border do the edge work and reserve richer shadow/blur for web.
+  meadowQuickGlassV4: {
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(255,255,255,0.62)'
+        : 'rgba(255,255,255,0.78)',
+    borderColor: AERO_GLASS_EDGE,
+    borderWidth: 1.25,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 1,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow:
+            '0 10px 24px rgba(68,72,78,0.11), inset 0 1px 0 rgba(255,255,255,0.98)',
+          backdropFilter:
+            'blur(14px) saturate(0.28) brightness(1.15)',
+          WebkitBackdropFilter:
+            'blur(14px) saturate(0.28) brightness(1.15)',
+        } as any)
+      : {}),
+  },
+
+  meadowQuickGridV4: {
+    gap: Platform.OS === 'web' ? 18 : 14,
+    marginBottom: Platform.OS === 'web' ? 18 : 16,
+  },
+
 
   // ----------------------------------------------------------
   // FINAL AERO MOBILE-ONLY FIT
@@ -1061,7 +1569,18 @@ const styles = StyleSheet.create({
   // ----------------------------------------------------------
 
   aeroTimerMeadowImageMobile: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+
+    left: 0,
+    right: 0,
+
+    // Mobile wide timer crop:
+    // move artwork upward so the lower meadow enters view.
+    top: '-42%',
+
+    width: '100%',
+    height: '184%',
+
     opacity: 0.38,
     zIndex: 0,
   },
@@ -1147,7 +1666,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
 
     backgroundColor:
-      'rgba(255,255,255,0.20)',
+      'rgba(255,255,255,0.28)',
 
     shadowColor: '#FFFFFF',
 
@@ -1191,7 +1710,7 @@ const styles = StyleSheet.create({
     top: -15,
 
     backgroundColor:
-      'rgba(255,255,255,0.16)',
+      'rgba(255,255,255,0.22)',
   },
 
 
@@ -1210,7 +1729,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
 
     backgroundColor:
-      'rgba(255,255,255,0.48)',
+      'rgba(92,96,102,0.24)',
 
     shadowColor: '#FFFFFF',
 
@@ -1253,7 +1772,7 @@ const styles = StyleSheet.create({
     top: 12,
 
     backgroundColor:
-      'rgba(255,255,255,0.40)',
+      'rgba(92,96,102,0.20)',
   },
 
 
@@ -1272,9 +1791,9 @@ const styles = StyleSheet.create({
     borderRadius: 40,
 
     backgroundColor:
-      'rgba(255,255,255,0.16)',
+      'rgba(255,255,255,0.18)',
 
-    shadowColor: '#F5FEFF',
+    shadowColor: '#FFFFFF',
 
     shadowOffset: {
       width: 0,
@@ -1302,7 +1821,7 @@ const styles = StyleSheet.create({
     height: 62,
 
     backgroundColor:
-      'rgba(255,255,255,0.11)',
+      'rgba(255,255,255,0.12)',
   },
 
 
@@ -1322,7 +1841,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
 
     backgroundColor:
-      'rgba(255,255,255,0.78)',
+      'rgba(255,255,255,0.82)',
 
     shadowColor: '#FFFFFF',
 
@@ -1347,9 +1866,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
 
     backgroundColor:
-      'rgba(172,241,255,0.48)',
+      'rgba(255,255,255,0.62)',
 
-    shadowColor: '#E9FDFF',
+    shadowColor: '#FFFFFF',
 
     shadowOffset: {
       width: 0,
@@ -1361,7 +1880,7 @@ const styles = StyleSheet.create({
   },
 
   aeroSearchMagnifierGray: {
-    color: colors.navy,
+    color: homeAccent,
 
     fontSize:
       Platform.OS === 'web'
@@ -1421,7 +1940,7 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web'
       ? ({
           filter:
-            'drop-shadow(0 1px 2px rgba(0,96,190,0.07))',
+            'drop-shadow(0 1px 2px rgba(68,72,78,0.10))',
         } as any)
       : {}),
   },
@@ -1448,7 +1967,7 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web'
       ? ({
           filter:
-            'drop-shadow(0 7px 9px rgba(0,124,216,0.22)) drop-shadow(0 0 7px rgba(111,240,255,0.32))',
+            'drop-shadow(0 7px 9px rgba(68,72,78,0.18)) drop-shadow(0 0 7px rgba(255,255,255,0.28))',
         } as any)
       : {}),
   },
@@ -1631,9 +2150,17 @@ const styles = StyleSheet.create({
   },
 
   aeroTimerMeadowSubtleFinal: {
+    // Keep the retro “24”/streak artwork, but make it metallic instead of cyan.
     opacity: Platform.OS === 'web'
-      ? 0.09
-      : 0.11,
+      ? 0.085
+      : 0.10,
+    tintColor: AERO_METAL_MID,
+    ...(Platform.OS === 'web'
+      ? ({
+          filter:
+            'grayscale(1) saturate(0) opacity(0.72)',
+        } as any)
+      : {}),
   },
 
   aeroBlueOrbHost: {
@@ -1777,10 +2304,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
 
-    backgroundColor: 'rgba(255,255,255,0.78)',
+    backgroundColor: celestialAlpha(celestial.ivory, 0.78),
 
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderColor: celestialAlpha(celestial.ivory, 0.99),
 
     shadowColor: '#8DE7FF',
     shadowOffset: { width: 0, height: 5 },
@@ -1790,8 +2317,7 @@ const styles = StyleSheet.create({
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 5px 14px rgba(65,190,235,0.20), 0 0 18px rgba(255,255,255,0.98), inset 0 2px 4px rgba(255,255,255,0.88), inset 0 -8px 15px rgba(170,225,255,0.17)',
+          boxShadow: `0 5px 14px rgba(65,190,235,0.20), 0 0 18px ${celestialAlpha(celestial.ivory, 0.98)}, inset 0 2px 4px ${celestialAlpha(celestial.ivory, 0.88)}, inset 0 -8px 15px rgba(170,225,255,0.17)`,
           backdropFilter:
             'blur(7px) brightness(1.12)',
         } as any)
@@ -1811,10 +2337,10 @@ const styles = StyleSheet.create({
 
     overflow: 'hidden',
 
-    backgroundColor: 'rgba(255,255,255,0.78)',
+    backgroundColor: celestialAlpha(celestial.ivory, 0.78),
 
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderColor: celestialAlpha(celestial.ivory, 0.99),
 
     shadowColor: '#8DE7FF',
     shadowOffset: { width: 0, height: 5 },
@@ -1824,8 +2350,7 @@ const styles = StyleSheet.create({
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 5px 14px rgba(65,190,235,0.20), 0 0 18px rgba(255,255,255,0.98), inset 0 2px 4px rgba(255,255,255,0.88), inset 0 -8px 15px rgba(170,225,255,0.17)',
+          boxShadow: `0 5px 14px rgba(65,190,235,0.20), 0 0 18px ${celestialAlpha(celestial.ivory, 0.98)}, inset 0 2px 4px ${celestialAlpha(celestial.ivory, 0.88)}, inset 0 -8px 15px rgba(170,225,255,0.17)`,
         } as any)
       : {}),
   
@@ -1846,10 +2371,10 @@ const styles = StyleSheet.create({
 
     overflow: 'hidden',
 
-    backgroundColor: 'rgba(255,255,255,0.78)',
+    backgroundColor: celestialAlpha(celestial.ivory, 0.78),
 
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderColor: celestialAlpha(celestial.ivory, 0.99),
 
     shadowColor: '#8DE7FF',
     shadowOffset: { width: 0, height: 5 },
@@ -1859,8 +2384,7 @@ const styles = StyleSheet.create({
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 5px 13px rgba(65,190,235,0.18), 0 0 17px rgba(255,255,255,0.96), inset 0 2px 4px rgba(255,255,255,0.84)',
+          boxShadow: `0 5px 13px rgba(65,190,235,0.18), 0 0 17px ${celestialAlpha(celestial.ivory, 0.96)}, inset 0 2px 4px ${celestialAlpha(celestial.ivory, 0.84)}`,
         } as any)
       : {}),
   
@@ -1887,7 +2411,7 @@ const styles = StyleSheet.create({
 
     borderRadius: 999,
 
-    backgroundColor: 'rgba(255,255,255,0.96)',
+    backgroundColor: celestialAlpha(celestial.ivory, 0.96),
 
     opacity: 0.94,
 
@@ -1934,8 +2458,7 @@ const styles = StyleSheet.create({
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 7px 17px rgba(0,132,215,0.38), 0 0 15px rgba(110,245,255,0.88), inset 0 2px 5px rgba(255,255,255,0.32)',
+          boxShadow: `0 7px 17px rgba(0,132,215,0.38), 0 0 15px rgba(110,245,255,0.88), inset 0 2px 5px ${celestialAlpha(celestial.ivory, 0.32)}`,
         } as any)
       : {}),
   },
@@ -1950,10 +2473,10 @@ const styles = StyleSheet.create({
 
     borderRadius: Platform.OS === 'web' ? 27 : 24,
 
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: celestialAlpha(celestial.ivory, 0.72),
 
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderColor: celestialAlpha(celestial.ivory, 0.99),
 
     shadowColor: '#50DFFF',
     shadowOffset: { width: 0, height: 5 },
@@ -1963,8 +2486,7 @@ const styles = StyleSheet.create({
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 5px 14px rgba(0,145,215,0.24), 0 0 14px rgba(255,255,255,0.98), inset 0 2px 3px rgba(255,255,255,0.75)',
+          boxShadow: `0 5px 14px rgba(0,145,215,0.24), 0 0 14px ${celestialAlpha(celestial.ivory, 0.98)}, inset 0 2px 3px ${celestialAlpha(celestial.ivory, 0.75)}`,
           backdropFilter: 'blur(7px) brightness(1.10)',
         } as any)
       : {}),
@@ -2056,11 +2578,22 @@ const styles = StyleSheet.create({
             '0 1px 2px rgba(255,255,255,0.62)',
         } as any)
       : {}),
+  
+    // forkKDarkBackgroundContrastV1_globalSearchIconText
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
   },
   aeroSearchIcon: {
     backgroundColor: 'rgba(246,252,255,0.50)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderColor: celestialAlpha(celestial.ivory, 0.99),
 
     shadowColor: '#98E5FF',
     shadowOffset: { width: 0, height: 5 },
@@ -2070,8 +2603,7 @@ const styles = StyleSheet.create({
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 4px 12px rgba(120,215,255,0.20), 0 0 16px rgba(255,255,255,0.98), inset 0 1px 0 rgba(255,255,255,1)',
+          boxShadow: `0 4px 12px rgba(120,215,255,0.20), 0 0 16px ${celestialAlpha(celestial.ivory, 0.98)}, inset 0 1px 0 ${celestialAlpha(celestial.ivory, 1)}`,
         } as any)
       : {}),
   
@@ -2082,14 +2614,25 @@ const styles = StyleSheet.create({
       borderRadius: Platform.OS === 'web' ? 30 : 27,
     } as any),},
   aeroSearchIconText: {
-    color: colors.navy,
+    color: homeAccent,
+  
+    // forkKDarkBackgroundContrastV1_aeroSearchIconText
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
   },
   globalSearchCopy: {
     flex: 1,
     marginLeft: 13,
   },
   globalSearchTitle: {
-    color: colors.navy,
+    color: homeAccent,
     fontSize: 18,
     fontFamily: pixelMode ? 'monospace' : undefined,
     fontWeight: '700',
@@ -2101,14 +2644,14 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontSize: 17,
       fontWeight: '700',
       letterSpacing: -0.25,
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily:
         Platform.select({
@@ -2133,7 +2676,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2149,7 +2692,18 @@ const styles = StyleSheet.create({
       fontWeight: '700',
 
       letterSpacing: -0.15,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_globalSearchTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   globalSearchSubtitle: {
     marginTop: 3,
     color: colors.textMuted,
@@ -2199,7 +2753,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2220,7 +2774,18 @@ const styles = StyleSheet.create({
       fontWeight: '400',
 
       opacity: 0.90,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_globalSearchSubtitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   globalSearchArrow: {
     color: colors.textMuted,
     fontSize: 28,
@@ -2228,22 +2793,33 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
       opacity: 0.92,
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
       opacity: 0.90,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_globalSearchArrow
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   aeroScreenBubbleLayer: { ...StyleSheet.absoluteFillObject, zIndex: 40, overflow: 'hidden', pointerEvents: 'none' },
   screenBubble: { position: 'absolute', borderRadius: 999, borderWidth: 2, shadowColor: '#693CC5', shadowOffset: { width: 4, height: 8 }, shadowOpacity: 0.19, shadowRadius: 12, elevation: 8 },
-  screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: 'rgba(255,255,255,0.9)', borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
-  screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-28deg' }] },
+  screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: celestialAlpha(celestial.ivory, 0.9), borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
+  screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadius: 999, backgroundColor: celestialAlpha(celestial.ivory, 0.82), transform: [{ rotate: '-28deg' }] },
   screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderColor: 'rgba(255,166,224,0.72)' },
   screenBubbleGold: { right: '9%', width: 92, height: 92, backgroundColor: 'rgba(255,222,105,0.16)', borderColor: 'rgba(255,231,139,0.76)' },
   screenBubbleViolet: { left: '47%', width: 48, height: 48, backgroundColor: 'rgba(162,119,255,0.18)', borderColor: 'rgba(195,166,255,0.76)' },
@@ -2279,34 +2855,63 @@ const styles = StyleSheet.create({
     opacity: 0,},
   aeroGrassBlade: { position: 'absolute', bottom: -2, width: 5, borderRadius: 5, shadowColor: '#E9FF93', shadowOpacity: 0.6, shadowRadius: 3 ,
     opacity: 0,},
+  // meadowTimerCleanGlassV1
+  meadowTimerCleanGlass: {
+    backgroundColor: 'rgba(255,255,255,0.44)',
+
+    borderWidth: 1.25,
+    borderColor: AERO_GLASS_EDGE,
+
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: 'none',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+        } as any)
+      : {}),
+  },
+
   aeroTimerGlass: {
     minHeight: 152,
     overflow: 'hidden',
 
     
 
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.99)',
+    borderWidth: 1.25,
+    borderColor: AERO_GLASS_EDGE,
 
-    shadowColor: '#9DEBFF',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.13,
+    shadowOpacity: aeroMeadow ? 0 : 0.13,
     shadowRadius: 22,
-    elevation: 8,
+    elevation: aeroMeadow ? 0 : 8,
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 8px 20px rgba(90,190,235,0.12), 0 0 34px rgba(255,255,255,0.96), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(210,245,255,0.18)',
+          boxShadow: '0 10px 26px rgba(68,72,78,0.13), 0 0 24px rgba(255,255,255,0.58), inset 0 1px 0 rgba(255,255,255,0.98), inset 0 -1px 0 rgba(110,114,120,0.14)',
           backdropFilter:
-            'blur(12px) saturate(0.56) brightness(1.15)',
+            'blur(14px) saturate(0.30) brightness(1.16)',
         } as any)
       : {}),
   
     // aeroTimerMeadowCleanupV2
     
     // aeroTimerSceneV3
-    backgroundColor: 'rgba(250,254,255,0.78)',},
+    backgroundColor: 'rgba(255,255,255,0.72)',},
+  // Meadow fills the entire root/safe-area with its own neutral-green base.
+  // This prevents the Aero ocean cyan fallback from showing below the artwork.
+  meadowSafeAreaForkCV1: {
+    backgroundColor: '#71835B',
+  },
+  meadowWorldVeilForkCV1: {
+    backgroundColor: 'rgba(247,250,241,0.02)',
+  },
+
   aeroWorldBackground: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
@@ -2376,15 +2981,15 @@ const styles = StyleSheet.create({
     width: 520,
     height: 330,
     borderRadius: 260,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: celestialAlpha(celestial.ivory, 0.18),
     shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.48,
     shadowRadius: 42,
   },
-  aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, backgroundColor: 'rgba(21,115,218,0.14)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
-  aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.78)', shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
-  aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-24deg' }] },
+  aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
+  aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', borderWidth: 2, borderColor: celestialAlpha(celestial.ivory, 0.78), shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
+  aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadius: 999, backgroundColor: celestialAlpha(celestial.ivory, 0.82), transform: [{ rotate: '-24deg' }] },
   aeroBubbleA: { width: 46, height: 46, left: '7%', bottom: 18 },
   aeroBubbleB: { width: 25, height: 25, left: '22%', bottom: 92 },
   aeroBubbleC: { width: 70, height: 70, right: '7%', bottom: 28 },
@@ -2393,7 +2998,7 @@ const styles = StyleSheet.create({
   aeroFish: { position: 'absolute', width: 72, height: 38, opacity: 0.72 },
   aeroFishOne: { top: 68, left: 0 },
   aeroFishTwo: { bottom: 23, left: -310, transform: [{ scale: 0.72 }] },
-  aeroFishBody: { position: 'absolute', right: 0, top: 4, width: 53, height: 30, borderRadius: 19, backgroundColor: '#FF7A21', borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' },
+  aeroFishBody: { position: 'absolute', right: 0, top: 4, width: 53, height: 30, borderRadius: 19, backgroundColor: '#FF7A21', borderWidth: 2, borderColor: celestialAlpha(celestial.ivory, 0.9), overflow: 'hidden' },
   aeroFishTail: { position: 'absolute', left: 0, top: 8, width: 0, height: 0, borderTopWidth: 11, borderBottomWidth: 11, borderRightWidth: 20, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FF7A21' },
   aeroFishStripeOne: { position: 'absolute', left: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFFF', transform: [{ rotate: '8deg' }] },
   aeroFishStripeTwo: { position: 'absolute', right: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFFF', transform: [{ rotate: '-8deg' }] },
@@ -2402,23 +3007,25 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     overflow: 'hidden',
 
-    backgroundColor: 'rgba(248,253,255,0.34)',
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(255,255,255,0.58)'
+        : 'rgba(255,255,255,0.72)',
 
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1.25,
+    borderColor: AERO_GLASS_EDGE,
 
     shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
+    shadowOpacity: aeroMeadow ? 0 : 0.18,
     shadowRadius: 18,
-    elevation: 5,
+    elevation: aeroMeadow ? 0 : 5,
 
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow:
-            '0 8px 20px rgba(90,190,235,0.12), 0 0 34px rgba(255,255,255,0.96), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(210,245,255,0.18)',
+          boxShadow: `0 10px 28px rgba(72,76,82,0.15), 0 0 28px rgba(255,255,255,0.66), inset 0 1px 0 rgba(255,255,255,0.98), inset 0 -1px 0 rgba(170,174,180,0.18)`,
           backdropFilter:
-            'blur(12px) saturate(0.56) brightness(1.14)',
+            'blur(14px) saturate(0.34) brightness(1.18)',
         } as any)
       : {}),
   },
@@ -2434,6 +3041,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  
+    // forkN1CelestialHomeCommandBellV1_safeArea
+    ...(celestialMode ? { backgroundColor: celestial.night } : {}),
   },
   content: {
     flexGrow: 1,
@@ -2455,9 +3065,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: pixelMode ? 0 : 23,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? 'rgba(255,255,255,0.9)' : colors.separator,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
   
     // aeroBreathingRoomV1
     ...(aeroMode ? {
@@ -2487,10 +3097,10 @@ const styles = StyleSheet.create({
           : 23,
 
       backgroundColor:
-        'rgba(255,255,255,0.72)',
+        'rgba(255,255,255,0.78)',
 
       borderColor:
-        'rgba(255,255,255,0.98)',
+        AERO_GLASS_EDGE,
 
       shadowColor: '#FFFFFF',
       shadowOffset: { width: 0, height: 4 },
@@ -2500,15 +3110,38 @@ const styles = StyleSheet.create({
       ...(Platform.OS === 'web'
         ? ({
             boxShadow:
-              '0 4px 14px rgba(31,139,202,0.16), 0 0 12px rgba(255,255,255,0.54)',
+              '0 5px 16px rgba(68,72,78,0.16), 0 0 10px rgba(255,255,255,0.48)',
           } as any)
         : {}),
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_themeButton
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.night, 0.94),
+      borderColor: celestialAlpha(celestial.gold, 0.46),
+      shadowColor: celestial.gold,
+      shadowOpacity: 0.16,
+      shadowRadius: 12,
+    } : {}),
+  },
   themeButtonPressed: { opacity: 0.65, transform: [{ scale: 0.96 }] },
+  settingsGearIcon: {
+    width:
+      Platform.OS === 'web'
+        ? 38
+        : 36,
+    height:
+      Platform.OS === 'web'
+        ? 38
+        : 36,
+    borderRadius:
+      Platform.OS === 'web'
+        ? 19
+        : 18,
+  },
   themeButtonIcon: { color: colors.black, fontSize: 22, fontWeight: '800' ,
     // aeroBreathingRoomV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize:
         Platform.OS === 'web'
@@ -2518,7 +3151,7 @@ const styles = StyleSheet.create({
       fontWeight: '800',
 
       textShadowColor:
-        'rgba(255,255,255,0.72)',
+        celestialAlpha(celestial.ivory, 0.72),
 
       textShadowOffset: {
         width: 0,
@@ -2526,7 +3159,26 @@ const styles = StyleSheet.create({
       },
 
       textShadowRadius: 3,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_themeButtonIcon
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_themeButtonIcon
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   date: {
     
     
@@ -2549,7 +3201,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBreathingRoomV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2571,7 +3223,7 @@ const styles = StyleSheet.create({
       letterSpacing: 0.85,
 
       textShadowColor:
-        'rgba(255,255,255,0.98)',
+        celestialAlpha(celestial.ivory, 0.98),
 
       textShadowOffset: {
         width: 0,
@@ -2589,7 +3241,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily:
         Platform.select({
@@ -2618,7 +3270,7 @@ const styles = StyleSheet.create({
       letterSpacing: 0.85,
 
       textShadowColor:
-        'rgba(255,255,255,0.98)',
+        celestialAlpha(celestial.ivory, 0.98),
 
       textShadowOffset: {
         width: 0,
@@ -2629,7 +3281,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2651,7 +3303,7 @@ const styles = StyleSheet.create({
 
       letterSpacing: 0.7,
 
-      textShadowColor: 'rgba(255,255,255,0.78)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.78),
 
       textShadowOffset: {
         width: 0,
@@ -2668,12 +3320,12 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerDateTuneV1
-    color: colors.navy,
+    color: homeAccent,
     fontSize: Platform.OS === 'web' ? 20 : 16,
     lineHeight: Platform.OS === 'web' ? 24 : 20,
     fontWeight: '800',
     letterSpacing: 0.8,
-    textShadowColor: 'rgba(255,255,255,0.85)',
+    textShadowColor: celestialAlpha(celestial.ivory, 0.85),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
 
@@ -2686,7 +3338,7 @@ const styles = StyleSheet.create({
 
       textAlign: 'center',
 
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize:
         Platform.OS === 'web'
@@ -2714,7 +3366,28 @@ const styles = StyleSheet.create({
             textShadow: 'none',
           } as any)
         : {}),
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_date
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkKDarkBackgroundContrastV1_noGloss_date
+    ...(aeroMode ? {
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   heading: {
     marginTop: 4,
     color: colors.text,
@@ -2749,7 +3422,7 @@ const styles = StyleSheet.create({
   
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily:
         Platform.select({
@@ -2776,7 +3449,7 @@ const styles = StyleSheet.create({
       fontWeight: '800',
 
       textShadowColor:
-        'rgba(255,255,255,0.78)',
+        celestialAlpha(celestial.ivory, 0.78),
 
       textShadowOffset: {
         width: 0,
@@ -2787,7 +3460,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2809,7 +3482,7 @@ const styles = StyleSheet.create({
 
       opacity: 0.94,
 
-      textShadowColor: 'rgba(255,255,255,0.58)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.58),
 
       textShadowOffset: {
         width: 0,
@@ -2819,12 +3492,41 @@ const styles = StyleSheet.create({
       textShadowRadius: 2,
     } : {}),
     // frutigerQuoteMarkTuneV1
-    color: colors.navy,
+    color: homeAccent,
     fontSize: Platform.OS === 'web' ? 34 : 28,
     lineHeight: Platform.OS === 'web' ? 36 : 30,
     fontWeight: '800',
     opacity: 0.96,
-},
+
+    // forkKDarkBackgroundContrastV1_quoteMark
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkKDarkBackgroundContrastV1_noGloss_quoteMark
+    ...(aeroMode ? {
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_quoteMark
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   quoteText: {
     
     
@@ -2842,13 +3544,13 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontWeight: '700',
       letterSpacing: -0.25,
     } : {}),
     // aeroHeaderSearchFinalV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily:
         Platform.select({
@@ -2877,7 +3579,7 @@ const styles = StyleSheet.create({
       letterSpacing: -0.15,
 
       textShadowColor:
-        'rgba(255,255,255,0.98)',
+        celestialAlpha(celestial.ivory, 0.98),
 
       textShadowOffset: {
         width: 0,
@@ -2888,7 +3590,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroHeroTypographyREALV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -2910,7 +3612,7 @@ const styles = StyleSheet.create({
 
       letterSpacing: -0.25,
 
-      textShadowColor: 'rgba(255,255,255,0.70)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.70),
 
       textShadowOffset: {
         width: 0,
@@ -2927,15 +3629,44 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerQuoteTuneV1
-    color: colors.navy,
+    color: homeAccent,
     fontSize: Platform.OS === 'web' ? 28 : 22,
     lineHeight: Platform.OS === 'web' ? 34 : 28,
     fontWeight: '700',
     letterSpacing: -0.2,
-    textShadowColor: 'rgba(255,255,255,0.72)',
+    textShadowColor: celestialAlpha(celestial.ivory, 0.72),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
-},
+
+    // forkKDarkBackgroundContrastV1_quoteText
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkKDarkBackgroundContrastV1_noGloss_quoteText
+    ...(aeroMode ? {
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_quoteText
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   quoteSource: {
     color: colors.textMuted,
     fontSize: 12,
@@ -2944,6 +3675,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 8,
     textAlign: 'center',
+  
+    // forkKDarkBackgroundContrastV1_quoteSource
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_quoteSource
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
   },  catalogueCard: {
     minHeight: 112,
     marginTop: 25,
@@ -2951,9 +3696,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: pixelMode ? 0 : 20,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? 'rgba(255,255,255,0.9)' : colors.separator,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
+  
+    // forkN1CelestialHomeCommandBellV1_catalogueCard
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.night, 0.94),
+      borderColor: celestialAlpha(celestial.gold, 0.38),
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.34,
+      shadowRadius: 24,
+      elevation: 7,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
+        : {}),
+    } : {}),
   },
   cataloguePressed: {
     opacity: 0.7,
@@ -2968,12 +3727,88 @@ const styles = StyleSheet.create({
     borderRadius: pixelMode ? 0 : 16,
     backgroundColor: colors.black,
     paddingBottom: 15,
+  
+    // forkN1CelestialHomeCommandBellV1_catalogueIcon
+    ...(celestialMode ? {
+      backgroundColor: celestial.nightSoft,
+      borderWidth: 1,
+      borderColor: celestialAlpha(celestial.gold, 0.42),
+    } : {}),
   },
+  catalogueJingleIconV1: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 0,
+    overflow: 'hidden',
+  },
+  catalogueJingleOrbitOuterV1: {
+    position: 'absolute',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: homeAccent,
+    opacity: 0.46,
+    transform: [{ rotate: '-18deg' }],
+  },
+  catalogueJingleOrbitInnerV1: {
+    position: 'absolute',
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: homeAccent,
+    opacity: 0.72,
+    transform: [{ rotate: '22deg' }],
+  },
+  catalogueJingleShelfTopV1: {
+    position: 'absolute',
+    width: 31,
+    height: 1,
+    bottom: 16,
+    backgroundColor: homeAccent,
+    opacity: 0.58,
+  },
+  catalogueJingleShelfBottomV1: {
+    position: 'absolute',
+    width: 22,
+    height: 1,
+    bottom: 12,
+    backgroundColor: homeAccent,
+    opacity: 0.34,
+  },
+  catalogueJingleCoreV1: {
+    color: homeAccent,
+    fontSize: 26,
+    lineHeight: 30,
+    fontWeight: '900',
+  },
+  catalogueJingleSparkAV1: {
+    position: 'absolute',
+    top: 8,
+    right: 9,
+    color: homeAccent,
+    fontSize: 10,
+    opacity: 0.92,
+  },
+  catalogueJingleSparkBV1: {
+    position: 'absolute',
+    left: 10,
+    bottom: 20,
+    color: homeAccent,
+    fontSize: 14,
+    opacity: 0.68,
+  },
+
   bookSpine: {
     width: 7,
     height: 31,
     borderRadius: pixelMode ? 0 : 2,
     backgroundColor: colors.white,
+  
+    // forkN1CelestialHomeCommandBellV1_bookSpine
+    ...(celestialMode ? { backgroundColor: celestial.gold } : {}),
   },
   bookSpineWide: {
     width: 10,
@@ -2981,6 +3816,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     borderRadius: pixelMode ? 0 : 2,
     backgroundColor: '#8E8E93',
+  
+    // forkN1CelestialHomeCommandBellV1_bookSpineWide
+    ...(celestialMode ? { backgroundColor: celestial.ivory } : {}),
   },
   bookSpineShort: {
     width: 8,
@@ -2988,6 +3826,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     borderRadius: pixelMode ? 0 : 2,
     backgroundColor: '#D1D1D6',
+  
+    // forkN1CelestialHomeCommandBellV1_bookSpineShort
+    ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.gold, 0.58) } : {}),
   },
   catalogueCopy: {
     flex: 1,
@@ -3018,12 +3859,31 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontSize: 18,
       lineHeight: 22,
       fontWeight: '700',
       letterSpacing: -0.2,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_catalogueTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_catalogueTitle
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   catalogueSubtitle: {
     marginTop: 3,
     color: colors.textMuted,
@@ -3040,7 +3900,21 @@ const styles = StyleSheet.create({
       color: colors.textMuted,
       fontWeight: '400',
       letterSpacing: 0,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_catalogueSubtitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_catalogueSubtitle
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  },
   catalogueArrow: {
     marginLeft: 8,
     color: colors.textMuted,
@@ -3051,23 +3925,135 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: colors.navy,
-    } : {}),},
+      color: homeAccent,
+    } : {}),
+    // forkKDarkBackgroundContrastV1_catalogueArrow
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_catalogueArrow
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   dailyCard: {
     marginTop: 14,
     padding: 18,
     borderRadius: pixelMode ? 0 : 20,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? 'rgba(255,255,255,0.9)' : colors.separator,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
   
     // aeroTimerRefTune
     ...(aeroMode ? {
       paddingHorizontal: Platform.OS === 'web' ? 28 : 20,
       paddingTop: Platform.OS === 'web' ? 24 : 19,
       paddingBottom: Platform.OS === 'web' ? 22 : 18,
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_dailyCard
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.night, 0.94),
+      borderColor: celestialAlpha(celestial.gold, 0.38),
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.34,
+      shadowRadius: 24,
+      elevation: 7,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
+        : {}),
+    } : {}),
+  },
   // catalogueSearchDeleteV1Applied
+  dailyGlobalTimerButton: {
+    alignSelf: 'flex-start',
+    minWidth: 72,
+    minHeight: 34,
+    marginTop: 10,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: pixelMode ? 0 : 999,
+    backgroundColor:
+      aeroMode
+        ? '#5B5F65'
+        : colors.black,
+    borderWidth: aeroMode ? 1 : 0,
+    borderColor: aeroMode
+      ? 'rgba(255,255,255,0.86)'
+      : 'transparent',
+    shadowColor:
+      aeroMode
+        ? '#FFFFFF'
+        : 'transparent',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: aeroMode ? 0.12 : 0,
+    shadowRadius: aeroMode ? 8 : 0,
+  
+    // forkN1CelestialHomeCommandBellV1_dailyGlobalTimerButton
+    ...(celestialMode ? { backgroundColor: celestial.gold, borderColor: celestial.gold, borderWidth: 1 } : {}),
+  },
+  dailyGlobalTimerButtonRunning: {
+    backgroundColor: colors.danger,
+  },
+  dailyGlobalTimerButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
+  },
+  dailyGlobalTimerButtonDisabled: {
+    opacity: 0.55,
+  },
+  dailyGlobalTimerButtonText: {
+    color:
+      aeroMode
+        ? '#F5F5F3'
+        : colors.white,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  
+    // forkN1CelestialHomeCommandBellV1_dailyGlobalTimerButtonText
+    ...(celestialMode ? { color: celestial.onAccent } : {}),
+  },
+  jingleTimerStartSlotV2: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: homeAccent,
+    borderWidth: 1,
+    borderColor: homeAccent,
+    shadowColor: homeAccent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  jingleTimerStartSlotRunningV2: {
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
+    shadowColor: colors.danger,
+  },
+  jingleTimerStartSlotTextV2: {
+    color: colors.background,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.65,
+  },
+  jingleTimerStartSlotTextRunningV2: {
+    color: colors.white,
+  },
+
   dailyHeader: {
     
     
@@ -3099,13 +4085,13 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontWeight: '700',
       letterSpacing: 1.5,
     } : {}),
     // aeroTimerRefTune
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3119,7 +4105,26 @@ const styles = StyleSheet.create({
       fontWeight: '700',
       letterSpacing: 2.1,
       textTransform: 'uppercase',
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_dailyEyebrow
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_dailyEyebrow
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   dailyTotal: {
     marginTop: 5,
     color: colors.text,
@@ -3138,7 +4143,7 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontWeight: '700',
       letterSpacing: -1.1,
     } : {}),
@@ -3146,7 +4151,7 @@ const styles = StyleSheet.create({
     ...(aeroMode ? {
       marginTop: 8,
 
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3160,7 +4165,26 @@ const styles = StyleSheet.create({
       fontWeight: '700',
       fontVariant: ['tabular-nums'],
       letterSpacing: -1.6,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_dailyTotal
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_dailyTotal
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   dailyMark: {
     width: aeroMode && Platform.OS !== 'web' ? 34 : 44,
     height: aeroMode && Platform.OS !== 'web' ? 34 : 44,
@@ -3189,11 +4213,13 @@ const styles = StyleSheet.create({
 
       ...(Platform.OS === 'web'
         ? ({
-            boxShadow:
-              '0 6px 15px rgba(0,126,210,0.34), 0 0 9px rgba(115,246,255,0.88), inset 0 2px 4px rgba(255,255,255,0.38)',
+            boxShadow: `0 6px 15px rgba(0,126,210,0.34), 0 0 9px rgba(115,246,255,0.88), inset 0 2px 4px ${celestialAlpha(celestial.ivory, 0.38)}`,
           } as any)
         : {}),
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_dailyMark
+    ...(celestialMode ? { backgroundColor: celestial.nightSoft, borderColor: celestialAlpha(celestial.gold, 0.62), borderWidth: 1 } : {}),
+  },
   dailyMarkText: {
     color: colors.white,
     fontSize: aeroMode && Platform.OS !== 'web' ? 11 : 13,
@@ -3213,7 +4239,15 @@ const styles = StyleSheet.create({
 
       fontSize: Platform.OS === 'web' ? 18 : 16,
       fontWeight: '700',
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_dailyMarkText
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   dailyBreakdown: {
     
     
@@ -3276,9 +4310,23 @@ const styles = StyleSheet.create({
 
       fontWeight: '400',
       letterSpacing: 0.1,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_dailyLabel
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_dailyLabel
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  },
   dailyValue: {
-    color: colors.navy,
+    color: homeAccent,
     fontSize: 15,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
@@ -3292,12 +4340,12 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontWeight: '700',
     } : {}),
     // aeroTimerRefTune
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3310,7 +4358,26 @@ const styles = StyleSheet.create({
       fontWeight: '700',
       fontVariant: ['tabular-nums'],
       letterSpacing: -0.15,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_dailyValue
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_dailyValue
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   dailyEmpty: {
     
     
@@ -3334,7 +4401,185 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroTimerMeadowLift
     position: 'relative',
-    zIndex: 2},
+    zIndex: 2,
+    // forkKDarkBackgroundContrastV1_dailyEmpty
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
+  // forkIHomeProfileV1
+  dailyHistoryPressedForkIV1: {
+    opacity: 0.82,
+    transform: [{ scale: 0.995 }],
+  },
+  profileCardForkIV1: {
+    position: 'relative',
+    minHeight: celestialMode ? 140 : 166,
+    marginTop: 12,
+    padding: 18,
+    overflow: 'hidden',
+    borderRadius: pixelMode ? 0 : 22,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
+    borderWidth: pixelMode ? 2 : 1,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
+  
+    // forkN1CelestialHomeCommandBellV1_profileCard
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.night, 0.94),
+      borderColor: celestialAlpha(celestial.gold, 0.38),
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.34,
+      shadowRadius: 24,
+      elevation: 7,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
+        : {}),
+    } : {}),
+  },
+  profileTopForkIV1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  profileMarkForkIV1: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: pixelMode ? 0 : 15,
+    backgroundColor: colors.fill,
+    borderWidth: pixelMode ? 2 : 1,
+    borderColor: colors.separator,
+  
+    // forkN1CelestialHomeCommandBellV1_profileMark
+    ...(celestialMode ? { backgroundColor: celestial.nightSoft, borderColor: celestialAlpha(celestial.gold, 0.36) } : {}),
+  },
+  profileMarkTextForkIV1: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+  
+    // forkN1CelestialHomeCommandBellV1_profileMarkText
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
+  profileArrowForkIV1: {
+    color: colors.textMuted,
+    fontSize: 30,
+    fontWeight: '300',
+  
+    // forkN1CelestialHomeCommandBellV1_profileArrow
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
+  profileEyebrowForkIV1: {
+    marginTop: 15,
+    color: colors.textMuted,
+    fontSize: 10,
+    fontFamily: pixelMode ? 'monospace' : undefined,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  
+    // forkN1CelestialHomeCommandBellV1_profileEyebrow
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
+  profileTitleForkIV1: {
+    marginTop: 3,
+    color: colors.text,
+    fontSize: 25,
+    lineHeight: 30,
+    fontFamily: pixelMode ? 'monospace' : undefined,
+    fontWeight: '900',
+    letterSpacing: -0.55,
+  
+    // forkN1CelestialHomeCommandBellV1_profileTitle
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
+  profileSubtitleForkIV1: {
+    marginTop: 4,
+    maxWidth: 520,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  
+    // forkN1CelestialHomeCommandBellV1_profileSubtitle
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  },
+  profileTagsForkIV1: {
+    marginTop: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  profileTagForkIV1: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: pixelMode ? 0 : 999,
+    backgroundColor: colors.fill,
+    color: colors.textMuted,
+    fontSize: 9,
+    fontFamily: pixelMode ? 'monospace' : undefined,
+    fontWeight: '900',
+    letterSpacing: 0.65,
+  
+    // forkN1CelestialHomeCommandBellV1_profileTag
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.gold, 0.08),
+      color: celestial.gold,
+      borderWidth: 1,
+      borderColor: celestialAlpha(celestial.gold, 0.20),
+    } : {}),
+  },
+
+  // forkN51FinalMotionRadioProfileV1
+  classicRadioPressedN51: {
+    // The Classic mobile radio rests at the compact scale. quickPressed
+    // used to overwrite that transform with ~1.0, producing the big snap.
+    opacity: 0.90,
+    transform: [{ scale: 0.84 }],
+  },
+  profileCardCompactN51: {
+    minHeight: 116,
+    paddingTop: 15,
+    paddingBottom: 14,
+  },
+  profileTopCompactN51: {
+    position: 'absolute',
+    top: 10,
+    left: 14,
+    right: 14,
+    justifyContent: 'flex-end',
+  },
+  profileEyebrowCompactN51: {
+    marginTop: 0,
+    paddingRight: 34,
+  },
+
   quickGrid: {
     marginTop: 14,
     flexDirection: 'row',
@@ -3345,9 +4590,108 @@ const styles = StyleSheet.create({
     minHeight: 112,
     padding: 15,
     borderRadius: pixelMode ? 0 : 18,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? 'rgba(255,255,255,0.9)' : colors.separator,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
+  
+    // forkN1CelestialHomeCommandBellV1_quickCard
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.night, 0.94),
+      borderColor: celestialAlpha(celestial.gold, 0.38),
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.34,
+      shadowRadius: 24,
+      elevation: 7,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
+        : {}),
+    } : {}),
+  },
+
+  // finalHomeProfileJinglePolishV1
+  jinglePolishCatalogueCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderColor: homeAccent,
+    shadowColor: homeAccent,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.10,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  jinglePolishCatalogueStar: {
+    position: 'absolute',
+    right: 28,
+    top: 13,
+    color: homeAccent,
+    fontSize: 11,
+    opacity: 0.92,
+    zIndex: 4,
+  },
+  jinglePolishCatalogueSpark: {
+    position: 'absolute',
+    left: 15,
+    bottom: 12,
+    color: homeAccent,
+    fontSize: 9,
+    opacity: 0.62,
+    zIndex: 4,
+  },
+  jinglePolishCatalogueOrbit: {
+    position: 'absolute',
+    right: -30,
+    top: -38,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: homeAccent,
+    opacity: 0.22,
+  },
+  jinglePolishTimerRadioStack: {
+    flexDirection: 'column-reverse',
+    alignItems: 'stretch',
+    flexWrap: 'nowrap',
+    gap: 8,
+  },
+  jinglePolishRadioCard: {
+    position: 'relative',
+    borderColor: homeAccent,
+    shadowColor: homeAccent,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.14,
+    shadowRadius: 20,
+    elevation: 3,
+  },
+  jinglePolishRadioStar: {
+    position: 'absolute',
+    right: 13,
+    top: 11,
+    color: homeAccent,
+    fontSize: 11,
+    opacity: 0.96,
+    zIndex: 6,
+  },
+  jinglePolishRadioSpark: {
+    position: 'absolute',
+    left: 12,
+    bottom: 9,
+    color: homeAccent,
+    fontSize: 9,
+    opacity: 0.70,
+    zIndex: 6,
+  },
+  jinglePolishRadioOrbit: {
+    position: 'absolute',
+    right: -18,
+    top: -24,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: homeAccent,
+    opacity: 0.24,
   },
 
   radioTimerRow: {
@@ -3385,20 +4729,30 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     gap: 16,
     borderRadius: pixelMode ? 0 : 25,
-    backgroundColor: colors.navy,
+    backgroundColor: homeAccent,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: colors.navy,
+    borderColor: homeAccent,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: pixelMode ? 0.85 : 0.12,
     shadowRadius: pixelMode ? 0 : 18,
     elevation: 4,
+  
+    // forkN1CelestialHomeCommandBellV1_memoryRadioCard
+    ...(celestialMode ? {
+      backgroundColor: celestial.night,
+      borderColor: celestialAlpha(celestial.gold, 0.56),
+      borderWidth: 1.25,
+      shadowColor: '#000000',
+      shadowOpacity: 0.42,
+      shadowRadius: 22,
+    } : {}),
   },
   // classicMobileRadioCompactV1
   classicMobileRadioCompact: {
-    transform: [{ scale: 0.90 }],
-    marginTop: 18,
-    marginBottom: -10,
+    transform: [{ scale: 0.70 }],
+    marginTop: -4,
+    marginBottom: -30,
   },
 
   radioAntenna: {
@@ -3410,6 +4764,9 @@ const styles = StyleSheet.create({
     borderRadius: pixelMode ? 0 : 3,
     backgroundColor: colors.text,
     transform: [{ rotate: '-7deg' }],
+  
+    // forkN1CelestialHomeCommandBellV1_radioAntenna
+    ...(celestialMode ? { backgroundColor: celestial.gold } : {}),
   },
   radioSpeaker: {
     width: 92,
@@ -3422,12 +4779,18 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: pixelMode ? 0 : 20,
     backgroundColor: colors.black,
+  
+    // forkN1CelestialHomeCommandBellV1_radioSpeaker
+    ...(celestialMode ? { backgroundColor: celestial.nightRaised, borderColor: celestialAlpha(celestial.gold, 0.34) } : {}),
   },
   radioSpeakerHole: {
     width: 5,
     height: 5,
     borderRadius: pixelMode ? 0 : 3,
-    backgroundColor: colors.navy,
+    backgroundColor: homeAccent,
+  
+    // forkN1CelestialHomeCommandBellV1_radioSpeakerHole
+    ...(celestialMode ? { backgroundColor: celestial.gold, opacity: 0.72 } : {}),
   },
   radioDisplay: {
     flex: 1,
@@ -3436,15 +4799,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 11,
     borderRadius: pixelMode ? 0 : 17,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
+  
+    // forkN1CelestialHomeCommandBellV1_radioDisplay
+    ...(celestialMode ? { backgroundColor: celestial.nightSoft, borderColor: celestialAlpha(celestial.gold, 0.26) } : {}),
   },
   radioBand: {
-    color: colors.navy,
+    color: homeAccent,
     fontSize: 8,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
     fontWeight: '900',
     letterSpacing: 1.1,
+  
+    // forkN1CelestialHomeCommandBellV1_radioBand
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
   },
   radioFrequency: {
     marginTop: 2,
@@ -3454,6 +4828,14 @@ const styles = StyleSheet.create({
 
     fontWeight: '900',
     letterSpacing: -1.2,
+  
+    // forkN1CelestialHomeCommandBellV1_radioFrequency
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
   },
   radioStation: {
     color: colors.textMuted,
@@ -3462,6 +4844,9 @@ const styles = StyleSheet.create({
 
     fontWeight: '800',
     letterSpacing: 0.7,
+  
+    // forkN1CelestialHomeCommandBellV1_radioStation
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
   },
   radioSignal: {
     height: 4,
@@ -3469,27 +4854,39 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: pixelMode ? 0 : 4,
     backgroundColor: colors.fill,
+  
+    // forkN1CelestialHomeCommandBellV1_radioSignal
+    ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.gold, 0.16) } : {}),
   },
   radioSignalActive: {
     width: '58%',
     height: '100%',
     borderRadius: pixelMode ? 0 : 4,
-    backgroundColor: colors.navy,
+    backgroundColor: homeAccent,
+  
+    // forkN1CelestialHomeCommandBellV1_radioSignalActive
+    ...(celestialMode ? { backgroundColor: celestial.gold } : {}),
   },
   radioKnob: {
     width: 50,
     height: 50,
     alignItems: 'center',
     borderRadius: pixelMode ? 0 : 25,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: 5,
     borderColor: colors.black,
+  
+    // forkN1CelestialHomeCommandBellV1_radioKnob
+    ...(celestialMode ? { backgroundColor: celestial.nightRaised, borderColor: celestialAlpha(celestial.gold, 0.62) } : {}),
   },
   radioKnobMark: {
     width: 3,
     height: 13,
     borderRadius: pixelMode ? 0 : 2,
-    backgroundColor: colors.navy,
+    backgroundColor: homeAccent,
+  
+    // forkN1CelestialHomeCommandBellV1_radioKnobMark
+    ...(celestialMode ? { backgroundColor: celestial.gold } : {}),
   },
   radioHint: {
     position: 'absolute',
@@ -3501,6 +4898,14 @@ const styles = StyleSheet.create({
 
     fontWeight: '900',
     letterSpacing: 1.4,
+  
+    // forkN1CelestialHomeCommandBellV1_radioHint
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
   },
 
   quickWideCard: {
@@ -3510,9 +4915,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: pixelMode ? 0 : 18,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? 'rgba(255,255,255,0.9)' : colors.separator,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
   },
   quickWideIcon: {
     width: 42,
@@ -3540,11 +4945,22 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontSize: 16,
       fontWeight: '700',
       letterSpacing: -0.15,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_quickWideTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   quickWideArrow: {
     color: colors.textMuted,
     fontSize: 29,
@@ -3555,8 +4971,19 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: colors.navy,
-    } : {}),},
+      color: homeAccent,
+    } : {}),
+    // forkKDarkBackgroundContrastV1_quickWideArrow
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   quickPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.99 }],
@@ -3570,11 +4997,30 @@ const styles = StyleSheet.create({
   
     // aeroV3Override
     ...(aeroMode ? {
-      color: colors.navy,
-    } : {}),},
+      color: homeAccent,
+    } : {}),
+    // forkKDarkBackgroundContrastV1_quickSymbol
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_quickSymbol
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   quickTitle: {
     marginTop: 11,
-    color: colors.navy,
+    color: homeAccent,
     fontSize: 18,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
@@ -3587,11 +5033,30 @@ const styles = StyleSheet.create({
         android: 'sans-serif',
         ios: 'System',
       }),
-      color: colors.navy,
+      color: homeAccent,
       fontSize: 16,
       fontWeight: '700',
       letterSpacing: -0.15,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_quickTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_quickTitle
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   quickSubtitle: {
     marginTop: 3,
     color: colors.textMuted,
@@ -3608,7 +5073,21 @@ const styles = StyleSheet.create({
       color: colors.textMuted,
       fontWeight: '400',
       letterSpacing: 0,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_quickSubtitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_quickSubtitle
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  },
   sectionHeading: {
     marginTop: 29,
     marginBottom: 13,
@@ -3636,7 +5115,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3652,7 +5131,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize: Platform.OS === 'web' ? 23 : 21,
       lineHeight: Platform.OS === 'web' ? 29 : 27,
@@ -3660,7 +5139,7 @@ const styles = StyleSheet.create({
       fontWeight: '800',
       letterSpacing: -0.45,
 
-      textShadowColor: 'rgba(255,255,255,0.98)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.98),
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 8,
 
@@ -3672,14 +5151,33 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerRecentTitleTuneV1
-    color: colors.navy,
+    color: homeAccent,
     fontSize: Platform.OS === 'web' ? 24 : 20,
     lineHeight: Platform.OS === 'web' ? 28 : 24,
     fontWeight: '800',
-    textShadowColor: 'rgba(255,255,255,0.55)',
+    textShadowColor: celestialAlpha(celestial.ivory, 0.55),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-},
+
+    // forkKDarkBackgroundContrastV1_sectionTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_sectionTitle
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   countBadge: {
     minWidth: 24,
     height: 24,
@@ -3689,6 +5187,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: pixelMode ? 0 : 12,
     backgroundColor: colors.fillStrong,
+  
+    // forkN1CelestialHomeCommandBellV1_countBadge
+    ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.gold, 0.12), borderColor: celestialAlpha(celestial.gold, 0.34), borderWidth: 1 } : {}),
   },
   countText: {
     color: colors.text,
@@ -3696,6 +5197,14 @@ const styles = StyleSheet.create({
     fontFamily: pixelMode ? 'monospace' : undefined,
 
     fontWeight: '800',
+  
+    // forkN1CelestialHomeCommandBellV1_countText
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
   },
   errorBanner: {
     marginBottom: 14,
@@ -3721,31 +5230,44 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     alignItems: 'center',
     borderRadius: pixelMode ? 0 : 22,
-    backgroundColor: aeroMode ? 'rgba(255,255,255,0.58)' : colors.surface,
+    backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? 'rgba(255,255,255,0.9)' : colors.separator,
+    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
   
     // aeroBottomTune
     ...(aeroMode ? {
-      backgroundColor: 'rgba(255,255,255,0.46)',
+      backgroundColor: celestialAlpha(celestial.ivory, 0.46),
       borderWidth: 1.5,
-      borderColor: 'rgba(255,255,255,0.98)',
+      borderColor: celestialAlpha(celestial.ivory, 0.98),
 
       shadowColor: '#A9E8FF',
       shadowOffset: { width: 0, height: 9 },
-      shadowOpacity: 0.14,
+      shadowOpacity: aeroMeadow ? 0 : 0.14,
       shadowRadius: 20,
-      elevation: 7,
+      elevation: aeroMeadow ? 0 : 7,
 
       ...(Platform.OS === 'web'
         ? ({
-            boxShadow:
-              '0 8px 20px rgba(70,165,210,0.13), 0 0 28px rgba(255,255,255,0.90), inset 0 1px 0 rgba(255,255,255,1)',
+            boxShadow: `0 8px 20px rgba(70,165,210,0.13), 0 0 28px ${celestialAlpha(celestial.ivory, 0.90)}, inset 0 1px 0 ${celestialAlpha(celestial.ivory, 1)}`,
             backdropFilter:
               'blur(10px) saturate(0.78) brightness(1.10)',
           } as any)
         : {}),
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_emptyCard
+    ...(celestialMode ? {
+      backgroundColor: celestialAlpha(celestial.night, 0.94),
+      borderColor: celestialAlpha(celestial.gold, 0.38),
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.34,
+      shadowRadius: 24,
+      elevation: 7,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
+        : {}),
+    } : {}),
+  },
   emptyIcon: {
     width: 48,
     height: 48,
@@ -3756,10 +5278,13 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      backgroundColor: 'rgba(255,255,255,0.66)',
+      backgroundColor: celestialAlpha(celestial.ivory, 0.66),
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.98)',
-    } : {}),},
+      borderColor: celestialAlpha(celestial.ivory, 0.98),
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_emptyIcon
+    ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.gold, 0.08), borderWidth: 1, borderColor: celestialAlpha(celestial.gold, 0.28) } : {}),
+  },
   emptyIconText: {
     color: colors.text,
     fontSize: 24,
@@ -3769,8 +5294,27 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: colors.navy,
-    } : {}),},
+      color: homeAccent,
+    } : {}),
+    // forkKDarkBackgroundContrastV1_emptyIconText
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_emptyIconText
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   emptyTitle: {
     marginTop: 16,
     color: colors.text,
@@ -3792,7 +5336,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -3808,17 +5352,36 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize: Platform.OS === 'web' ? 20 : 18,
       lineHeight: 25,
 
       fontWeight: '800',
 
-      textShadowColor: 'rgba(255,255,255,0.88)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.88),
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 5,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_emptyTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_emptyTitle
+    ...(celestialMode ? {
+      color: celestial.ivory,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   emptyMessage: {
     marginTop: 7,
     color: colors.textMuted,
@@ -3852,17 +5415,31 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize: Platform.OS === 'web' ? 14 : 13,
       lineHeight: 21,
 
       fontWeight: '500',
 
-      textShadowColor: 'rgba(255,255,255,0.86)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.86),
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 4,
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_emptyMessage
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_emptyMessage
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  },
   emptyButton: {
     minHeight: 46,
     marginTop: 20,
@@ -3876,7 +5453,7 @@ const styles = StyleSheet.create({
     ...(aeroOcean ? {
       backgroundColor: '#0784A6',
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.92)',
+      borderColor: celestialAlpha(celestial.ivory, 0.92),
       shadowColor: '#8CE9FF',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.18,
@@ -3887,7 +5464,7 @@ const styles = StyleSheet.create({
       backgroundColor: '#078BAD',
 
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.96)',
+      borderColor: celestialAlpha(celestial.ivory, 0.96),
 
       shadowColor: '#8CEBFF',
       shadowOffset: { width: 0, height: 5 },
@@ -3896,8 +5473,7 @@ const styles = StyleSheet.create({
 
       ...(Platform.OS === 'web'
         ? ({
-            boxShadow:
-              '0 5px 13px rgba(0,145,205,0.22), 0 0 13px rgba(255,255,255,0.48)',
+            boxShadow: `0 5px 13px rgba(0,145,205,0.22), 0 0 13px ${celestialAlpha(celestial.ivory, 0.48)}`,
           } as any)
         : {}),
     } : {}),
@@ -3920,11 +5496,13 @@ const styles = StyleSheet.create({
 
       ...(Platform.OS === 'web'
         ? ({
-            boxShadow:
-              '0 6px 14px rgba(0,116,195,0.24), 0 0 12px rgba(169,244,255,0.66), inset 0 1px 0 rgba(255,255,255,0.72)',
+            boxShadow: `0 6px 14px rgba(0,116,195,0.24), 0 0 12px rgba(169,244,255,0.66), inset 0 1px 0 ${celestialAlpha(celestial.ivory, 0.72)}`,
           } as any)
         : {}),
-    } : {}),},    // meadowNoGlowV1
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_emptyButton
+    ...(celestialMode ? { backgroundColor: celestial.gold } : {}),
+  },    // meadowNoGlowV1
 
   emptyButtonPressed: {
     opacity: 0.78,
@@ -3961,7 +5539,10 @@ const styles = StyleSheet.create({
       textShadowColor: 'rgba(0,73,140,0.48)',
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 3,
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_emptyButtonText
+    ...(celestialMode ? { color: celestial.onAccent } : {}),
+  },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
@@ -4084,7 +5665,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize: Platform.OS === 'web' ? 11 : 10,
       lineHeight: 14,
@@ -4092,7 +5673,7 @@ const styles = StyleSheet.create({
       fontWeight: '800',
       letterSpacing: 1.8,
 
-      textShadowColor: 'rgba(255,255,255,0.96)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.96),
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 6,
 
@@ -4102,7 +5683,18 @@ const styles = StyleSheet.create({
               '0 0 7px rgba(255,255,255,0.98)',
           } as any)
         : {}),
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_recentKicker
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  },
   recentTitle: {
     marginTop: 2,
     
@@ -4124,7 +5716,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -4140,7 +5732,7 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize: Platform.OS === 'web' ? 23 : 21,
       lineHeight: Platform.OS === 'web' ? 28 : 26,
@@ -4148,7 +5740,7 @@ const styles = StyleSheet.create({
       fontWeight: '800',
       letterSpacing: -0.4,
 
-      textShadowColor: 'rgba(255,255,255,0.98)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.98),
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 8,
 
@@ -4160,14 +5752,33 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerRecentTitleTuneV1
-    color: colors.navy,
+    color: homeAccent,
     fontSize: Platform.OS === 'web' ? 24 : 20,
     lineHeight: Platform.OS === 'web' ? 28 : 24,
     fontWeight: '800',
-    textShadowColor: 'rgba(255,255,255,0.55)',
+    textShadowColor: celestialAlpha(celestial.ivory, 0.55),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-},
+
+    // forkKDarkBackgroundContrastV1_recentTitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_recentTitle
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   recentSubtitle: {
     maxWidth: 310,
     marginTop: 4,
@@ -4200,14 +5811,14 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontSize: Platform.OS === 'web' ? 13 : 12,
       lineHeight: 18,
 
       fontWeight: '500',
 
-      textShadowColor: 'rgba(255,255,255,0.98)',
+      textShadowColor: celestialAlpha(celestial.ivory, 0.98),
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 6,
 
@@ -4219,14 +5830,28 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
     // frutigerRecentTitleTuneV1
-    color: colors.navy,
+    color: homeAccent,
     fontSize: Platform.OS === 'web' ? 24 : 20,
     lineHeight: Platform.OS === 'web' ? 28 : 24,
     fontWeight: '800',
-    textShadowColor: 'rgba(255,255,255,0.55)',
+    textShadowColor: celestialAlpha(celestial.ivory, 0.55),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-},
+
+    // forkKDarkBackgroundContrastV1_recentSubtitle
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.textMuted,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_recentSubtitle
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  },
   recentCount: {
     minWidth: 28,
     height: 28,
@@ -4237,31 +5862,34 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      backgroundColor: 'rgba(255,255,255,0.72)',
+      backgroundColor: celestialAlpha(celestial.ivory, 0.72),
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.98)',
+      borderColor: celestialAlpha(celestial.ivory, 0.98),
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      backgroundColor: 'rgba(255,255,255,0.67)',
+      backgroundColor: celestialAlpha(celestial.ivory, 0.67),
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.97)',
+      borderColor: celestialAlpha(celestial.ivory, 0.97),
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
       minWidth: 30,
       height: 30,
 
-      backgroundColor: 'rgba(255,255,255,0.82)',
+      backgroundColor: celestialAlpha(celestial.ivory, 0.82),
 
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.98)',
+      borderColor: celestialAlpha(celestial.ivory, 0.98),
 
       shadowColor: '#FFFFFF',
       shadowOpacity: 0.38,
       shadowRadius: 7,
       shadowOffset: { width: 0, height: 3 },
-    } : {}),},
+    } : {}),
+    // forkN1CelestialHomeCommandBellV1_recentCount
+    ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.gold, 0.10), borderWidth: 1, borderColor: celestialAlpha(celestial.gold, 0.28) } : {}),
+  },
   recentCountText: {
     color: colors.text,
     fontSize: 12,
@@ -4271,11 +5899,11 @@ const styles = StyleSheet.create({
   
     // aeroBottomTune
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
     } : {}),
     // aeroBottomTypeV3
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
 
       fontFamily: Platform.select({
         web: 'Segoe UI, Arial, sans-serif',
@@ -4287,20 +5915,357 @@ const styles = StyleSheet.create({
     } : {}),
     // aeroBottomVisibilityV1
     ...(aeroMode ? {
-      color: colors.navy,
+      color: homeAccent,
       fontSize: 12,
       fontWeight: '800',
-    } : {}),},
+    } : {}),
+    // forkKDarkBackgroundContrastV1_recentCountText
+    ...(isDarkBackground && !aeroMode ? {
+      color: colors.text,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+      ...(Platform.OS === 'web'
+        ? ({ textShadow: 'none' } as any)
+        : {}),
+    } : {}),
+  
+    // forkN1CelestialHomeCommandBellV1_recentCountText
+    ...(celestialMode ? {
+      color: celestial.gold,
+      textShadowColor: 'transparent',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 0,
+    } : {}),
+  },
   recentEmpty: {
     padding: 17,
     borderRadius: pixelMode ? 0 : 16,
     backgroundColor: colors.fill,
+  
+    // forkN1CelestialHomeCommandBellV1_recentEmpty
+    ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.night, 0.94), borderWidth: 1, borderColor: celestialAlpha(celestial.gold, 0.24) } : {}),
   },
   recentEmptyText: {
     color: colors.textMuted,
     fontSize: 13,
     lineHeight: 19,
+  
+    // forkN1CelestialHomeCommandBellV1_recentEmptyText
+    ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
   },
+
+
+  // meadowHomeAlignmentV3
+  meadowGlassCardV3: {
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(255,255,255,0.62)'
+        : 'rgba(255,255,255,0.78)',
+    borderColor: AERO_GLASS_EDGE,
+    borderWidth: 1.25,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow:
+            '0 12px 30px rgba(68,72,78,0.13), inset 0 1px 0 rgba(255,255,255,0.98)',
+          backdropFilter:
+            'blur(14px) saturate(0.32) brightness(1.16)',
+        } as any)
+      : {}),
+  },
+
+  meadowRecentCardV3: {
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(255,255,255,0.66)'
+        : 'rgba(255,255,255,0.82)',
+    borderColor: AERO_GLASS_EDGE,
+    borderWidth: 1.25,
+    minHeight: Platform.OS === 'web' ? undefined : 76,
+  },
+
+  meadowTopRowV3: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: Platform.OS === 'web' ? 18 : 10,
+  },
+
+  meadowRadioSlotV3: {
+    flex: Platform.OS === 'web' ? 0.82 : 0.72,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+      alignSelf: 'stretch',
+    aspectRatio: undefined,
+    minHeight: Platform.OS === 'web' ? 128 : 118,
+},
+
+  meadowTimerSlotV3: {
+    flex: Platform.OS === 'web' ? 1.18 : 1.28,
+    minWidth: 0,
+  },
+
+  meadowRadioImageV3: {
+    width: Platform.OS === 'web' ? '88%' : '84%',
+    maxWidth: undefined,
+    height: Platform.OS === 'web' ? '88%' : '84%',
+    resizeMode: 'contain',
+    alignSelf: 'center',
+      top: Platform.OS === 'web' ? '6%' : '8%',
+    left: Platform.OS === 'web' ? '6%' : '8%',
+},
+  // aeroSearchQuoteTimerHygieneV3:AeroHomeGeometry
+  // Meadow V3 made radio + timer side-by-side. Aero returns to the original
+  // hierarchy: a large radio row, then a full-width timer row.
+  aeroRestoreTopRowV3: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    flexWrap: 'nowrap',
+    gap: 14,
+  },
+
+  aeroRestoreRadioSlotV3: {
+    flex: 0,
+    width: '100%',
+    maxWidth: 520,
+    minWidth: 0,
+    minHeight:
+      Platform.OS === 'web'
+        ? 220
+        : 190,
+    aspectRatio: undefined,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  aeroRestoreRadioImageV3: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    maxWidth: undefined,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+  },
+
+  aeroRestoreTimerSlotV3: {
+    flex: 0,
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
+  },
+
+  // aeroVistaWhiteGlassV31:Quote
+  aeroEmptyQuoteV31: {
+    ...(aeroMode ? {
+      color: AERO_HOME_ACCENT,
+      fontSize:
+        Platform.OS === 'web'
+          ? 30
+          : 26,
+      lineHeight:
+        Platform.OS === 'web'
+          ? 34
+          : 30,
+      fontWeight: '700',
+      letterSpacing: 0,
+      opacity: 0.94,
+      transform: [
+        {
+          translateY:
+            Platform.OS === 'web'
+              ? 38
+              : 28,
+        },
+      ],
+    } : {}),
+  },
+
+
+  // aeroProfileActiveNeutralV33
+
+  // ---- PROFILE · neutral Vista graphite --------------------------------
+  aeroProfileArrowV33: {
+    color: '#686C72',
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  aeroProfileEyebrowV33: {
+    color: '#74777C',
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  aeroProfileTitleV33: {
+    color: '#4E5156',
+    textShadowColor: 'rgba(255,255,255,0.58)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow:
+            '0 1px 0 rgba(255,255,255,0.62)',
+        } as any)
+      : {}),
+  },
+
+  aeroProfileSubtitleV33: {
+    color: '#76797E',
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  // ---- ACTIVE NOW EMPTY STATE · neutral Vista glass -------------------
+  aeroEmptyCardV33: {
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(255,255,255,0.58)'
+        : 'rgba(255,255,255,0.74)',
+    borderWidth: 1.25,
+    borderColor: 'rgba(105,109,115,0.38)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: {
+      width: 0,
+      height: 7,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 1,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow:
+            '0 12px 28px rgba(67,71,77,0.13), inset 0 1px 0 rgba(255,255,255,0.96)',
+          backdropFilter:
+            'blur(14px) saturate(0.26) brightness(1.12)',
+          WebkitBackdropFilter:
+            'blur(14px) saturate(0.26) brightness(1.12)',
+        } as any)
+      : {}),
+  },
+
+  aeroEmptyIconV33: {
+    backgroundColor:
+      'rgba(255,255,255,0.48)',
+    borderWidth: 1,
+    borderColor:
+      'rgba(103,107,113,0.42)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+
+  aeroEmptyIconTextV33: {
+    color: '#62666C',
+    textShadowColor: 'transparent',
+    textShadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    textShadowRadius: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  aeroEmptyTitleV33: {
+    color: '#4F5257',
+    textShadowColor:
+      'rgba(255,255,255,0.46)',
+    textShadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    textShadowRadius: 1,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow:
+            '0 1px 0 rgba(255,255,255,0.54)',
+        } as any)
+      : {}),
+  },
+
+  aeroEmptyMessageV33: {
+    color: '#6F7277',
+    textShadowColor: 'transparent',
+    textShadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    textShadowRadius: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
+  aeroEmptyButtonV33: {
+    backgroundColor: '#595D63',
+    borderWidth: 1,
+    borderColor:
+      'rgba(255,255,255,0.78)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.10,
+    shadowRadius: 7,
+    elevation: 1,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow:
+            '0 5px 13px rgba(65,69,75,0.18), inset 0 1px 0 rgba(255,255,255,0.25)',
+        } as any)
+      : {}),
+  },
+
+  aeroEmptyButtonTextV33: {
+    color: '#F5F5F3',
+    textShadowColor: 'transparent',
+    textShadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    textShadowRadius: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          textShadow: 'none',
+        } as any)
+      : {}),
+  },
+
 });
 
 

@@ -17,6 +17,24 @@ import {
   type LatelyStats,
 } from '../storage/latelyStats';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { activeAeroBackgroundId } from '../theme/aeroBackground';
+
+const aeroMeadow =
+  activeVisualSkinId === 'aero' &&
+  activeAeroBackgroundId === 'meadow';
+
+// forkN4CelestialArchiveVisualV12
+// ThemePicker-driven Classic celestial palette.
+const n4Celestial = activeVisualSkinId === 'classic';
+const N4_NIGHT = colors.background;
+const N4_PANEL = colors.surface;
+const N4_PANEL_RAISED = colors.fillStrong;
+const N4_BLUE = colors.fill;
+const N4_GOLD = colors.navy;
+const N4_GOLD_LINE = colors.separator;
+const N4_IVORY = colors.text;
+const N4_MUTED = colors.textMuted;
 
 const activityLabels: Record<string, string> = {
   READING: 'Čitanje',
@@ -358,9 +376,9 @@ const styles = StyleSheet.create({
     marginTop: 28,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: colors.separator,
+    borderColor: n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     borderRadius: 28,
-    backgroundColor: colors.surface,
+    backgroundColor: n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
     padding: 22,
   },
 
@@ -376,7 +394,7 @@ const styles = StyleSheet.create({
   },
 
   eyebrow: {
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -384,7 +402,7 @@ const styles = StyleSheet.create({
 
   heading: {
     marginTop: 6,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 24,
     lineHeight: 29,
     fontWeight: '800',
@@ -393,7 +411,7 @@ const styles = StyleSheet.create({
 
   intro: {
     marginTop: 6,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -401,7 +419,7 @@ const styles = StyleSheet.create({
   periodSwitch: {
     flexDirection: 'row',
     borderRadius: 999,
-    backgroundColor: colors.fill,
+    backgroundColor: n4Celestial ? N4_BLUE : n4Celestial ? N4_BLUE : colors.fill,
     padding: 3,
   },
 
@@ -414,11 +432,11 @@ const styles = StyleSheet.create({
   },
 
   periodButtonActive: {
-    backgroundColor: colors.black,
+    backgroundColor: n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
   },
 
   periodText: {
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -432,13 +450,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: colors.fill,
+    backgroundColor: n4Celestial ? N4_BLUE : n4Celestial ? N4_BLUE : colors.fill,
     padding: 16,
   },
 
   stateText: {
     marginLeft: 10,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 12,
   },
 
@@ -475,7 +493,7 @@ const styles = StyleSheet.create({
   },
 
   tileValue: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.4,
@@ -483,14 +501,14 @@ const styles = StyleSheet.create({
 
   tileLabel: {
     marginTop: 3,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 12,
     fontWeight: '700',
   },
 
   tileDetail: {
     marginTop: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
     lineHeight: 14,
   },
@@ -498,12 +516,12 @@ const styles = StyleSheet.create({
   focusCard: {
     marginTop: 12,
     borderRadius: 18,
-    backgroundColor: colors.fill,
+    backgroundColor: n4Celestial ? N4_BLUE : n4Celestial ? N4_BLUE : colors.fill,
     padding: 17,
   },
 
   focusLabel: {
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1,
@@ -511,14 +529,14 @@ const styles = StyleSheet.create({
 
   focusTitle: {
     marginTop: 6,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 19,
     fontWeight: '800',
   },
 
   focusMeta: {
     marginTop: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 12,
   },
 
@@ -527,7 +545,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     borderTopWidth: 1,
-    borderTopColor: colors.separator,
+    borderTopColor: n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     paddingTop: 16,
   },
 
@@ -535,7 +553,7 @@ const styles = StyleSheet.create({
     width: 4,
     marginRight: 12,
     borderRadius: 999,
-    backgroundColor: colors.black,
+    backgroundColor: n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
   },
 
   topicCopy: {
@@ -544,27 +562,27 @@ const styles = StyleSheet.create({
 
   topicTitle: {
     marginTop: 5,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 18,
     fontWeight: '800',
   },
 
   topicMeta: {
     marginTop: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 11,
   },
 
   breakdown: {
     marginTop: 20,
     borderTopWidth: 1,
-    borderTopColor: colors.separator,
+    borderTopColor: n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     paddingTop: 17,
   },
 
   breakdownHeading: {
     marginBottom: 13,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -580,13 +598,13 @@ const styles = StyleSheet.create({
   },
 
   breakdownName: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 11,
     fontWeight: '700',
   },
 
   breakdownTime: {
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
     fontVariant: ['tabular-nums'],
   },
@@ -596,12 +614,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     borderRadius: 999,
     overflow: 'hidden',
-    backgroundColor: colors.fillStrong,
+    backgroundColor: n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
   },
 
   barFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: colors.black,
+    backgroundColor: n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
   },
 });

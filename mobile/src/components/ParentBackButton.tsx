@@ -1,6 +1,11 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkMCelestialSharedComponentsV1
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Props = {
   onPress: () => void;
@@ -13,9 +18,9 @@ export function ParentBackButton({ onPress }: Props) {
       accessibilityRole="button"
       hitSlop={10}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.button, celestialMode && styles.celestialButton, pressed && styles.pressed]}
     >
-      <Text style={styles.symbol}>{'\u2190'}</Text>
+      <Text style={[styles.symbol, celestialMode && styles.celestialSymbol]}>{'\u2190'}</Text>
     </Pressable>
   );
 }
@@ -30,9 +35,25 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.45 },
   symbol: {
-    color: colors.black,
+    // forkKDarkBackgroundContrastV1
+    color: colors.text,
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '600',
+  },
+  celestialButton: {
+    // finalJingleHomeCatalogueControlsV2
+    width: 38,
+    height: 38,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  celestialSymbol: {
+    color: celestial.gold,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '500',
   },
 });

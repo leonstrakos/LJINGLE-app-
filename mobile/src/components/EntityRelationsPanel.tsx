@@ -9,11 +9,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { collectionApi } from '../services/collectionApi';
 import { colors } from '../theme/colors';
+import { openCollectionReference, openEntityReference } from '../utils/entityNavigation';
+import { connectionDirectionCopy } from '../utils/connectionDirection';
+import { semanticSearch, suggestSemanticLinks } from '../intelligence/semanticIndex';
+import { mergeReferencesQuietly, rankReferencesQuietly } from '../intelligence/quietRanking';
+// forkK5QuietIntelligenceV1
 import {
   entityTypeLabels,
   relationTypeLabels,
@@ -31,7 +36,13 @@ type Props = {
   title: string;
 };
 
+// connectionsUnifyV1 — link modals open instantly.
+// compactConnectionsComposerV1
+// navigableGraphV2
+// graphDirectionV4 — direction-aware backlinks + separate notes
+// editExistingConnectionV3
 export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
+  const navigation = useNavigation();
   const [allCollections, setAllCollections] = useState<CollectionSummary[]>([]);
   const [memberships, setMemberships] = useState<CollectionSummary[]>([]);
   const [links, setLinks] = useState<EntityLink[]>([]);
@@ -47,6 +58,7 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
   const [note, setNote] = useState('');
   const [linkSaving, setLinkSaving] = useState(false);
   const [deletingLink, setDeletingLink] = useState<string | null>(null);
+  const [editingLink, setEditingLink] = useState<EntityLink | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,14 +109,23 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
   };
 
   const openLinks = async () => {
+    setEditingLink(null);
     setLinkModal(true);
     setSelected(null);
     setSearch('');
     setRelationType('RELATED');
     setNote('');
     try {
-      const found = await collectionApi.searchReferences('');
-      setReferences(found.filter((item) => !(item.entityType === entityType && item.entityId === entityId)));
+      const [found, semantic] = await Promise.all([
+        collectionApi.searchReferences(''),
+        suggestSemanticLinks(entityType, entityId, {
+          limit: 10,
+          entityTypes: ['BOOK', 'MEDIA', 'GAME', 'TOPIC', 'ENTRY', 'FREQUENCY'],
+          minimumScore: 0.16,
+        }).catch(() => []),
+      ]);
+      const filtered = found.filter((item) => !(item.entityType === entityType && item.entityId === entityId));
+      setReferences(rankReferencesQuietly(filtered, semantic));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Stavke se nisu učitale.');
     }
@@ -119,8 +140,22 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
     }
 
     try {
-      const found = await collectionApi.searchReferences(value);
-      setReferences(found.filter((item) => !(item.entityType === entityType && item.entityId === entityId)));
+      const [found, semantic] = await Promise.all([
+        collectionApi.searchReferences(value),
+        semanticSearch(value, {
+          limit: 10,
+          entityTypes: ['BOOK', 'MEDIA', 'GAME', 'TOPIC', 'ENTRY', 'FREQUENCY'],
+          minimumScore: 0.12,
+        }).catch(() => []),
+      ]);
+
+      setReferences(
+        mergeReferencesQuietly(
+          found,
+          semantic,
+          { entityType, entityId },
+        ).slice(0, 30),
+      );
     } catch {
       // Keep the current results while typing if a local lookup momentarily fails.
     }
@@ -131,15 +166,32 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
     setLinkSaving(true);
     setError(null);
     try {
-      const created = await collectionApi.createLink({
-        sourceType: entityType,
-        sourceId: entityId,
-        targetType: selected.entityType,
-        targetId: selected.entityId,
-        relationType,
-        note: note.trim() || null,
-      });
-      setLinks((current) => [created, ...current]);
+      const created = editingLink
+        ? await collectionApi.updateLink(
+            editingLink.linkId,
+            {
+              relationType,
+              note: note.trim() || null,
+            },
+          )
+        : await collectionApi.createLink({
+            sourceType: entityType,
+            sourceId: entityId,
+            targetType: selected.entityType,
+            targetId: selected.entityId,
+            relationType,
+            note: note.trim() || null,
+          });
+
+      setLinks((current) =>
+        editingLink
+          ? current.map((link) =>
+              link.linkId === created.linkId
+                ? created
+                : link,
+            )
+          : [created, ...current],
+      );
       setLinkModal(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Poveznica nije spremljena.');
@@ -163,6 +215,20 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
 
   const otherSide = (link: EntityLink) =>
     link.sourceType === entityType && link.sourceId === entityId ? link.target : link.source;
+
+  const beginEditLink = (link: EntityLink) => {
+    const target = otherSide(link);
+    setEditingLink(link);
+    setSelected(target);
+    setRelationType(link.relationType);
+    setNote(link.note ?? '');
+    setSearch('');
+    setReferences([]);
+    setError(null);
+    setLinkModal(true);
+  };
+
+
 
   return (
     <View style={styles.panel}>
@@ -200,13 +266,64 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
         </View>
         {links.length > 0 ? links.slice(0, 5).map((link) => {
           const other = otherSide(link);
+          const direction =
+            connectionDirectionCopy(
+              link,
+              entityType,
+              entityId,
+            );
           return (
             <View key={link.linkId} style={styles.linkRow}>
-              <View style={styles.linkType}><Text style={styles.linkTypeText}>{entityTypeLabels[other.entityType]}</Text></View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  openEntityReference(
+                    navigation,
+                    other,
+                  )
+                }
+                style={({ pressed }) => [
+                  styles.linkOpen,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.linkType}><Text style={styles.linkTypeText}>{entityTypeLabels[other.entityType]}</Text></View>
               <View style={styles.linkCopy}>
                 <Text numberOfLines={1} style={styles.linkTitle}>{other.title}</Text>
-                <Text style={styles.linkRelation}>{relationTypeLabels[link.relationType]}{link.note ? ` · ${link.note}` : ''}</Text>
+                <View style={styles.connectionMeaningRow}>
+                    <Text style={styles.directionMarker}>
+                      {direction.marker}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={styles.linkRelation}
+                    >
+                      {direction.label}
+                    </Text>
+                  </View>
+
+                  {link.note ? (
+                    <Text
+                      numberOfLines={2}
+                      style={styles.connectionNote}
+                    >
+                      {link.note}
+                    </Text>
+                  ) : null}
               </View>
+                <Text style={styles.linkArrow}>›</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Uredi poveznicu"
+                accessibilityRole="button"
+                onPress={() => void beginEditLink(link)}
+                style={({ pressed }) => [
+                  styles.editLinkButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.editLinkText}>•••</Text>
+              </Pressable>
               <Pressable disabled={deletingLink === link.linkId} onPress={() => void removeLink(link.linkId)} style={styles.unlinkButton}>
                 {deletingLink === link.linkId ? <ActivityIndicator size="small" color={colors.textMuted} /> : <Text style={styles.unlinkText}>×</Text>}
               </Pressable>
@@ -217,7 +334,7 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Modal animationType="slide" presentationStyle="fullScreen" statusBarTranslucent={false} visible={collectionModal} onRequestClose={() => setCollectionModal(false)}>
+      <Modal animationType="none" presentationStyle="fullScreen" statusBarTranslucent={false} visible={collectionModal} onRequestClose={() => setCollectionModal(false)}>
         <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalSafe}>
           <View style={styles.modalHeader}>
             <Pressable
@@ -256,7 +373,7 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
         </SafeAreaView>
       </Modal>
 
-      <Modal animationType="slide" presentationStyle="fullScreen" statusBarTranslucent={false} visible={linkModal} onRequestClose={() => setLinkModal(false)}>
+      <Modal animationType="none" presentationStyle="fullScreen" statusBarTranslucent={false} visible={linkModal} onRequestClose={() => setLinkModal(false)}>
         <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalSafe}>
           <View style={styles.modalHeader}>
             <Pressable
@@ -270,7 +387,9 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
             </Pressable>
 
             <View style={styles.modalHeaderCopy}>
-              <Text style={styles.modalKicker}>Nova poveznica</Text>
+              <Text style={styles.modalKicker}>
+                {editingLink ? 'Uredi poveznicu' : 'Nova poveznica'}
+              </Text>
               <Text numberOfLines={1} style={styles.modalTitle}>{title}</Text>
             </View>
           </View>
@@ -299,7 +418,16 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
             </View>
             <Text style={styles.fieldLabel}>Poveži s</Text>
             {selected ? (
-              <Pressable onPress={() => setSelected(null)} style={styles.selectedReference}>
+              <Pressable
+                  disabled={Boolean(editingLink)}
+                  onPress={() => {
+                    if (!editingLink) setSelected(null);
+                  }}
+                  style={[
+                    styles.selectedReference,
+                    editingLink && styles.selectedReferenceLocked,
+                  ]}
+                >
                 <View style={styles.selectedCopy}><Text style={styles.selectedTitle}>{selected.title}</Text><Text style={styles.selectedSubtitle}>{entityTypeLabels[selected.entityType]} · tap to change</Text></View><Text style={styles.check}>✓</Text>
               </Pressable>
             ) : (
@@ -323,7 +451,9 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
             <Text style={styles.fieldLabel}>Bilješka · neobavezno</Text>
             <TextInput value={note} onChangeText={setNote} placeholder="Zašto su povezani?" placeholderTextColor={colors.textMuted} style={styles.noteInput} />
             <Pressable disabled={!selected || linkSaving} onPress={() => void saveLink()} style={[styles.saveLink, (!selected || linkSaving) && styles.disabled]}>
-              {linkSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveLinkText}>Spremi poveznicu</Text>}
+              {linkSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveLinkText}>
+                  {editingLink ? 'Spremi promjene' : 'Spremi poveznicu'}
+                </Text>}
             </Pressable>
           </View>
         </SafeAreaView>
@@ -349,11 +479,64 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, marginTop: 16, backgroundColor: colors.separator },
   emptyText: { marginTop: 8, color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   linkRow: { minHeight: 57, marginTop: 8, flexDirection: 'row', alignItems: 'center' },
+  linkOpen: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  linkArrow: {
+    width: 24,
+    color: colors.textMuted,
+    fontSize: 20,
+    textAlign: 'center',
+  },
   linkType: { minWidth: 70, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 8, backgroundColor: colors.fill },
   linkTypeText: { color: colors.textMuted, fontSize: 8, fontWeight: '900', textAlign: 'center', textTransform: 'uppercase' },
   linkCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
   linkTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  connectionMeaningRow: {
+    marginTop: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  directionMarker: {
+    minWidth: 29,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: colors.fill,
+    color: colors.textMuted,
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.55,
+    textAlign: 'center',
+  },
+  connectionNote: {
+    marginTop: 4,
+    paddingRight: 4,
+    color: colors.textMuted,
+    fontSize: 10,
+    lineHeight: 14,
+  },
   linkRelation: { marginTop: 2, color: colors.textMuted, fontSize: 10 },
+  editLinkButton: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: colors.fill,
+  },
+  editLinkText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
   unlinkButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   unlinkText: { color: colors.textMuted, fontSize: 22 },
   error: { marginTop: 12, color: colors.danger, fontSize: 11 },
@@ -384,7 +567,7 @@ const styles = StyleSheet.create({
   optionTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   optionSubtitle: { marginTop: 3, color: colors.textMuted, fontSize: 10 },
   check: { marginLeft: 9, color: colors.text, fontSize: 18, fontWeight: '900' },
-  linkComposer: { flex: 1, padding: 16 },
+  linkComposer: { padding: 16, paddingBottom: 24 },
   fieldLabel: { marginTop: 8, marginBottom: 7, color: colors.text, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.6 },
   relationList: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingBottom: 8 },
   relationChip: { alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 13, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.fill },
@@ -392,18 +575,24 @@ const styles = StyleSheet.create({
   relationText: { color: colors.text, fontSize: 11, lineHeight: 15, fontWeight: '800' },
   relationTextActive: { color: colors.white },
   searchInput: { minHeight: 48, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 14 },
-  referenceScroller: { maxHeight: 280, marginTop: 8 },
+  referenceScroller: { maxHeight: 170, marginTop: 8, flexGrow: 0 },
   referenceRow: { minHeight: 58, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
   referenceType: { width: 72, color: colors.textMuted, fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
   referenceCopy: { flex: 1, minWidth: 0 },
   referenceTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
   referenceSubtitle: { marginTop: 2, color: colors.textMuted, fontSize: 10 },
   selectedReference: { minHeight: 61, padding: 11, flexDirection: 'row', alignItems: 'center', borderRadius: 14, backgroundColor: colors.fill },
+  selectedReferenceLocked: {
+    opacity: 1,
+  },
   selectedCopy: { flex: 1 },
   selectedTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
   selectedSubtitle: { marginTop: 2, color: colors.textMuted, fontSize: 10 },
   noteInput: { minHeight: 48, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 14 },
-  saveLink: { minHeight: 51, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.black },
+  saveLink: { minHeight: 48, marginTop: 13, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.black },
   saveLinkText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  pressed: {
+    opacity: 0.72,
+  },
   disabled: { opacity: 0.45 },
 });

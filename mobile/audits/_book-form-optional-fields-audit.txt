@@ -1,0 +1,893 @@
+LJINGLE — Book form optional fields audit
+=========================================
+
+### src/screens/BookFormScreen.tsx
+
+-- lines 1-206 --
+   1 | import { useEffect, useState } from 'react';
+   2 | import {
+   3 |   Alert,
+   4 |   KeyboardAvoidingView,
+   5 |   Platform,
+   6 |   Pressable,
+   7 |   ScrollView,
+   8 |   StyleSheet,
+   9 |   Switch,
+  10 |   Text,
+  11 |   TextInput,
+  12 |   View,
+  13 | } from 'react-native';
+  14 | import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+  15 | import { SafeAreaView } from 'react-native-safe-area-context';
+  16 | 
+  17 | import { FeedbackView } from '../components/FeedbackView';
+  18 | import { PrimaryButton } from '../components/PrimaryButton';
+  19 | import { bookApi } from '../services/bookApi';
+  20 | import { colors } from '../theme/colors';
+  21 | import { semanticFeedback } from '../utils/semanticFeedback';
+  22 | import {
+  23 |   enjoymentLabels,
+  24 |   enjoymentOptions,
+  25 |   readingStatusLabels,
+  26 |   readingStatuses,
+  27 |   type BookRequest,
+  28 |   type Enjoyment,
+  29 |   type ReadingStatus,
+  30 | } from '../types/book';
+  31 | import type { RootStackParamList } from '../types/navigation';
+  32 | import { createdFeedback } from '../utils/crudFeedback';
+  33 | 
+  34 | type Props = NativeStackScreenProps<RootStackParamList, 'BookForm'>;
+  35 | 
+  36 | const isValidIsoDate = (value: string) => {
+  37 |   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  38 |   const parsed = new Date(`${value}T00:00:00Z`);
+  39 |   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  40 | };
+  41 | 
+  42 | type FieldProps = {
+  43 |   label: string;
+  44 |   value: string;
+  45 |   onChangeText: (value: string) => void;
+  46 |   placeholder: string;
+  47 |   error?: string;
+  48 |   keyboardType?: 'default' | 'number-pad';
+  49 |   autoCapitalize?: 'none' | 'sentences' | 'words';
+  50 | };
+  51 | 
+  52 | function FormField({
+  53 |   label,
+  54 |   value,
+  55 |   onChangeText,
+  56 |   placeholder,
+  57 |   error,
+  58 |   keyboardType = 'default',
+  59 |   autoCapitalize = 'sentences',
+  60 | }: FieldProps) {
+  61 |   return (
+  62 |     <View style={styles.field}>
+  63 |       <Text style={styles.label}>{label}</Text>
+  64 |       <TextInput
+  65 |         value={value}
+  66 |         onChangeText={onChangeText}
+  67 |         placeholder={placeholder}
+  68 |         placeholderTextColor="#98989D"
+  69 |         keyboardType={keyboardType}
+  70 |         autoCapitalize={autoCapitalize}
+  71 |         style={[styles.input, error && styles.inputError]}
+  72 |       />
+  73 |       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+  74 |     </View>
+  75 |   );
+  76 | }
+  77 | 
+  78 | export function BookFormScreen({ route, navigation }: Props) {
+  79 |   const bookId = route.params?.bookId;
+  80 |   const editing = Boolean(bookId);
+  81 | 
+  82 |   const [title, setTitle] = useState('');
+  83 |   const [author, setAuthor] = useState('');
+  84 |   const [isbn, setIsbn] = useState('');
+  85 |   const [publishedYear, setPublishedYear] = useState('');
+  86 |   const [readingStatus, setReadingStatus] = useState<ReadingStatus>('LATER');
+  87 |   const [progress, setProgress] = useState('0');
+  88 |   const [enjoyment, setEnjoyment] = useState<Enjoyment | null>(null);
+  89 |   const [favourite, setFavourite] = useState(false);
+  90 |   const [startedOn, setStartedOn] = useState('');
+  91 |   const [finishedOn, setFinishedOn] = useState('');
+  92 |   const [errors, setErrors] = useState<Record<string, string>>({});
+  93 |   const [loading, setLoading] = useState(editing);
+  94 |   const [saving, setSaving] = useState(false);
+  95 |   const [loadError, setLoadError] = useState<string | null>(null);
+  96 | 
+  97 |   useEffect(() => {
+  98 |     if (!bookId) return;
+  99 | 
+ 100 |     const loadBook = async () => {
+ 101 |       setLoading(true);
+ 102 |       setLoadError(null);
+ 103 |       try {
+ 104 |         const book = await bookApi.getById(bookId);
+ 105 |         setTitle(book.title);
+ 106 |         setAuthor(book.author);
+ 107 |         setIsbn(book.isbn);
+ 108 |         setPublishedYear(String(book.publishedYear));
+ 109 |         setReadingStatus(book.readingStatus);
+ 110 |         setProgress(String(book.progress));
+ 111 |         setEnjoyment(book.enjoyment);
+ 112 |         setFavourite(book.favourite);
+ 113 |         setStartedOn(book.startedOn ?? '');
+ 114 |         setFinishedOn(book.finishedOn ?? '');
+ 115 |       } catch (caught) {
+ 116 |         setLoadError(caught instanceof Error ? caught.message : 'Dohvat knjige nije uspio.');
+ 117 |       } finally {
+ 118 |         setLoading(false);
+ 119 |       }
+ 120 |     };
+ 121 | 
+ 122 |     void loadBook();
+ 123 |   }, [bookId]);
+ 124 | 
+ 125 |   const validate = (): BookRequest | null => {
+ 126 |     const nextErrors: Record<string, string> = {};
+ 127 |     const numericYear = Number(publishedYear);
+ 128 |     const numericProgress = Number(progress);
+ 129 |     const maxYear = new Date().getFullYear() + 1;
+ 130 | 
+ 131 |     if (!title.trim()) nextErrors.title = 'Naslov ne smije biti prazan.';
+ 132 |     if (!author.trim()) nextErrors.author = 'Autor ne smije biti prazan.';
+ 133 |     if (!isbn.trim()) nextErrors.isbn = 'ISBN ne smije biti prazan.';
+ 134 |     if (!publishedYear.trim() || !Number.isInteger(numericYear)) {
+ 135 |       nextErrors.publishedYear = 'Unesite cijelu godinu.';
+ 136 |     } else if (numericYear < 0 || numericYear > maxYear) {
+ 137 |       nextErrors.publishedYear = `Godina mora biti između 0 i ${maxYear}.`;
+ 138 |     }
+ 139 |     if (!progress.trim() || !Number.isInteger(numericProgress)) {
+ 140 |       nextErrors.progress = 'Unesite cijeli postotak.';
+ 141 |     } else if (numericProgress < 0 || numericProgress > 100) {
+ 142 |       nextErrors.progress = 'Napredak mora biti između 0 i 100.';
+ 143 |     }
+ 144 |     if (startedOn && !isValidIsoDate(startedOn)) {
+ 145 |       nextErrors.startedOn = 'Koristite valjani datum u obliku GGGG-MM-DD.';
+ 146 |     }
+ 147 |     if (finishedOn && !isValidIsoDate(finishedOn)) {
+ 148 |       nextErrors.finishedOn = 'Koristite valjani datum u obliku GGGG-MM-DD.';
+ 149 |     }
+ 150 |     if (!nextErrors.startedOn && !nextErrors.finishedOn && startedOn && finishedOn && finishedOn < startedOn) {
+ 151 |       nextErrors.finishedOn = 'Datum završetka ne može biti prije početka.';
+ 152 |     }
+ 153 | 
+ 154 |     setErrors(nextErrors);
+ 155 |     if (Object.keys(nextErrors).length > 0) return null;
+ 156 | 
+ 157 |     return {
+ 158 |       title: title.trim(),
+ 159 |       author: author.trim(),
+ 160 |       isbn: isbn.trim(),
+ 161 |       publishedYear: numericYear,
+ 162 |       readingStatus,
+ 163 |       progress: numericProgress,
+ 164 |       enjoyment,
+ 165 |       favourite,
+ 166 |       startedOn: startedOn || null,
+ 167 |       finishedOn: finishedOn || null,
+ 168 |     };
+ 169 |   };
+ 170 | 
+ 171 |   const save = async () => {
+ 172 |     const payload = validate();
+ 173 |     if (!payload) return;
+ 174 | 
+ 175 |     setSaving(true);
+ 176 |     try {
+ 177 |       if (bookId) {
+ 178 |         await bookApi.update(bookId, payload);
+ 179 |       } else {
+ 180 |         await bookApi.create(payload);
+ 181 | 
+ 182 |         createdFeedback();
+ 183 |       }
+ 184 |       navigation.goBack();
+ 185 |     } catch (caught) {
+ 186 |       Alert.alert(
+ 187 |         'Spremanje nije uspjelo',
+ 188 |         caught instanceof Error ? caught.message : 'Pokušajte ponovno.',
+ 189 |       );
+ 190 |     } finally {
+ 191 |       setSaving(false);
+ 192 |     }
+ 193 |   };
+ 194 | 
+ 195 |   if (loading) {
+ 196 |     return <FeedbackView type="loading" message="Učitavanje podataka…" />;
+ 197 |   }
+ 198 | 
+ 199 |   if (loadError) {
+ 200 |     return <FeedbackView type="error" message={loadError} />;
+ 201 |   }
+ 202 | 
+ 203 |   return (
+ 204 |     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+ 205 |       <KeyboardAvoidingView
+ 206 |         style={styles.flex}
+
+-- lines 223-291 --
+ 223 | 
+ 224 |           <View style={styles.formCard}>
+ 225 |             <FormField
+ 226 |               label="Naslov *"
+ 227 |               value={title}
+ 228 |               onChangeText={(value) => {
+ 229 |                 setTitle(value);
+ 230 |                 setErrors((current) => ({ ...current, title: '' }));
+ 231 |               }}
+ 232 |               placeholder="npr. Sto godina samoće"
+ 233 |               error={errors.title}
+ 234 |             />
+ 235 |             <FormField
+ 236 |               label="Autor *"
+ 237 |               value={author}
+ 238 |               onChangeText={(value) => {
+ 239 |                 setAuthor(value);
+ 240 |                 setErrors((current) => ({ ...current, author: '' }));
+ 241 |               }}
+ 242 |               placeholder="npr. Gabriel García Márquez"
+ 243 |               error={errors.author}
+ 244 |               autoCapitalize="words"
+ 245 |             />
+ 246 |             <FormField
+ 247 |               label="ISBN *"
+ 248 |               value={isbn}
+ 249 |               onChangeText={(value) => {
+ 250 |                 setIsbn(value);
+ 251 |                 setErrors((current) => ({ ...current, isbn: '' }));
+ 252 |               }}
+ 253 |               placeholder="978-…"
+ 254 |               error={errors.isbn}
+ 255 |               autoCapitalize="none"
+ 256 |             />
+ 257 |             <FormField
+ 258 |               label="Godina izdanja *"
+ 259 |               value={publishedYear}
+ 260 |               onChangeText={(value) => {
+ 261 |                 setPublishedYear(value.replace(/[^0-9]/g, ''));
+ 262 |                 setErrors((current) => ({ ...current, publishedYear: '' }));
+ 263 |               }}
+ 264 |               placeholder="npr. 1967"
+ 265 |               error={errors.publishedYear}
+ 266 |               keyboardType="number-pad"
+ 267 |               autoCapitalize="none"
+ 268 |             />
+ 269 | 
+ 270 |             <View style={styles.field}>
+ 271 |               <Text style={styles.label}>Status čitanja</Text>
+ 272 |               <View style={styles.choiceList}>
+ 273 |                 {readingStatuses.map((status) => (
+ 274 |                   <Pressable
+ 275 |                     key={status}
+ 276 |                     accessibilityRole="button"
+ 277 |                     onPress={() => {
+ 278 |                       if (
+ 279 |                         status === 'COMPLETED' &&
+ 280 |                         readingStatus !== 'COMPLETED'
+ 281 |                       ) {
+ 282 |                         // semanticCompletionFeedbackV1
+ 283 |                         void semanticFeedback.complete();
+ 284 |                       }
+ 285 | 
+ 286 |                       setReadingStatus(status);
+ 287 |                     }}
+ 288 |                     style={[styles.choice, readingStatus === status && styles.choiceSelected]}
+ 289 |                   >
+ 290 |                     <Text style={[styles.choiceText, readingStatus === status && styles.choiceTextSelected]}>
+ 291 |                       {readingStatusLabels[status]}
+
+-- lines 362-410 --
+ 362 |                 onValueChange={setFavourite}
+ 363 |                 trackColor={{ false: colors.border, true: colors.black }}
+ 364 |                 thumbColor={colors.white}
+ 365 |                 ios_backgroundColor={colors.border}
+ 366 |               />
+ 367 |             </View>
+ 368 |           </View>
+ 369 | 
+ 370 |           <View style={styles.saveArea}>
+ 371 |             <PrimaryButton
+ 372 |               label={editing ? 'Spremi promjene' : 'Dodaj knjigu'}
+ 373 |               onPress={() => void save()}
+ 374 |               loading={saving}
+ 375 |             />
+ 376 |             <Text style={styles.required}>* obvezno polje</Text>
+ 377 |           </View>
+ 378 |         </ScrollView>
+ 379 |       </KeyboardAvoidingView>
+ 380 |     </SafeAreaView>
+ 381 |   );
+ 382 | }
+ 383 | 
+ 384 | const styles = StyleSheet.create({
+ 385 |   safeArea: {
+ 386 |     flex: 1,
+ 387 |     backgroundColor: colors.background,
+ 388 |   },
+ 389 |   flex: {
+ 390 |     flex: 1,
+ 391 |   },
+ 392 |   content: {
+ 393 |     paddingHorizontal: 16,
+ 394 |     paddingTop: 16,
+ 395 |     paddingBottom: 36,
+ 396 |   },
+ 397 |   intro: {
+ 398 |     paddingHorizontal: 6,
+ 399 |     marginBottom: 22,
+ 400 |   },
+ 401 |   eyebrow: {
+ 402 |     color: colors.textMuted,
+ 403 |     fontWeight: '600',
+ 404 |     fontSize: 15,
+ 405 |   },
+ 406 |   heading: {
+ 407 |     color: colors.text,
+ 408 |     fontSize: 32,
+ 409 |     lineHeight: 38,
+ 410 |     fontWeight: '800',
+
+-- lines 491-512 --
+ 491 |     paddingTop: 17,
+ 492 |   },
+ 493 |   switchCopy: {
+ 494 |     flex: 1,
+ 495 |     paddingRight: 12,
+ 496 |   },
+ 497 |   switchHint: {
+ 498 |     color: colors.textMuted,
+ 499 |     fontSize: 13,
+ 500 |     lineHeight: 19,
+ 501 |   },
+ 502 |   saveArea: {
+ 503 |     marginTop: 18,
+ 504 |   },
+ 505 |   required: {
+ 506 |     color: colors.textMuted,
+ 507 |     textAlign: 'center',
+ 508 |     fontSize: 12,
+ 509 |     marginTop: 12,
+ 510 |   },
+ 511 | });
+ 512 | 
+
+### src/types/book.ts
+
+-- lines 1-47 --
+   1 | export type ReadingStatus = 'LATER' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'DROPPED';
+   2 | 
+   3 | export type Enjoyment = 'ENJOYED' | 'OKAY' | 'REGRET';
+   4 | 
+   5 | export type BookResponse = {
+   6 |   bookId: string;
+   7 |   title: string;
+   8 |   author: string;
+   9 |   isbn: string;
+  10 |   publishedYear: number;
+  11 |   readingStatus: ReadingStatus;
+  12 |   progress: number;
+  13 |   enjoyment: Enjoyment | null;
+  14 |   favourite: boolean;
+  15 |   startedOn: string | null;
+  16 |   finishedOn: string | null;
+  17 | };
+  18 | 
+  19 | export type BookRequest = Omit<BookResponse, 'bookId'>;
+  20 | 
+  21 | export type PagedBooks = {
+  22 |   content: BookResponse[];
+  23 |   page: number;
+  24 |   size: number;
+  25 |   totalElements: number;
+  26 |   totalPages: number;
+  27 |   first: boolean;
+  28 |   last: boolean;  
+  29 | };
+  30 | 
+  31 | export const readingStatusLabels: Record<ReadingStatus, string> = {
+  32 |   LATER: 'Za poslije',
+  33 |   IN_PROGRESS: 'Čitam',
+  34 |   COMPLETED: 'Pročitano',
+  35 |   PAUSED: 'Pauzirano',
+  36 |   DROPPED: 'Odustao/la',
+  37 | };
+  38 | 
+  39 | export const enjoymentLabels: Record<Enjoyment, string> = {
+  40 |   ENJOYED: 'Svidjelo mi se',
+  41 |   OKAY: 'Bilo je u redu',
+  42 |   REGRET: 'Žalim utrošeno vrijeme',
+  43 | };
+  44 | 
+  45 | export const readingStatuses = Object.keys(readingStatusLabels) as ReadingStatus[];
+  46 | export const enjoymentOptions = Object.keys(enjoymentLabels) as Enjoyment[];
+  47 | 
+
+### src/services/bookApi.ts
+
+-- lines 1-35 --
+   1 | import type {
+   2 |   BookRequest,
+   3 |   BookResponse,
+   4 |   PagedBooks,
+   5 | } from '../types/book';
+   6 | import { apiRequest } from './apiClient';
+   7 | 
+   8 | export { ApiError } from './apiClient';
+   9 | 
+  10 | export const bookApi = {
+  11 |   getAll: () => apiRequest<BookResponse[]>('/books'),
+  12 | 
+  13 |   getPage: (page = 0, size = 10) =>
+  14 |     apiRequest<PagedBooks>(`/books?page=${page}&size=${size}`),
+  15 | 
+  16 |   getById: (bookId: string) => apiRequest<BookResponse>(`/books/${bookId}`),
+  17 | 
+  18 |   create: (payload: BookRequest) =>
+  19 |     apiRequest<BookResponse>('/books', {
+  20 |       method: 'POST',
+  21 |       body: JSON.stringify(payload),
+  22 |     }),
+  23 | 
+  24 |   update: (bookId: string, payload: BookRequest) =>
+  25 |     apiRequest<BookResponse>(`/books/${bookId}`, {
+  26 |       method: 'PUT',
+  27 |       body: JSON.stringify(payload),
+  28 |     }),
+  29 | 
+  30 |   remove: (bookId: string) =>
+  31 |     apiRequest<void>(`/books/${bookId}`, {
+  32 |       method: 'DELETE',
+  33 |     }),
+  34 | };
+  35 | 
+
+### src/components/BookCard.tsx
+
+-- lines 1-160 --
+   1 | import { Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { BookCover } from './BookCover';
+   4 | import { CatalogueCoverDisplay } from './CatalogueCoverOverride';
+   5 | import { colors } from '../theme/colors';
+   6 | // catalogueQuietModeV1
+   7 | import { useCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
+   8 | import { readingStatusLabels, type BookResponse } from '../types/book';
+   9 | 
+  10 | type Props = {
+  11 |   book: BookResponse;
+  12 |   onPress: () => void;
+  13 | };
+  14 | 
+  15 | export function BookCard({ book, onPress }: Props) {
+  16 |   const compactMode = useCatalogueDisplayMode() === 'compact';
+  17 | 
+  18 |   return (
+  19 |     <Pressable
+  20 |       accessibilityRole="button"
+  21 |       accessibilityLabel={`Otvori detalje knjige ${book.title}`}
+  22 |       onPress={onPress}
+  23 |       style={({ pressed }) => [
+  24 |         styles.card,
+  25 |         compactMode && styles.cardCompact,
+  26 |         pressed && styles.pressed,
+  27 |       ]}
+  28 |     >
+  29 |       {!compactMode ? (
+  30 |       <CatalogueCoverDisplay
+  31 |         entityType="BOOK"
+  32 |         entityId={book.bookId}
+  33 |         imageStyle={styles.thumbnail}
+  34 |       >
+  35 |         <BookCover
+  36 |           author={book.author}
+  37 |           isbn={book.isbn}
+  38 |           title={book.title}
+  39 |           size="S"
+  40 |           style={styles.thumbnail}
+  41 |         />
+  42 |       </CatalogueCoverDisplay>
+  43 |       ) : null}
+  44 | 
+  45 |       <View style={[styles.content, compactMode && styles.contentCompact]}>
+  46 |         <View style={styles.topRow}>
+  47 |           <Text style={styles.title} numberOfLines={compactMode ? 1 : 2}>
+  48 |             {book.title}
+  49 |           </Text>
+  50 |         </View>
+  51 | 
+  52 |         <Text style={styles.author}>
+  53 |           {book.author}
+  54 |         </Text>
+  55 | 
+  56 |         <View style={styles.bottomRow}>
+  57 |           <Text style={styles.year}>
+  58 |             {book.publishedYear}
+  59 |           </Text>
+  60 | 
+  61 |           <View
+  62 |             style={[
+  63 |               styles.badge,
+  64 |               book.readingStatus === 'IN_PROGRESS' && styles.inProgressBadge,
+  65 |               book.readingStatus === 'COMPLETED' && styles.completedBadge,
+  66 |             ]}
+  67 |           >
+  68 |             <Text style={styles.badgeText}>
+  69 |               {readingStatusLabels[book.readingStatus]}
+  70 |               {book.progress > 0 ? ` · ${book.progress}%` : ''}
+  71 |             </Text>
+  72 |           </View>
+  73 |         </View>
+  74 |       </View>
+  75 | 
+  76 |       <Text style={styles.arrow}>›</Text>
+  77 |     </Pressable>
+  78 |   );
+  79 | }
+  80 | 
+  81 | const styles = StyleSheet.create({
+  82 |   cardCompact: { minHeight: 76, paddingVertical: 11 },
+  83 |   contentCompact: { paddingLeft: 0 },
+  84 |   card: {
+  85 |     flexDirection: 'row',
+  86 |     alignItems: 'center',
+  87 |     backgroundColor: colors.surface,
+  88 |     borderRadius: 20,
+  89 |     marginBottom: 10,
+  90 |     borderWidth: 1,
+  91 |     borderColor: colors.separator,
+  92 |     padding: 14,
+  93 |   },
+  94 |   pressed: {
+  95 |     opacity: 0.78,
+  96 |     transform: [{ scale: 0.992 }],
+  97 |   },
+  98 |   thumbnail: {
+  99 |     width: 54,
+ 100 |     height: 68,
+ 101 |     borderRadius: 10,
+ 102 |   },
+ 103 |   content: {
+ 104 |     flex: 1,
+ 105 |     paddingLeft: 14,
+ 106 |   },
+ 107 |   topRow: {
+ 108 |     flexDirection: 'row',
+ 109 |     alignItems: 'flex-start',
+ 110 |   },
+ 111 |   title: {
+ 112 |     flex: 1,
+ 113 |     color: colors.text,
+ 114 |     fontSize: 17,
+ 115 |     lineHeight: 22,
+ 116 |     fontWeight: '700',
+ 117 |   },
+ 118 |   favourite: {
+ 119 |     color: colors.text,
+ 120 |     fontSize: 17,
+ 121 |     marginLeft: 8,
+ 122 |   },
+ 123 |   author: {
+ 124 |     color: colors.textMuted,
+ 125 |     fontSize: 14,
+ 126 |     marginTop: 4,
+ 127 |   },
+ 128 |   bottomRow: {
+ 129 |     flexDirection: 'row',
+ 130 |     justifyContent: 'space-between',
+ 131 |     alignItems: 'center',
+ 132 |     marginTop: 11,
+ 133 |   },
+ 134 |   year: {
+ 135 |     color: colors.textMuted,
+ 136 |     fontSize: 12,
+ 137 |     fontWeight: '600',
+ 138 |   },
+ 139 |   badge: {
+ 140 |     backgroundColor: colors.fill,
+ 141 |     borderRadius: 999,
+ 142 |     paddingHorizontal: 9,
+ 143 |     paddingVertical: 5,
+ 144 |   },
+ 145 |   inProgressBadge: {
+ 146 |     backgroundColor: colors.successSoft,
+ 147 |   },
+ 148 |   completedBadge: {
+ 149 |     backgroundColor: colors.goldSoft,
+ 150 |   },
+ 151 |   badgeText: {
+ 152 |     color: colors.textMuted,
+ 153 |     fontSize: 12,
+ 154 |     fontWeight: '600',
+ 155 |   },
+ 156 |   arrow: {
+ 157 |     color: '#AEAEB2',
+ 158 |     fontSize: 27,
+ 159 |     lineHeight: 28,
+ 160 |     marginLeft: 10,
+
+### src/components/BookCover.tsx
+
+-- lines 1-87 --
+   1 | import { useEffect, useState } from 'react';
+   2 | import {
+   3 |   Image,
+   4 |   type StyleProp,
+   5 |   StyleSheet,
+   6 |   Text,
+   7 |   View,
+   8 |   type ViewStyle,
+   9 | } from 'react-native';
+  10 | 
+  11 | import { colors } from '../theme/colors';
+  12 | 
+  13 | export type CoverSize = 'S' | 'M' | 'L';
+  14 | 
+  15 | export function getBookCoverUrl(isbn: string, size: CoverSize = 'M') {
+  16 |   const normalizedIsbn = isbn.replace(/[^0-9Xx]/g, '').toUpperCase();
+  17 | 
+  18 |   if (!normalizedIsbn) return null;
+  19 | 
+  20 |   return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(
+  21 |     normalizedIsbn,
+  22 |   )}-${size}.jpg?default=false`;
+  23 | }
+  24 | 
+  25 | type OpenLibrarySearchResponse = {
+  26 |   docs?: Array<{
+  27 |     cover_i?: number;
+  28 |   }>;
+  29 | };
+  30 | 
+  31 | type GoogleBooksResponse = {
+  32 |   items?: Array<{
+  33 |     volumeInfo?: {
+  34 |       imageLinks?: {
+  35 |         smallThumbnail?: string;
+  36 |         thumbnail?: string;
+  37 |         small?: string;
+  38 |         medium?: string;
+  39 |         large?: string;
+  40 |         extraLarge?: string;
+  41 |       };
+  42 |     };
+  43 |   }>;
+  44 | };
+  45 | 
+  46 | const fallbackCache = new Map<string, Promise<string | null>>();
+  47 | 
+  48 | function secureImageUrl(url?: string) {
+  49 |   return url?.replace(/^http:\/\//i, 'https://') ?? null;
+  50 | }
+  51 | 
+  52 | async function searchOpenLibraryCover(title: string, author?: string) {
+  53 |   try {
+  54 |     const params = new URLSearchParams({
+  55 |       title: title.trim(),
+  56 |       fields: 'cover_i',
+  57 |       limit: '1',
+  58 |     });
+  59 | 
+  60 |     if (author?.trim()) {
+  61 |       params.set('author', author.trim());
+  62 |     }
+  63 | 
+  64 |     const response = await fetch(
+  65 |       `https://openlibrary.org/search.json?${params.toString()}`,
+  66 |     );
+  67 | 
+  68 |     if (!response.ok) return null;
+  69 | 
+  70 |     const payload = (await response.json()) as OpenLibrarySearchResponse;
+  71 | 
+  72 |     return payload.docs?.find((book) => book.cover_i)?.cover_i ?? null;
+  73 |   } catch {
+  74 |     return null;
+  75 |   }
+  76 | }
+  77 | 
+  78 | function pickGoogleCover(
+  79 |   response: GoogleBooksResponse,
+  80 |   size: CoverSize,
+  81 | ) {
+  82 |   const links = response.items?.find(
+  83 |     (item) => item.volumeInfo?.imageLinks,
+  84 |   )?.volumeInfo?.imageLinks;
+  85 | 
+  86 |   if (!links) return null;
+  87 | 
+
+-- lines 134-320 --
+ 134 |       `https://www.googleapis.com/books/v1/volumes?${params.toString()}`,
+ 135 |     );
+ 136 | 
+ 137 |     if (!response.ok) return null;
+ 138 | 
+ 139 |     const payload = (await response.json()) as GoogleBooksResponse;
+ 140 | 
+ 141 |     return pickGoogleCover(payload, size);
+ 142 |   } catch {
+ 143 |     return null;
+ 144 |   }
+ 145 | }
+ 146 | 
+ 147 | function findFallbackCoverUrl(
+ 148 |   isbn: string,
+ 149 |   title: string,
+ 150 |   author: string | undefined,
+ 151 |   size: CoverSize,
+ 152 | ) {
+ 153 |   const normalizedIsbn = isbn
+ 154 |     .replace(/[^0-9Xx]/g, '')
+ 155 |     .toUpperCase();
+ 156 | 
+ 157 |   const cacheKey = [
+ 158 |     normalizedIsbn,
+ 159 |     title.trim(),
+ 160 |     author?.trim() ?? '',
+ 161 |     size,
+ 162 |   ].join('|');
+ 163 | 
+ 164 |   const cached = fallbackCache.get(cacheKey);
+ 165 | 
+ 166 |   if (cached) return cached;
+ 167 | 
+ 168 |   const lookup = (async () => {
+ 169 |     // First fallback: Google Books using ISBN.
+ 170 |     if (normalizedIsbn) {
+ 171 |       const googleIsbnCover = await searchGoogleBooksCover(
+ 172 |         `isbn:${normalizedIsbn}`,
+ 173 |         size,
+ 174 |       );
+ 175 | 
+ 176 |       if (googleIsbnCover) return googleIsbnCover;
+ 177 |     }
+ 178 | 
+ 179 |     if (!title.trim()) return null;
+ 180 | 
+ 181 |     // Second fallback: Open Library using title and author.
+ 182 |     const exactOpenLibraryId = await searchOpenLibraryCover(
+ 183 |       title,
+ 184 |       author,
+ 185 |     );
+ 186 | 
+ 187 |     const openLibraryId =
+ 188 |       exactOpenLibraryId ??
+ 189 |       (author ? await searchOpenLibraryCover(title) : null);
+ 190 | 
+ 191 |     if (openLibraryId) {
+ 192 |       return `https://covers.openlibrary.org/b/id/${openLibraryId}-${size}.jpg?default=false`;
+ 193 |     }
+ 194 | 
+ 195 |     // Third fallback: Google Books using title and author.
+ 196 |     const exactGoogleQuery = author?.trim()
+ 197 |       ? `intitle:${title.trim()} inauthor:${author.trim()}`
+ 198 |       : `intitle:${title.trim()}`;
+ 199 | 
+ 200 |     const exactGoogleCover = await searchGoogleBooksCover(
+ 201 |       exactGoogleQuery,
+ 202 |       size,
+ 203 |     );
+ 204 | 
+ 205 |     if (exactGoogleCover) return exactGoogleCover;
+ 206 | 
+ 207 |     // Final attempt: Google Books using only the title.
+ 208 |     return searchGoogleBooksCover(
+ 209 |       `intitle:${title.trim()}`,
+ 210 |       size,
+ 211 |     );
+ 212 |   })();
+ 213 | 
+ 214 |   fallbackCache.set(cacheKey, lookup);
+ 215 | 
+ 216 |   return lookup;
+ 217 | }
+ 218 | 
+ 219 | type Props = {
+ 220 |   isbn: string;
+ 221 |   title: string;
+ 222 |   author?: string;
+ 223 |   size?: CoverSize;
+ 224 |   style?: StyleProp<ViewStyle>;
+ 225 |   onCoverResolved?: (url: string | null) => void;
+ 226 | };
+ 227 | 
+ 228 | export function BookCover({
+ 229 |   isbn,
+ 230 |   title,
+ 231 |   author,
+ 232 |   size = 'M',
+ 233 |   style,
+ 234 |   onCoverResolved,
+ 235 | }: Props) {
+ 236 |   const directCoverUrl = getBookCoverUrl(isbn, size);
+ 237 | 
+ 238 |   const [coverUrl, setCoverUrl] = useState<string | null>(
+ 239 |     directCoverUrl,
+ 240 |   );
+ 241 |   const [failed, setFailed] = useState(false);
+ 242 |   const [searching, setSearching] = useState(false);
+ 243 | 
+ 244 |   const initial =
+ 245 |     title.trim().charAt(0).toUpperCase() || 'B';
+ 246 | 
+ 247 |   useEffect(() => {
+ 248 |     setFailed(false);
+ 249 |     setSearching(false);
+ 250 |     setCoverUrl(directCoverUrl);
+ 251 |     onCoverResolved?.(null);
+ 252 |   }, [
+ 253 |     author,
+ 254 |     directCoverUrl,
+ 255 |     onCoverResolved,
+ 256 |     title,
+ 257 |   ]);
+ 258 | 
+ 259 |   const handleError = async () => {
+ 260 |     if (searching) return;
+ 261 | 
+ 262 |     // A fallback image was found but could not be displayed.
+ 263 |     if (coverUrl !== directCoverUrl) {
+ 264 |       setFailed(true);
+ 265 |       onCoverResolved?.(null);
+ 266 |       return;
+ 267 |     }
+ 268 | 
+ 269 |     setSearching(true);
+ 270 | 
+ 271 |     const fallbackUrl = await findFallbackCoverUrl(
+ 272 |       isbn,
+ 273 |       title,
+ 274 |       author,
+ 275 |       size,
+ 276 |     );
+ 277 | 
+ 278 |     setSearching(false);
+ 279 | 
+ 280 |     if (fallbackUrl) {
+ 281 |       setCoverUrl(fallbackUrl);
+ 282 |     } else {
+ 283 |       setFailed(true);
+ 284 |       onCoverResolved?.(null);
+ 285 |     }
+ 286 |   };
+ 287 | 
+ 288 |   return (
+ 289 |     <View style={[styles.container, style]}>
+ 290 |       <Text style={styles.initial}>{initial}</Text>
+ 291 | 
+ 292 |       {coverUrl && !failed ? (
+ 293 |         <Image
+ 294 |           accessibilityLabel={`Naslovnica knjige ${title}`}
+ 295 |           onError={() => void handleError()}
+ 296 |           onLoad={() => onCoverResolved?.(coverUrl)}
+ 297 |           resizeMode="cover"
+ 298 |           source={{ uri: coverUrl }}
+ 299 |           style={StyleSheet.absoluteFill}
+ 300 |         />
+ 301 |       ) : null}
+ 302 |     </View>
+ 303 |   );
+ 304 | }
+ 305 | 
+ 306 | const styles = StyleSheet.create({
+ 307 |   container: {
+ 308 |     alignItems: 'center',
+ 309 |     justifyContent: 'center',
+ 310 |     overflow: 'hidden',
+ 311 |     backgroundColor: colors.black,
+ 312 |     borderWidth: StyleSheet.hairlineWidth,
+ 313 |     borderColor: '#3A3A3C',
+ 314 |   },
+ 315 |   initial: {
+ 316 |     color: colors.white,
+ 317 |     fontSize: 25,
+ 318 |     fontWeight: '700',
+ 319 |   },
+ 320 | });
+

@@ -1,5 +1,6 @@
 export const activityTypes = [
   'READING',
+  'WATCHING',
   'STUDYING',
   'PLAYING',
   'RESEARCH',
@@ -12,6 +13,7 @@ export type ActivityType = (typeof activityTypes)[number];
 
 export const activityTypeLabels: Record<ActivityType, string> = {
   READING: 'Čitanje',
+  WATCHING: 'Gledanje',
   STUDYING: 'Učenje',
   PLAYING: 'Igranje',
   RESEARCH: 'Istraživanje',
@@ -22,6 +24,7 @@ export const activityTypeLabels: Record<ActivityType, string> = {
 
 export const activityTypeMarks: Record<ActivityType, string> = {
   READING: '≡',
+  WATCHING: '▷',
   STUDYING: '◇',
   PLAYING: '△',
   RESEARCH: '⌕',
@@ -41,7 +44,7 @@ export type TopicResponse = {
 
 export type TopicRequest = {
   name: string;
-  description?: string;
+  description?: string | null;
 };
 
 export type TopicActivityResponse = {

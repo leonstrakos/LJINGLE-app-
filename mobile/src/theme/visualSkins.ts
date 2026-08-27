@@ -22,11 +22,11 @@ export type VisualSkinDefinition = {
 export const visualSkins: VisualSkinDefinition[] = [
   {
     id: 'classic',
-    name: 'LJingle Classic',
-    shortName: 'CLASSIC',
-    description: 'Trenutačni izgled, accent wheel i mekane kartice.',
-    specimen: '●  LJINGLE',
-    tokens: { radius: 'current', typography: 'current', shadow: 'soft', decoration: 'none' },
+    name: 'LJingle Celestial',
+    shortName: 'CELESTIAL',
+    description: 'Ponoć, zlato, zvijezde i arhivski ornamentalni ritam.',
+    specimen: '✦  ✧  ⋆',
+    tokens: { radius: 'current', typography: 'current', shadow: 'soft', decoration: 'dither' },
   },
   {
     id: 'pixel',

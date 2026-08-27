@@ -1,3 +1,4 @@
+// temporalMeadowPaletteFinalV1
 import {
   useCallback,
   useState,
@@ -19,12 +20,30 @@ import {
   type TemporalStatsComparison,
 } from '../storage/temporalStats';
 import { colors } from '../theme/colors';
+import { activeAeroBackgroundId } from '../theme/aeroBackground';
+const temporalAeroMeadow =
+  activeVisualSkinId === 'aero' &&
+  activeAeroBackgroundId === 'meadow';
+
 import {
   activeVisualSkinId,
 } from '../theme/visualSkins';
 
+import { celestial, celestialAlpha } from '../theme/celestial';
 const pixelMode =
   activeVisualSkinId === 'pixel';
+
+// forkN4CelestialArchiveVisualV12
+// ThemePicker-driven Classic celestial palette.
+const n4Celestial = activeVisualSkinId === 'classic';
+const N4_NIGHT = colors.background;
+const N4_PANEL = colors.surface;
+const N4_PANEL_RAISED = colors.fillStrong;
+const N4_BLUE = colors.fill;
+const N4_GOLD = colors.navy;
+const N4_GOLD_LINE = colors.separator;
+const N4_IVORY = colors.text;
+const N4_MUTED = colors.textMuted;
 
 const aeroMode =
   activeVisualSkinId === 'aero';
@@ -422,32 +441,32 @@ const styles =
           ? 2
           : 1,
       borderColor:
-        colors.separator,
+        n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
       backgroundColor:
-        colors.surface,
+        n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
     },
 
     aeroGlass: {
       backgroundColor:
-        'rgba(255,255,255,0.72)',
+        celestialAlpha(celestial.ivory, 0.72),
       borderColor:
-        'rgba(255,255,255,0.96)',
+        celestialAlpha(celestial.ivory, 0.96),
       shadowColor:
-        '#087D99',
+        (temporalAeroMeadow ? '#5E7167' : '#087D99'),
       shadowOffset: {
         width: 0,
         height: 8,
       },
-      shadowOpacity: 0.12,
+      shadowOpacity: temporalAeroMeadow ? 0 : 0.12,
       shadowRadius: 18,
-      elevation: 3,
+      elevation: temporalAeroMeadow ? 0 : 3,
     },
 
     eyebrow: {
       color:
         aeroMode
-          ? '#087D99'
-          : colors.textMuted,
+          ? (temporalAeroMeadow ? '#5E7167' : '#087D99')
+          : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 10,
       fontFamily:
         pixelMode
@@ -461,8 +480,8 @@ const styles =
       marginTop: 5,
       color:
         aeroMode
-          ? '#06366C'
-          : colors.text,
+          ? (temporalAeroMeadow ? '#31453C' : '#06366C')
+          : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 23,
       lineHeight: 28,
       fontFamily:
@@ -475,7 +494,7 @@ const styles =
 
     copy: {
       marginTop: 6,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 12,
       lineHeight: 18,
     },
@@ -495,7 +514,7 @@ const styles =
           ? 0
           : 16,
       backgroundColor:
-        colors.fillStrong,
+        n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
     },
 
     arrowColumn: {
@@ -505,13 +524,13 @@ const styles =
     },
 
     arrow: {
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 22,
       fontWeight: '700',
     },
 
     periodTitle: {
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 0.7,
@@ -519,14 +538,14 @@ const styles =
 
     periodTotal: {
       marginTop: 4,
-      color: colors.text,
+      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 18,
       fontWeight: '900',
     },
 
     empty: {
       marginTop: 12,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       lineHeight: 16,
     },
@@ -546,13 +565,13 @@ const styles =
     categoryLabel: {
       flex: 1,
       minWidth: 0,
-      color: colors.text,
+      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 11,
       fontWeight: '700',
     },
 
     categoryShare: {
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 10,
       fontWeight: '800',
     },
@@ -564,12 +583,12 @@ const styles =
       overflow: 'hidden',
       borderRadius: 999,
       backgroundColor:
-        colors.surface,
+        n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
     },
 
     fill: {
       backgroundColor:
-        colors.black,
+        n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
     },
 
     mover: {
@@ -582,11 +601,11 @@ const styles =
           : 14,
       borderWidth: 1,
       borderColor:
-        colors.separator,
+        n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     },
 
     moverLabel: {
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 0.8,
@@ -594,14 +613,14 @@ const styles =
 
     moverValue: {
       marginTop: 4,
-      color: colors.text,
+      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 16,
       fontWeight: '900',
     },
 
     moverMeta: {
       marginTop: 2,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
     },
 
@@ -613,11 +632,11 @@ const styles =
           ? 0
           : 14,
       backgroundColor:
-        colors.fillStrong,
+        n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
     },
 
     baselineText: {
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       lineHeight: 17,
     },
@@ -632,7 +651,7 @@ const styles =
 
     itemsEyebrow: {
       marginTop: 15,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 0.8,
@@ -650,7 +669,7 @@ const styles =
     },
 
     definingTitle: {
-      color: colors.text,
+      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 13,
       fontWeight: '900',
     },
@@ -663,7 +682,7 @@ const styles =
 
     itemNumber: {
       width: 23,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
     },
@@ -674,27 +693,27 @@ const styles =
     },
 
     itemTitle: {
-      color: colors.text,
+      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 11,
       fontWeight: '700',
     },
 
     itemTime: {
       marginTop: 1,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
     },
 
     emptyAll: {
       marginTop: 16,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       lineHeight: 17,
     },
 
     loadingText: {
       marginTop: 8,
-      color: colors.textMuted,
+      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       textAlign: 'center',
     },
@@ -709,11 +728,11 @@ const styles =
           ? 0
           : 12,
       backgroundColor:
-        colors.fillStrong,
+        n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
     },
 
     retryText: {
-      color: colors.text,
+      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 11,
       fontWeight: '800',
     },

@@ -18,7 +18,16 @@ import { TopicCard } from '../components/TopicCard';
 import { TopicCreateForm } from '../components/TopicCreateForm';
 import { topicApi } from '../services/topicApi';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import type { TopicDetailsParams, TopicResponse } from '../types/topic';
+import { createdFeedback } from '../utils/crudFeedback';
+
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkN2CelestialCollectionsTopicsV2
+const celestialMode = activeVisualSkinId === 'classic';
+const CELESTIAL_GOLD = celestial.gold;
 
 export type TopicListScreenProps = {
   navigation: {
@@ -82,6 +91,7 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
         name: trimmedName,
         ...(trimmedDescription ? { description: trimmedDescription } : {}),
       });
+      createdFeedback();
       setTopics((current) => [created, ...current]);
       setFormVisible(false);
       setName('');
@@ -95,15 +105,18 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
 
   const header = (
     <>
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>Tvoj osobni indeks</Text>
-        <Text style={styles.heading}>Teme</Text>
-        <Text style={styles.intro}>
+      <View style={[styles.hero, celestialMode && styles.heroCelestial]}>
+        <CelestialAtmosphere variant="topics" />
+        <Text style={[styles.eyebrow, celestialMode && styles.eyebrowCelestial]}></Text>
+        <Text style={[styles.heading, celestialMode && styles.headingCelestial]}>Teme</Text>
+        <Text style={[styles.intro, celestialMode && styles.introCelestial]}>
           Okupi aktivnosti, katalog i vrijeme oko onoga što ti je doista važno.
         </Text>
 
+        {celestialMode ? <Text style={styles.topicIndexSeal}></Text> : null}
+
         <View style={styles.summaryRow}>
-          <View style={styles.summaryNumber}>
+          <View style={[styles.summaryNumber, celestialMode && styles.summaryNumberCelestial]}>
             <Text style={styles.summaryValue}>{topics.length}</Text>
           </View>
           <Text style={styles.summaryLabel}>
@@ -130,10 +143,14 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
             setFormError(null);
             setFormVisible(true);
           }}
-          style={({ pressed }) => [styles.addCard, pressed && styles.addCardPressed]}
+          style={({ pressed }) => [
+            styles.addCard,
+            celestialMode && styles.addCardCelestial,
+            pressed && styles.addCardPressed,
+          ]}
         >
-          <View style={styles.addIcon}>
-            <Text style={styles.addIconText}>+</Text>
+          <View style={[styles.addIcon, celestialMode && styles.addIconCelestial]}>
+            <Text style={[styles.addIconText, celestialMode && styles.addIconTextCelestial]}>+</Text>
           </View>
           <View style={styles.addCopy}>
             <Text style={styles.addTitle}>Nova tema</Text>
@@ -143,8 +160,10 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
         </Pressable>
       )}
 
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>Sve teme</Text>
+      <View style={[styles.sectionHeading, celestialMode && styles.sectionHeadingCelestial]}>
+        <Text style={[styles.sectionTitle, celestialMode && styles.sectionTitleCelestial]}>
+          {celestialMode ? '✦  ' : ''}Sve teme
+        </Text>
         {refreshing ? <Text style={styles.syncText}>Osvježavanje…</Text> : null}
       </View>
 
@@ -194,7 +213,7 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            <View style={styles.emptyCard}>
+            <View style={[styles.emptyCard, celestialMode && styles.emptyCardCelestial]}>
               <Text style={styles.emptyMark}>○</Text>
               <Text style={styles.emptyTitle}>Tvoj indeks još je prazan</Text>
               <Text style={styles.emptyMessage}>
@@ -313,10 +332,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.white,
   },
   addIconText: {
-    color: colors.white,
+    color: colors.black,
     fontSize: 25,
     lineHeight: 28,
     fontWeight: '400',
@@ -402,5 +421,68 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  heroCelestial: {
+    marginTop: 10,
+    marginBottom: 18,
+    paddingTop: 25,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.32),
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  eyebrowCelestial: {
+    color: CELESTIAL_GOLD,
+    letterSpacing: 1.8,
+  },
+  headingCelestial: {
+    letterSpacing: -0.4,
+  },
+  introCelestial: {
+    maxWidth: 520,
+  },
+  topicIndexSeal: {
+    marginTop: 16,
+    color: CELESTIAL_GOLD,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 2.1,
+    opacity: 0.82,
+  },
+  summaryNumberCelestial: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.72),
+  },
+  addCardCelestial: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.58),
+    shadowColor: celestial.night,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.13,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  addIconCelestial: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.72),
+    backgroundColor: celestialAlpha(celestial.ivory, 0.96),
+  },
+  addIconTextCelestial: {
+    color: CELESTIAL_GOLD,
+  },
+  sectionHeadingCelestial: {
+    paddingTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: celestialAlpha(celestial.gold, 0.25),
+  },
+  sectionTitleCelestial: {
+    letterSpacing: 0.2,
+  },
+  emptyCardCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.38),
+    backgroundColor: colors.surface,
   },
 });

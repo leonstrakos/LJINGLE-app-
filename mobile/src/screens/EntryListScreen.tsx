@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,6 +22,8 @@ import {
   entryLinksApi,
 } from '../services/entryLinksApi';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { deletedFeedback } from '../utils/crudFeedback';
 import {
   entryTypeLabels,
   entryTypes,
@@ -30,6 +33,8 @@ import {
   type EntryType,
 } from '../types/entry';
 
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+import { celestial, celestialAlpha } from '../theme/celestial';
 export type EntryListScreenProps = {
   navigation: {
     navigate: (screen: 'EntryForm', params?: EntryFormParams) => void;
@@ -38,10 +43,22 @@ export type EntryListScreenProps = {
 
 type Filter = EntryType | 'ALL';
 
+const celestialMode = activeVisualSkinId === 'classic';
+
+function normalizeEntrySearch(value: unknown) {
+  return String(value ?? '')
+    .toLocaleLowerCase('hr-HR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+// brutusEntrySearchV1
+
 export function EntryListScreen({ navigation }: EntryListScreenProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [filter, setFilter] = useState<Filter>('ALL');
+  const [query, setQuery] = useState('');
   const [linkLabels, setLinkLabels] = useState<EntryLinkLabels>(emptyEntryLinkLabels);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -111,6 +128,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
     setDeleteError(null);
     try {
       await entryApi.remove(deleteTarget.entryId);
+      deletedFeedback();
       setEntries((current) =>
         current.filter((entry) => entry.entryId !== deleteTarget.entryId),
       );
@@ -135,15 +153,35 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
     if (target) navigation.navigate('EntryForm', { entryId: target.entryId });
   };
 
+  const normalizedQuery =
+    normalizeEntrySearch(query.trim());
+
+  const visibleEntries = entries.filter((entry) => {
+    if (!normalizedQuery) return true;
+
+    const haystack = normalizeEntrySearch(
+      [
+        entry.title,
+        entry.content,
+        entryTypeLabels[entry.type],
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
+
+    return haystack.includes(normalizedQuery);
+  });
+
   const header = (
     <>
-      <View style={styles.hero}>
+      <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+        {celestialMode ? <CelestialAtmosphere variant="entries" /> : null}
         <Text style={styles.eyebrow}>Misli, citati i tragovi</Text>
         <Text style={styles.heading}>Zapisi</Text>
         <Text style={styles.intro}>
           Jedno mjesto za sve što želiš zapamtiti uz knjige, teme i aktivnosti.
         </Text>
-        <View style={styles.summaryRow}>
+<View style={styles.summaryRow}>
           <Text style={styles.summaryValue}>{entries.length}</Text>
           <Text style={styles.summaryLabel}>
             {filter === 'ALL' ? 'prikazanih zapisa' : entryTypeLabels[filter].toLowerCase()}
@@ -157,7 +195,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
       <Pressable
         accessibilityRole="button"
         onPress={() => navigation.navigate('EntryForm')}
-        style={({ pressed }) => [styles.addCard, pressed && styles.addCardPressed]}
+        style={({ pressed }) => [styles.addCard, celestialMode && styles.celestialPrimaryCard, pressed && styles.addCardPressed]}
       >
         <View style={styles.addIcon}>
           <Text style={styles.addIconText}>+</Text>
@@ -168,6 +206,19 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
         </View>
         <Text style={styles.addArrow}>›</Text>
       </Pressable>
+
+      <View style={styles.entrySearchWrap}>
+        <TextInput
+          accessibilityLabel="Pretraži zapise"
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={setQuery}
+          placeholder="Pretraži zapise..."
+          placeholderTextColor={colors.textMuted}
+          style={[styles.entrySearchInput, celestialMode && styles.celestialInput]}
+          value={query}
+        />
+      </View>
 
       <View style={styles.filterHeading}>
         <Text style={styles.sectionTitle}>Vrsta zapisa</Text>
@@ -245,7 +296,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <FlatList
         contentContainerStyle={styles.content}
-        data={entries}
+        data={visibleEntries}
         keyExtractor={(item) => item.entryId}
         ListHeaderComponent={header}
         ListEmptyComponent={
@@ -319,6 +370,20 @@ function FilterChip({ active, label, onPress }: FilterChipProps) {
 }
 
 const styles = StyleSheet.create({
+  entrySearchWrap: {
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  entrySearchInput: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    color: colors.text,
+    fontSize: 15,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -544,4 +609,28 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.28),
+    paddingHorizontal: 2,
+  },
+  celestialPrimaryCard: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.58),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  celestialInput: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+  },
+
 });

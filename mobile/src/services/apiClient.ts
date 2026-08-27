@@ -38,12 +38,55 @@ function isLocalPath(path: string) {
   ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+// forkK14_1_4SearchStackRecoveryV2
+
+const LJINGLE_METADATA_API_BASE_URL =
+  (
+    process.env.EXPO_PUBLIC_LJINGLE_API_URL?.trim() ||
+    process.env.EXPO_PUBLIC_SYNC_API_URL?.trim() ||
+    'https://heraldsofthelion.org/ljingle-api'
+  ).replace(/\/+$/, '');
+
+function isLjingleMetadataPath(path: string) {
+  if (/^https?:\/\//i.test(path)) return false;
+  const pathname = path.split('?')[0] ?? path;
+  return (
+    pathname.startsWith('/book-metadata/') ||
+    pathname.startsWith('/games/metadata/') ||
+    pathname.startsWith('/media/tmdb/')
+  );
+}
+
+function resolveOnlineRequestUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+
+  const base = isLjingleMetadataPath(path)
+    ? LJINGLE_METADATA_API_BASE_URL
+    : API_BASE_URL.replace(/\/+$/, '');
+
+  return base + (path.startsWith('/') ? path : '/' + path);
+}
+
 export async function onlineApiRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeoutMs =
+    options?.method === 'POST' &&
+    path.includes('/sync/snapshots')
+      ? 60000
+      : 10000;
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    timeoutMs,
+  );
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const requestUrl =
+      /^https?:\/\//i.test(path)
+        ? path
+        : `${API_BASE_URL}${path}`;
+
+    const response = await fetch(resolveOnlineRequestUrl(path), {
       ...options,
       headers: {
         Accept: 'application/json',

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedbackView } from '../../components/FeedbackView';
 import { colors } from '../../theme/colors';
+import { activeVisualSkinId } from '../../theme/visualSkins';
 import { registerUndo } from '../../utils/undoManager';
 import { semanticFeedback } from '../../utils/semanticFeedback';
 import {
@@ -28,6 +29,7 @@ import { gameApi } from '../services/gameApi';
 import { hydrateGameMetadata } from '../services/gameMetadataHydrator';
 // catalogueQuietModeV1
 import { getCatalogueDisplayMode } from '../../theme/catalogueDisplayMode';
+import { JingleBellIcon } from '../../components/JingleBellIcon';
 import {
   gameStatusLabels,
   gameStatuses,
@@ -36,7 +38,11 @@ import {
   type GameStatus,
 } from '../types/game';
 
+import { CelestialAtmosphere } from '../../components/CelestialAtmosphere';
+import { celestial, celestialAlpha } from '../../theme/celestial';
 type Props = NativeStackScreenProps<GameStackParamList, 'GameList'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 // gameStatePreservationV1
 type GameListPreservedStatus =
@@ -206,7 +212,7 @@ export function GameListScreen({ navigation }: Props) {
 
       await gameApi.update(game.gameId, payload as any);
       // semanticJingleFeedbackV1
-      void semanticFeedback.jingle();
+      void semanticFeedback.jingle(next);
 
       setGames((current) => {
         if (status === 'JINGLE' && !next) {
@@ -282,7 +288,8 @@ export function GameListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+        {celestialMode ? <CelestialAtmosphere variant="games" /> : null}
         <Text style={styles.eyebrow}>Katalog</Text>
         <Text style={styles.heading}>Moje igre</Text>
         {!loading && !error ? (
@@ -290,12 +297,11 @@ export function GameListScreen({ navigation }: Props) {
             {games.length === 1 ? '1 igra u prikazu' : `${games.length} igara u prikazu`}
           </Text>
         ) : null}
-
-        <View style={styles.quickActions}>
+<View style={styles.quickActions}>
           <Pressable
             accessibilityRole="button"
             onPress={() => navigation.navigate('GameMetadataSearch')}
-            style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.pressed]}
           >
             <Text style={styles.quickIcon}>⌕</Text>
             <Text style={styles.quickLabel}>Online pretraga</Text>
@@ -303,7 +309,7 @@ export function GameListScreen({ navigation }: Props) {
           <Pressable
             accessibilityRole="button"
             onPress={() => navigation.navigate('GameForm')}
-            style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.pressed]}
           >
             <Text style={styles.quickIcon}>+</Text>
             <Text style={styles.quickLabel}>Ručno dodaj</Text>
@@ -393,13 +399,10 @@ export function GameListScreen({ navigation }: Props) {
                   pressed && styles.jinglePressed,
                 ]}
               >
-                <Image
-                  source={require('../../assets/aero/fav.png')}
-                  resizeMode="contain"
-                  style={[
-                    styles.jingleIcon,
-                    { opacity: item.favourite ? 1 : 0.5 },
-                  ]}
+                <JingleBellIcon
+                  active={item.favourite}
+                  inactiveOpacity={0.5}
+                  style={styles.jingleIcon}
                 />
               </Pressable>
             </View>
@@ -488,4 +491,18 @@ const styles = StyleSheet.create({
   jinglePressed: {
     opacity: 0.72,
   },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  celestialAction: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+
 });

@@ -1,11 +1,15 @@
-import { useRef, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState } from 'react';
 import {
   NavigationContainer,
   DefaultTheme,
   useNavigationContainerRef,
-} from '@react-navigation/native';
+  } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StatusBar, View } from 'react-native';
+import { StatusBar,
+  View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BookDetailsScreen } from './src/screens/BookDetailsScreen';
@@ -13,7 +17,6 @@ import { BookFormScreen } from './src/screens/BookFormScreen';
 import { BookListScreen } from './src/screens/BookListScreen';
 import { BookMetadataImportScreen } from './src/screens/BookMetadataImportScreen';
 import { BookSearchScreen } from './src/screens/BookSearchScreen';
-import { BookStatsScreen } from './src/screens/BookStatsScreen';
 import { CatalogueHomeScreen } from './src/screens/CatalogueHomeScreen';
 import { CollectionsScreen } from './src/screens/CollectionsScreen';
 import { CollectionDetailsScreen } from './src/screens/CollectionDetailsScreen';
@@ -35,9 +38,26 @@ import { TodayScreen } from './src/screens/TodayScreen';
 import { ThemePickerScreen } from './src/screens/ThemePickerScreen';
 import { TopicDetailsScreen } from './src/screens/TopicDetailsScreen';
 import { TopicListScreen } from './src/screens/TopicListScreen';
-import { colors } from './src/theme/colors';
+import { colors,
+  isDarkBackground,
+} from './src/theme/colors';
 import { semanticFeedback } from './src/utils/semanticFeedback';
 import type { RootStackParamList } from './src/types/navigation';
+import { AuthProvider } from './src/auth/AuthContext';
+import { AuthGate } from './src/auth/AuthGate';
+
+// forkD3MobileAuthSecureStoreV1
+import { playUiCue } from './src/audio/uiFeedback';
+import { runCloudSync } from './src/services/cloudSync';
+
+import { JinglePortal } from './src/components/JinglePortal';
+import {
+  getJinglePortalEnabled,
+  subscribeJinglePortalEnabled,
+} from './src/services/jinglePortalPreference';
+import {
+  PortableShareSheet,
+} from './src/components/PortableShareSheet';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -53,13 +73,46 @@ const navigationTheme = {
   },
 };
 
-export default function App() {
+function LJingleAuthenticatedApp() {
+  // appOpeningSoundFinalV1
+  useEffect(() => {
+    void playUiCue('open');
+  }, []);
+
   const navigationRef =
     useNavigationContainerRef<RootStackParamList>();
+
+  // cloudSyncAppOpenV1
+  useEffect(() => {
+    void runCloudSync({
+      reason: 'APP_OPEN',
+    });
+  }, []);
+
+  // commandPalettePeekGestureV1
 
   // commandPalettePeekGestureV1
   const [paletteOpenSignal, setPaletteOpenSignal] =
     useState(0);
+  const [jinglePortalEnabled, setJinglePortalEnabledState] =
+    useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    void getJinglePortalEnabled().then((value) => {
+      if (active) setJinglePortalEnabledState(value);
+    });
+
+    const unsubscribe = subscribeJinglePortalEnabled((value) => {
+      if (active) setJinglePortalEnabledState(value);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   // commandPaletteGlobalLongHoldV1
   const globalHoldTimer =
@@ -127,7 +180,11 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <StatusBar
+        // forkKDarkBackgroundContrastV1
+        barStyle={isDarkBackground ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.surface}
+      />
 
       <MemoryAudioProvider>
       <View
@@ -145,8 +202,13 @@ export default function App() {
         <Stack.Navigator
           initialRouteName="Today"
           screenOptions={({ navigation }) => ({
+            // globalScreenMotionStableV4
+            // globalScreenMotionV1
+            animation: 'fade_from_bottom',
+            animationDuration: 220,
             headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.black,
+            // forkKDarkBackgroundContrastV1
+            headerTintColor: colors.text,
             headerTitleStyle: {
               color: colors.text,
               fontSize: 17,
@@ -216,7 +278,7 @@ export default function App() {
           <Stack.Screen
             name="Stats"
             component={StatsScreen}
-            options={{ title: 'Statistika' }}
+            options={{ title: 'Profil' }}
           />
 
           <Stack.Screen
@@ -274,14 +336,7 @@ export default function App() {
             component={BookMetadataImportScreen}
             options={{ title: 'Online pretraga knjiga' }}
           />
-
-          <Stack.Screen
-            name="BookStats"
-            component={BookStatsScreen}
-            options={{ title: 'Statistika' }}
-          />
-
-          <Stack.Screen
+<Stack.Screen
             name="BookForm"
             component={BookFormScreen}
             options={({ route }) => ({
@@ -306,8 +361,34 @@ export default function App() {
         navigation={navigationRef}
         openSignal={paletteOpenSignal}
       />
+
+      {jinglePortalEnabled ? (
+        <>
+        <JinglePortal
+        onNavigate={(route) => {
+          if (!navigationRef.isReady()) return;
+          navigationRef.navigate(route as any);
+        }}
+        onOpenPalette={() => {
+          setPaletteOpenSignal((current) => current + 1);
+        }}
+      />
+        <PortableShareSheet />
+      </>
+      ) : null}
       </View>
       </MemoryAudioProvider>
     </SafeAreaProvider>
+  );
+}
+
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate>
+        <LJingleAuthenticatedApp />
+      </AuthGate>
+    </AuthProvider>
   );
 }

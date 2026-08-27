@@ -28,12 +28,21 @@ import { bookApi } from '../services/bookApi';
 import { collectionApi } from '../services/collectionApi';
 import { mediaApi } from '../services/mediaApi';
 import { activityAccents, colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import type { BookResponse } from '../types/book';
 import type { MediaResponse } from '../types/media';
 import type { RootStackParamList } from '../types/navigation';
 import { semanticFeedback } from '../utils/semanticFeedback';
 
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+import { celestial, celestialAlpha } from '../theme/celestial';
+import { CollectionMemoryBoxGlyph } from '../components/CollectionMemoryBoxGlyph';
+
+// forkN5GlyphReorderV1
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Catalogue'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 type Counts = {
   books: number;
@@ -1084,7 +1093,8 @@ export function CatalogueHomeScreen({ navigation }: Props) {
           restoreCatalogueScroll
         }
       >
-        <View style={styles.hero}>
+        <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+        {celestialMode ? <CelestialAtmosphere variant="catalogue" /> : null}
           <Text style={styles.heading}>
             Katalog
           </Text>
@@ -1093,7 +1103,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
             Sve što čitaš, gledaš i igraš na jednom mjestu.
             Odaberi zbirku za pregled, dodavanje ili nastavak aktivnosti.
           </Text>
-        </View>
+</View>
 
         {error ? (
           <Pressable
@@ -1110,7 +1120,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
         ) : null}
 
         <View style={styles.discovery}>
-          <View style={styles.searchShell}>
+          <View style={[styles.searchShell, celestialMode && styles.celestialSearchShell]}>
             <Text style={styles.searchMark}>
               ⌕
             </Text>
@@ -1198,7 +1208,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
                 </View>
               ) : null}
 
-              <View style={styles.resultsPanel}>
+              <View style={[styles.resultsPanel, celestialMode && styles.celestialPanel]}>
               <View style={styles.resultsHeading}>
                 <Text style={styles.resultsTitle}>
                   Rezultati
@@ -1271,6 +1281,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
             onPress={pickSomething}
             style={({ pressed }) => [
               styles.randomButton,
+              celestialMode && styles.celestialPanel,
               pressed && styles.randomButtonPressed,
               loading && styles.randomButtonDisabled,
             ]}
@@ -1290,7 +1301,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
           </Pressable>
 
           {randomPick ? (
-            <View style={styles.randomResult}>
+            <View style={[styles.randomResult, celestialMode && styles.celestialSoftPanel]}>
               <Text style={styles.randomEyebrow}>
                 {randomPick.typeLabel}
               </Text>
@@ -1392,7 +1403,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
           />
         </View>
 
-        <View style={styles.note}>
+        <View style={[styles.note, celestialMode && styles.celestialSoftPanel]}>
           <Text style={styles.noteMark}>
             i
           </Text>
@@ -1438,6 +1449,7 @@ function CatalogueCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
+        celestialMode && styles.celestialCategoryCard,
         pressed && styles.cardPressed,
       ]}
     >
@@ -1447,9 +1459,59 @@ function CatalogueCard({
           { backgroundColor: accent },
         ]}
       >
-        <Text style={styles.cardMarkText}>
-          {mark}
-        </Text>
+        {title === 'Knjige' ? (
+          <View
+            pointerEvents="none"
+            style={styles.catalogueBookGlyphV2}
+          >
+            <View
+              style={[
+                styles.catalogueBookPageV2,
+                styles.catalogueBookLeftV2,
+              ]}
+            />
+            <View
+              style={[
+                styles.catalogueBookPageV2,
+                styles.catalogueBookRightV2,
+              ]}
+            />
+            <View
+              style={styles.catalogueBookSpineV2}
+            />
+          </View>
+        ) : title === 'Igre' ? (
+          <View
+            pointerEvents="none"
+            style={styles.catalogueJoystickGlyphV2}
+          >
+            <View
+              style={styles.catalogueJoystickStickV2}
+            />
+            <View
+              style={styles.catalogueJoystickBallV2}
+            />
+            <View
+              style={styles.catalogueJoystickBaseV2}
+            />
+            <View
+              style={styles.catalogueJoystickBaseInnerV2}
+            />
+          </View>
+        ) : title === 'Collections' || title === 'Kolekcije' ? (
+          <>
+            {/* forkN5GlyphReorderV1:catalogue-memory-box */}
+            <CollectionMemoryBoxGlyph
+              color={colors.white}
+              size={32}
+            />
+          </>
+        ) : (
+          <Text style={styles.cardMarkText}>
+            {mark}
+          </Text>
+        )}
+        {/* finalJingleHomeCatalogueControlsV2:catalogue-glyphs */}
       </View>
 
       <View style={styles.cardCopy}>
@@ -1481,6 +1543,7 @@ function CatalogueCard({
         </Text>
       </View>
 
+      {celestialMode ? <Text style={styles.celestialCardStar}>✦</Text> : null}
       <Text style={styles.arrow}>
         ›
       </Text>
@@ -1949,8 +2012,9 @@ const styles = StyleSheet.create({
   },
 
   cardPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.995 }],
+    // finalJingleHomeCatalogueControlsV2:motion
+    opacity: 0.96,
+    transform: [{ scale: 0.988 }],
   },
 
   cardMark: {
@@ -1959,6 +2023,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
+  },
+
+  // finalJingleHomeCatalogueControlsV2:catalogue-styles
+  catalogueBookGlyphV2: {
+    width: 38,
+    height: 30,
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+  },
+  catalogueBookPageV2: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: colors.white,
+    backgroundColor: 'transparent',
+  },
+  catalogueBookLeftV2: {
+    borderTopLeftRadius: 5,
+    borderBottomLeftRadius: 5,
+    borderTopRightRadius: 1,
+    borderBottomRightRadius: 1,
+    transform: [{ rotate: '-2deg' }],
+  },
+  catalogueBookRightV2: {
+    borderTopRightRadius: 5,
+    borderBottomRightRadius: 5,
+    borderTopLeftRadius: 1,
+    borderBottomLeftRadius: 1,
+    transform: [{ rotate: '2deg' }],
+  },
+  catalogueBookSpineV2: {
+    position: 'absolute',
+    left: '50%',
+    top: 3,
+    width: 2,
+    height: 24,
+    marginLeft: -1,
+    backgroundColor: colors.white,
+    borderRadius: 1,
+  },
+  catalogueJoystickGlyphV2: {
+    width: 40,
+    height: 34,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  catalogueJoystickStickV2: {
+    position: 'absolute',
+    top: 8,
+    width: 3,
+    height: 14,
+    borderRadius: 2,
+    backgroundColor: colors.white,
+  },
+  catalogueJoystickBallV2: {
+    position: 'absolute',
+    top: 2,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: colors.white,
+  },
+  catalogueJoystickBaseV2: {
+    width: 32,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.white,
+    backgroundColor: 'transparent',
+  },
+  catalogueJoystickBaseInnerV2: {
+    position: 'absolute',
+    bottom: 4,
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: colors.white,
+    opacity: 0.72,
   },
 
   cardMarkText: {
@@ -2059,4 +2203,45 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 4,
   },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  celestialSearchShell: {
+    borderColor: celestialAlpha(celestial.gold, 0.40),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+  },
+  celestialPanel: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+  },
+  celestialSoftPanel: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.24),
+  },
+  celestialCategoryCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderColor: celestialAlpha(celestial.gold, 0.38),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  celestialCardStar: {
+    color: celestial.gold,
+    fontSize: 12,
+    marginLeft: 10,
+    opacity: 0.82,
+  },
+
 });

@@ -2,14 +2,18 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CatalogueCoverDisplay } from '../../components/CatalogueCoverOverride';
 import { colors } from '../../theme/colors';
+import { activeVisualSkinId } from '../../theme/visualSkins';
 // catalogueQuietModeV1
 import { useCatalogueDisplayMode } from '../../theme/catalogueDisplayMode';
 import { gameStatusLabels, type GameResponse } from '../types/game';
 
+import { celestial, celestialAlpha } from '../../theme/celestial';
 type Props = {
   game: GameResponse;
   onPress: () => void;
 };
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 export function GameCard({ game, onPress }: Props) {
   const compactMode = useCatalogueDisplayMode() === 'compact';
@@ -21,6 +25,7 @@ export function GameCard({ game, onPress }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
+        celestialMode && styles.celestialCard,
         compactMode && styles.cardCompact,
         pressed && styles.pressed,
       ]}
@@ -50,6 +55,7 @@ export function GameCard({ game, onPress }: Props) {
           <Text numberOfLines={compactMode ? 1 : 2} style={styles.title}>
             {game.title}{game.dnf ? ' *' : ''}
           </Text>
+          {celestialMode ? <Text style={styles.celestialStar}>✦</Text> : null}
         </View>
         <Text numberOfLines={1} style={styles.meta}>
           {[game.developer, game.releaseYear].filter(Boolean).join(' · ') || 'Podaci nisu uneseni'}
@@ -66,7 +72,7 @@ export function GameCard({ game, onPress }: Props) {
           <>
 
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${game.progress}%` }]} />
+            <View style={[styles.progressFill, celestialMode && styles.celestialProgressFill, { width: `${game.progress}%` }]} />
           </View>
           <Text style={styles.progressText}>{game.progress}%</Text>
           </>
@@ -175,4 +181,22 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 4,
   },
+  celestialCard: {
+    borderColor: celestialAlpha(celestial.gold, 0.36),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  celestialStar: {
+    color: celestial.gold,
+    fontSize: 10,
+    marginTop: 4,
+    opacity: 0.82,
+  },
+  celestialProgressFill: {
+    backgroundColor: celestial.gold,
+  },
+
 });

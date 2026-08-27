@@ -21,6 +21,7 @@ import { hydrateMovieMetadata } from '../services/movieMetadataHydrator';
 // catalogueQuietModeV1
 import { getCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import { registerUndo } from '../utils/undoManager';
 import { semanticFeedback } from '../utils/semanticFeedback';
 import {
@@ -37,7 +38,11 @@ import {
 } from '../types/media';
 import type { MediaStackParamList } from '../types/mediaNavigation';
 
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+import { celestial, celestialAlpha } from '../theme/celestial';
 type Props = NativeStackScreenProps<MediaStackParamList, 'MediaList'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 type TypeFilter = MediaType | 'ALL';
 // catalogueNebitnoFilterV4
 // jingleCatalogueV3
@@ -191,7 +196,7 @@ export function MediaListScreen({ navigation }: Props) {
     try {
       const updated = await mediaApi.setFavourite(item.mediaId, !item.favourite);
       // semanticJingleFeedbackV1
-      void semanticFeedback.jingle();
+      void semanticFeedback.jingle(updated.favourite);
       setItems((current) =>
         statusFilter === 'JINGLE' && !updated.favourite
           ? current.filter((row) => row.mediaId !== updated.mediaId)
@@ -300,23 +305,24 @@ export function MediaListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+        {celestialMode ? <CelestialAtmosphere variant="media" /> : null}
         <Text style={styles.eyebrow}>Katalog</Text>
         <Text style={styles.heading}>Filmovi i serije</Text>
         <Text style={styles.count}>
           {!loading && !error ? `${items.length} naslova u prikazu` : 'Osobna povijest gledanja'}
         </Text>
-        <View style={styles.actions}>
+<View style={styles.actions}>
           <Pressable
             onPress={() => navigation.navigate('MediaSearch')}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.action, celestialMode && styles.celestialAction, pressed && styles.pressed]}
           >
             <Text style={styles.actionIcon}>⌕</Text>
             <Text style={styles.actionLabel}>Online pretraga</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate('MediaForm')}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.action, celestialMode && styles.celestialAction, pressed && styles.pressed]}
           >
             <Text style={styles.actionIcon}>+</Text>
             <Text style={styles.actionLabel}>Ručni unos</Text>
@@ -496,5 +502,19 @@ const styles = StyleSheet.create({
   chipText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
   chipTextActive: { color: colors.white },
   list: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 35 },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  celestialAction: {
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+
 });
 

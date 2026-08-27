@@ -1,0 +1,480 @@
+LJINGLE — Palette v2 Jingle target audit
+=========================================
+
+### src/services/bookApi.ts
+
+-- lines 1-35 --
+   1 | import type {
+   2 |   BookRequest,
+   3 |   BookResponse,
+   4 |   PagedBooks,
+   5 | } from '../types/book';
+   6 | import { apiRequest } from './apiClient';
+   7 | 
+   8 | export { ApiError } from './apiClient';
+   9 | 
+  10 | export const bookApi = {
+  11 |   getAll: () => apiRequest<BookResponse[]>('/books'),
+  12 | 
+  13 |   getPage: (page = 0, size = 10) =>
+  14 |     apiRequest<PagedBooks>(`/books?page=${page}&size=${size}`),
+  15 | 
+  16 |   getById: (bookId: string) => apiRequest<BookResponse>(`/books/${bookId}`),
+  17 | 
+  18 |   create: (payload: BookRequest) =>
+  19 |     apiRequest<BookResponse>('/books', {
+  20 |       method: 'POST',
+  21 |       body: JSON.stringify(payload),
+  22 |     }),
+  23 | 
+  24 |   update: (bookId: string, payload: BookRequest) =>
+  25 |     apiRequest<BookResponse>(`/books/${bookId}`, {
+  26 |       method: 'PUT',
+  27 |       body: JSON.stringify(payload),
+  28 |     }),
+  29 | 
+  30 |   remove: (bookId: string) =>
+  31 |     apiRequest<void>(`/books/${bookId}`, {
+  32 |       method: 'DELETE',
+  33 |     }),
+  34 | };
+  35 | 
+
+### src/types/book.ts
+
+-- lines 1-47 --
+   1 | export type ReadingStatus = 'LATER' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'DROPPED';
+   2 | 
+   3 | export type Enjoyment = 'ENJOYED' | 'OKAY' | 'REGRET';
+   4 | 
+   5 | export type BookResponse = {
+   6 |   bookId: string;
+   7 |   title: string;
+   8 |   author: string;
+   9 |   isbn: string;
+  10 |   publishedYear: number;
+  11 |   readingStatus: ReadingStatus;
+  12 |   progress: number;
+  13 |   enjoyment: Enjoyment | null;
+  14 |   favourite: boolean;
+  15 |   startedOn: string | null;
+  16 |   finishedOn: string | null;
+  17 | };
+  18 | 
+  19 | export type BookRequest = Omit<BookResponse, 'bookId'>;
+  20 | 
+  21 | export type PagedBooks = {
+  22 |   content: BookResponse[];
+  23 |   page: number;
+  24 |   size: number;
+  25 |   totalElements: number;
+  26 |   totalPages: number;
+  27 |   first: boolean;
+  28 |   last: boolean;  
+  29 | };
+  30 | 
+  31 | export const readingStatusLabels: Record<ReadingStatus, string> = {
+  32 |   LATER: 'Za poslije',
+  33 |   IN_PROGRESS: 'Čitam',
+  34 |   COMPLETED: 'Pročitano',
+  35 |   PAUSED: 'Pauzirano',
+  36 |   DROPPED: 'Odustao/la',
+  37 | };
+  38 | 
+  39 | export const enjoymentLabels: Record<Enjoyment, string> = {
+  40 |   ENJOYED: 'Svidjelo mi se',
+  41 |   OKAY: 'Bilo je u redu',
+  42 |   REGRET: 'Žalim utrošeno vrijeme',
+  43 | };
+  44 | 
+  45 | export const readingStatuses = Object.keys(readingStatusLabels) as ReadingStatus[];
+  46 | export const enjoymentOptions = Object.keys(enjoymentLabels) as Enjoyment[];
+  47 | 
+
+### src/services/mediaApi.ts
+
+-- lines 1-100 --
+   1 | import type {
+   2 |   MediaRequest,
+   3 |   MediaResponse,
+   4 |   MediaTimerResponse,
+   5 |   MediaType,
+   6 |   TmdbMediaResponse,
+   7 |   TmdbSearchResponse,
+   8 |   WatchStatus,
+   9 | } from '../types/media';
+  10 | import { apiRequest } from './apiClient';
+  11 | 
+  12 | // catalogueNebitnoFilterV4
+  13 | type MediaFilters = {
+  14 |   mediaType?: MediaType;
+  15 |   status?: WatchStatus;
+  16 |   ignored?: 'NEBITNO';
+  17 |   favourite?: boolean;
+  18 | };
+  19 | 
+  20 | // lazyMoviePostersV5
+  21 | export type MediaMetadataPatch = {
+  22 |   originalTitle?: string | null;
+  23 |   overview?: string | null;
+  24 |   posterPath?: string | null;
+  25 |   backdropPath?: string | null;
+  26 |   releaseYear?: number | null;
+  27 | };
+  28 | 
+  29 | function queryString(values: Record<string, string | number | undefined>) {
+  30 |   const params = Object.entries(values)
+  31 |     .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
+  32 |     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  33 |   return params.length > 0 ? `?${params.join('&')}` : '';
+  34 | }
+  35 | 
+  36 | export const mediaApi = {
+  37 |   getAll: (filters: MediaFilters = {}) =>
+  38 |     apiRequest<MediaResponse[]>(
+  39 |       `/media${queryString({
+  40 |         mediaType: filters.mediaType,
+  41 |         status: filters.status,
+  42 |         ignored: filters.ignored,
+  43 |         includeIgnored: filters.ignored ? 1 : undefined,
+  44 |         favourite: filters.favourite ? 1 : undefined,
+  45 |       })}`,
+  46 |     ),
+  47 | 
+  48 |   getById: (mediaId: string) => apiRequest<MediaResponse>(`/media/${mediaId}`),
+  49 | 
+  50 |   create: (payload: MediaRequest) =>
+  51 |     apiRequest<MediaResponse>('/media', {
+  52 |       method: 'POST',
+  53 |       body: JSON.stringify(payload),
+  54 |     }),
+  55 | 
+  56 |   update: (mediaId: string, payload: MediaRequest) =>
+  57 |     apiRequest<MediaResponse>(`/media/${mediaId}`, {
+  58 |       method: 'PUT',
+  59 |       body: JSON.stringify(payload),
+  60 |     }),
+  61 | 
+  62 |   remove: (mediaId: string) =>
+  63 |     apiRequest<void>(`/media/${mediaId}`, { method: 'DELETE' }),
+  64 | 
+  65 |   // lazyMoviePostersV5 — metadata only; personal tracking fields are preserved.
+  66 |   // jingleCatalogueV3 — favourite only.
+  67 |   setFavourite: (mediaId: string, favourite: boolean) =>
+  68 |     apiRequest<MediaResponse>(`/media/${encodeURIComponent(mediaId)}/favourite`, {
+  69 |       method: 'PATCH',
+  70 |       body: JSON.stringify({ favourite }),
+  71 |     }),
+  72 | 
+  73 |   patchMetadata: (mediaId: string, payload: MediaMetadataPatch) =>
+  74 |     apiRequest<MediaResponse>(`/media/${encodeURIComponent(mediaId)}/metadata`, {
+  75 |       method: 'PATCH',
+  76 |       body: JSON.stringify(payload),
+  77 |     }),
+  78 | 
+  79 |   getTimer: (mediaId: string) =>
+  80 |     apiRequest<MediaTimerResponse>(`/media/${mediaId}/watching`),
+  81 | 
+  82 |   startWatching: (mediaId: string) =>
+  83 |     apiRequest<MediaTimerResponse>(`/media/${mediaId}/watching/start`, {
+  84 |       method: 'POST',
+  85 |     }),
+  86 | 
+  87 |   stopWatching: (mediaId: string) =>
+  88 |     apiRequest<MediaTimerResponse>(`/media/${mediaId}/watching/stop`, {
+  89 |       method: 'POST',
+  90 |     }),
+  91 | 
+  92 |   searchTmdb: (query: string, mediaType: MediaType, page = 1) =>
+  93 |     apiRequest<TmdbSearchResponse>(
+  94 |       `/media/tmdb/search${queryString({ query, mediaType, page })}`,
+  95 |     ),
+  96 | 
+  97 |   getTmdbDetails: (mediaType: MediaType, tmdbId: number) =>
+  98 |     apiRequest<TmdbMediaResponse>(`/media/tmdb/${mediaType}/${tmdbId}`),
+  99 | };
+ 100 | 
+
+### src/types/media.ts
+
+-- lines 1-84 --
+   1 | export type MediaType = 'MOVIE' | 'SERIES';
+   2 | 
+   3 | export type WatchStatus = 'WATCHLIST' | 'WATCHING' | 'COMPLETED' | 'DROPPED';
+   4 | 
+   5 | export type MediaEnjoyment = 'ENJOYED' | 'OKAY' | 'REGRET';
+   6 | 
+   7 | export type MediaResponse = {
+   8 |   mediaId: string;
+   9 |   mediaType: MediaType;
+  10 |   tmdbId: number | null;
+  11 |   title: string;
+  12 |   originalTitle: string | null;
+  13 |   overview: string | null;
+  14 |   posterPath: string | null;
+  15 |   backdropPath: string | null;
+  16 |   releaseYear: number | null;
+  17 |   watchStatus: WatchStatus;
+  18 |   progress: number;
+  19 |   enjoyment: MediaEnjoyment | null;
+  20 |   favourite: boolean;
+  21 |   startedOn: string | null;
+  22 |   completedOn: string | null;
+  23 | };
+  24 | 
+  25 | export type MediaRequest = Omit<MediaResponse, 'mediaId'>;
+  26 | 
+  27 | export type MediaTimerResponse = {
+  28 |   activityId: string | null;
+  29 |   label: string;
+  30 |   activityType: 'WATCHING';
+  31 |   mediaId: string;
+  32 |   running: boolean;
+  33 |   activeSessionId: string | null;
+  34 |   activeStartedAt: string | null;
+  35 |   completedSeconds: number;
+  36 |   totalSeconds: number;
+  37 | };
+  38 | 
+  39 | export type TmdbMediaResponse = {
+  40 |   tmdbId: number;
+  41 |   mediaType: MediaType;
+  42 |   title: string;
+  43 |   originalTitle: string | null;
+  44 |   overview: string | null;
+  45 |   posterPath: string | null;
+  46 |   posterUrl: string | null;
+  47 |   backdropPath: string | null;
+  48 |   backdropUrl: string | null;
+  49 |   releaseYear: number | null;
+  50 | };
+  51 | 
+  52 | export type TmdbSearchResponse = {
+  53 |   page: number;
+  54 |   totalPages: number;
+  55 |   totalResults: number;
+  56 |   results: TmdbMediaResponse[];
+  57 | };
+  58 | 
+  59 | export const mediaTypeLabels: Record<MediaType, string> = {
+  60 |   MOVIE: 'Filmovi',
+  61 |   SERIES: 'Serije',
+  62 | };
+  63 | 
+  64 | export const watchStatusLabels: Record<WatchStatus, string> = {
+  65 |   WATCHLIST: 'Za pogledati',
+  66 |   WATCHING: 'Gledam',
+  67 |   COMPLETED: 'Pogledano',
+  68 |   DROPPED: 'Odustao/la',
+  69 | };
+  70 | 
+  71 | export const mediaEnjoymentLabels: Record<MediaEnjoyment, string> = {
+  72 |   ENJOYED: 'Svidjelo mi se',
+  73 |   OKAY: 'Bilo je u redu',
+  74 |   REGRET: 'Žalim utrošeno vrijeme',
+  75 | };
+  76 | 
+  77 | export const mediaTypes = Object.keys(mediaTypeLabels) as MediaType[];
+  78 | export const watchStatuses = Object.keys(watchStatusLabels) as WatchStatus[];
+  79 | export const mediaEnjoymentOptions = Object.keys(
+  80 |   mediaEnjoymentLabels,
+  81 | ) as MediaEnjoyment[];
+  82 | 
+  83 | export function tmdbImageUrl(path: string | null, size = 'w500') {
+  84 |   if (!path) return null;
+
+### src/games/services/gameApi.ts
+
+-- lines 1-66 --
+   1 | import { apiRequest } from '../../services/apiClient';
+   2 | import type { ActivityTimerResponse } from '../../types/activity';
+   3 | import type {
+   4 |   GameMetadataResult,
+   5 |   GameRequest,
+   6 |   GameResponse,
+   7 |   GameStatus,
+   8 | } from '../types/game';
+   9 | 
+  10 | // lazyGameCoversV1
+  11 | export type GameMetadataPatch = {
+  12 |   developer?: string | null;
+  13 |   releaseYear?: number | null;
+  14 |   igdbId?: number | null;
+  15 |   coverUrl?: string | null;
+  16 | };
+  17 | 
+  18 | export const gameApi = {
+  19 |   getAll: (status?: GameStatus) =>
+  20 |     apiRequest<GameResponse[]>(`/games${status ? `?status=${status}` : ''}`),
+  21 | 
+  22 |   getById: (gameId: string) => apiRequest<GameResponse>(`/games/${gameId}`),
+  23 | 
+  24 |   create: (payload: GameRequest) =>
+  25 |     apiRequest<GameResponse>('/games', {
+  26 |       method: 'POST',
+  27 |       body: JSON.stringify(payload),
+  28 |     }),
+  29 | 
+  30 |   update: (gameId: string, payload: GameRequest) =>
+  31 |     apiRequest<GameResponse>(`/games/${gameId}`, {
+  32 |       method: 'PUT',
+  33 |       body: JSON.stringify(payload),
+  34 |     }),
+  35 | 
+  36 |   remove: (gameId: string) =>
+  37 |     apiRequest<void>(`/games/${gameId}`, {
+  38 |       method: 'DELETE',
+  39 |     }),
+  40 | 
+  41 |   // lazyGameCoversV1 — fills only missing online metadata.
+  42 |   patchMetadata: (gameId: string, payload: GameMetadataPatch) =>
+  43 |     apiRequest<GameResponse>(`/games/${encodeURIComponent(gameId)}/metadata`, {
+  44 |       method: 'PATCH',
+  45 |       body: JSON.stringify(payload),
+  46 |     }),
+  47 | 
+  48 |   getTimer: (gameId: string) =>
+  49 |     apiRequest<ActivityTimerResponse>(`/games/${gameId}/timer`),
+  50 | 
+  51 |   startTimer: (gameId: string) =>
+  52 |     apiRequest<ActivityTimerResponse>(`/games/${gameId}/timer/start`, {
+  53 |       method: 'POST',
+  54 |     }),
+  55 | 
+  56 |   stopTimer: (gameId: string) =>
+  57 |     apiRequest<ActivityTimerResponse>(`/games/${gameId}/timer/stop`, {
+  58 |       method: 'POST',
+  59 |     }),
+  60 | 
+  61 |   searchMetadata: (query: string) =>
+  62 |     apiRequest<GameMetadataResult[]>(
+  63 |       `/games/metadata/search?query=${encodeURIComponent(query.trim())}`,
+  64 |     ),
+  65 | };
+  66 | 
+
+### src/games/types/game.ts
+
+-- lines 2-61 --
+   2 | export type GameStatus =
+   3 |   | 'BACKLOG'
+   4 |   | 'PLAYING'
+   5 |   | 'INSTALLED'
+   6 |   | 'COMPLETED'
+   7 |   | 'PLAYED_BEFORE'
+   8 |   | 'DROPPED'
+   9 |   | 'QUIT'
+  10 |   | 'UNSORTED';
+  11 | 
+  12 | export type Enjoyment = 'ENJOYED' | 'OKAY' | 'REGRET';
+  13 | 
+  14 | export type GameResponse = {
+  15 |   gameId: string;
+  16 |   title: string;
+  17 |   developer: string | null;
+  18 |   platform: string;
+  19 |   releaseYear: number | null;
+  20 |   gameStatus: GameStatus;
+  21 |   progress: number;
+  22 |   enjoyment: Enjoyment | null;
+  23 |   favourite: boolean;
+  24 |   /** Imported Notes DNF: treated as completed, displayed with an asterisk. */
+  25 |   dnf: boolean;
+  26 |   startedOn: string | null;
+  27 |   finishedOn: string | null;
+  28 |   igdbId: number | null;
+  29 |   coverUrl: string | null;
+  30 |   playingActivityId: string | null;
+  31 | };
+  32 | 
+  33 | export type GameRequest = Omit<GameResponse, 'gameId' | 'playingActivityId' | 'dnf'>;
+  34 | 
+  35 | export type GameMetadataResult = {
+  36 |   igdbId: number;
+  37 |   title: string;
+  38 |   developer: string | null;
+  39 |   releaseYear: number | null;
+  40 |   coverUrl: string | null;
+  41 |   platforms: string[];
+  42 | };
+  43 | 
+  44 | export type GameStackParamList = {
+  45 |   GameList: undefined;
+  46 |   GameDetails: { gameId: string };
+  47 |   GameForm: { gameId?: string; prefill?: GameMetadataResult } | undefined;
+  48 |   GameMetadataSearch: undefined;
+  49 | };
+  50 | 
+  51 | export const gameStatusLabels: Record<GameStatus, string> = {
+  52 |   BACKLOG: 'Za poslije',
+  53 |   PLAYING: 'Igram',
+  54 |   INSTALLED: 'Instalirano',
+  55 |   COMPLETED: 'Završeno',
+  56 |   PLAYED_BEFORE: 'Igrano prije',
+  57 |   DROPPED: 'Odustao/la',
+  58 |   QUIT: 'Quit',
+  59 |   UNSORTED: 'Nesvrstano',
+  60 | };
+  61 | 
+
+### src/services/entityLinksApi.ts
+
+-- lines 1-57 --
+   1 | import { apiRequest } from './apiClient';
+   2 | import type {
+   3 |   EntityLink,
+   4 |   EntityReference,
+   5 |   EntityReferenceType,
+   6 |   RelationType,
+   7 | } from '../types/collection';
+   8 | 
+   9 | // brutusEntityLinksApiV2
+  10 | export const entityLinksApi = {
+  11 |   searchReferences(query: string) {
+  12 |     return apiRequest<EntityReference[]>(
+  13 |       '/entity-references?query=' +
+  14 |         encodeURIComponent(query),
+  15 |     );
+  16 |   },
+  17 | 
+  18 |   jingleReferences() {
+  19 |     return apiRequest<EntityReference[]>(
+  20 |       '/entity-references/jingle',
+  21 |     );
+  22 |   },
+  23 | 
+  24 |   getFor(entityType: EntityReferenceType, entityId: string) {
+  25 |     return apiRequest<EntityLink[]>(
+  26 |       '/entity-links?entityType=' +
+  27 |         encodeURIComponent(entityType) +
+  28 |         '&entityId=' +
+  29 |         encodeURIComponent(entityId),
+  30 |     );
+  31 |   },
+  32 | 
+  33 |   create(request: {
+  34 |     sourceType: EntityReferenceType;
+  35 |     sourceId: string;
+  36 |     targetType: EntityReferenceType;
+  37 |     targetId: string;
+  38 |     relationType: RelationType;
+  39 |     note?: string | null;
+  40 |   }) {
+  41 |     return apiRequest<EntityLink>(
+  42 |       '/entity-links',
+  43 |       {
+  44 |         method: 'POST',
+  45 |         body: JSON.stringify(request),
+  46 |       },
+  47 |     );
+  48 |   },
+  49 | 
+  50 |   remove(linkId: string) {
+  51 |     return apiRequest<void>(
+  52 |       '/entity-links/' + encodeURIComponent(linkId),
+  53 |       { method: 'DELETE' },
+  54 |     );
+  55 |   },
+  56 | };
+  57 | 
+

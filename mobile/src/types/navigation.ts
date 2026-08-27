@@ -8,16 +8,15 @@ export type RootStackParamList = {
   TopicDetails: { topicId: string };
   History: undefined;
   Stats: undefined;
-  Reconstruction: undefined;
+  Reconstruction: { year?: number } | undefined;
   Entries: undefined;
   EntryForm: { entryId?: string } | undefined;
-  MemoryRadio: undefined;
+  MemoryRadio: { trackId?: string } | undefined;
   Games: undefined;
   Media: undefined;
   BookList: undefined;
   BookSearch: undefined;
   BookMetadataImport: undefined;
-  BookStats: undefined;
   BookDetails: { bookId: string };
   BookForm: { bookId?: string } | undefined;
 };

@@ -25,6 +25,24 @@ import {
   type CatalogueSnapshotItem,
 } from '../services/catalogueSnapshots';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { activeAeroBackgroundId } from '../theme/aeroBackground';
+
+const aeroMeadow =
+  activeVisualSkinId === 'aero' &&
+  activeAeroBackgroundId === 'meadow';
+
+// forkN4CelestialArchiveVisualV12
+// ThemePicker-driven Classic celestial palette.
+const n4Celestial = activeVisualSkinId === 'classic';
+const N4_NIGHT = colors.background;
+const N4_PANEL = colors.surface;
+const N4_PANEL_RAISED = colors.fillStrong;
+const N4_BLUE = colors.fill;
+const N4_GOLD = colors.navy;
+const N4_GOLD_LINE = colors.separator;
+const N4_IVORY = colors.text;
+const N4_MUTED = colors.textMuted;
 import { readingStatusLabels } from '../types/book';
 import { watchStatusLabels } from '../types/media';
 import { gameStatusLabels } from '../games/types/game';
@@ -580,9 +598,9 @@ const styles = StyleSheet.create({
     marginTop: 28,
     marginBottom: 28,
     borderWidth: 1,
-    borderColor: colors.separator,
+    borderColor: n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     borderRadius: 28,
-    backgroundColor: colors.surface,
+    backgroundColor: n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
     padding: 22,
   },
 
@@ -598,7 +616,7 @@ const styles = StyleSheet.create({
   },
 
   eyebrow: {
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -606,7 +624,7 @@ const styles = StyleSheet.create({
 
   heading: {
     marginTop: 6,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 24,
     lineHeight: 29,
     fontWeight: '800',
@@ -616,7 +634,7 @@ const styles = StyleSheet.create({
   intro: {
     marginTop: 6,
     maxWidth: 520,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -627,8 +645,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,
-    backgroundColor: colors.black,
+    backgroundColor: n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
     paddingHorizontal: 14,
+  },
+
+  createButtonMeadow: {
+    backgroundColor: '#5E7167',
   },
 
   createButtonText: {
@@ -661,32 +683,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: colors.fill,
+    backgroundColor: n4Celestial ? N4_BLUE : n4Celestial ? N4_BLUE : colors.fill,
     padding: 15,
   },
 
   loadingText: {
     marginLeft: 10,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 12,
   },
 
   emptyState: {
     marginTop: 18,
     borderRadius: 18,
-    backgroundColor: colors.fill,
+    backgroundColor: n4Celestial ? N4_BLUE : n4Celestial ? N4_BLUE : colors.fill,
     padding: 17,
   },
 
   emptyTitle: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
 
   emptyText: {
     marginTop: 5,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 11,
     lineHeight: 17,
   },
@@ -698,9 +720,9 @@ const styles = StyleSheet.create({
   snapshotCard: {
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.separator,
+    borderColor: n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     borderRadius: 20,
-    backgroundColor: colors.fill,
+    backgroundColor: n4Celestial ? N4_BLUE : n4Celestial ? N4_BLUE : colors.fill,
     padding: 17,
   },
 
@@ -716,19 +738,19 @@ const styles = StyleSheet.create({
   },
 
   snapshotLabel: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 18,
     fontWeight: '800',
   },
 
   snapshotDate: {
     marginTop: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
   },
 
   snapshotTotal: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 24,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
@@ -743,7 +765,7 @@ const styles = StyleSheet.create({
   metric: {
     marginRight: 10,
     marginBottom: 4,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -756,7 +778,7 @@ const styles = StyleSheet.create({
 
   smallMetric: {
     marginRight: 5,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
   },
 
@@ -771,7 +793,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 13,
-    backgroundColor: colors.black,
+    backgroundColor: n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
   },
 
   openButtonText: {
@@ -806,7 +828,7 @@ const styles = StyleSheet.create({
   confirmText: {
     flex: 1,
     marginRight: 8,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -816,12 +838,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 11,
-    backgroundColor: colors.surface,
+    backgroundColor: n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
     paddingHorizontal: 12,
   },
 
   confirmCancelText: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -844,7 +866,7 @@ const styles = StyleSheet.create({
 
   viewer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: n4Celestial ? N4_NIGHT : colors.background,
     paddingTop: 22,
     paddingHorizontal: 18,
   },
@@ -854,7 +876,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: colors.separator,
+    borderBottomColor: n4Celestial ? N4_GOLD_LINE : colors.separator,
     paddingBottom: 16,
   },
 
@@ -864,7 +886,7 @@ const styles = StyleSheet.create({
   },
 
   viewerEyebrow: {
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
@@ -872,20 +894,20 @@ const styles = StyleSheet.create({
 
   viewerHeading: {
     marginTop: 5,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 27,
     fontWeight: '800',
   },
 
   viewerDate: {
     marginTop: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 11,
   },
 
   closeButton: {
     borderRadius: 999,
-    backgroundColor: colors.black,
+    backgroundColor: n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
     paddingHorizontal: 15,
     paddingVertical: 10,
   },
@@ -901,14 +923,14 @@ const styles = StyleSheet.create({
   },
 
   viewerSummaryValue: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 32,
     fontWeight: '800',
   },
 
   viewerSummaryLabel: {
     marginTop: 3,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 12,
   },
 
@@ -918,7 +940,7 @@ const styles = StyleSheet.create({
 
   itemRow: {
     borderTopWidth: 1,
-    borderTopColor: colors.separator,
+    borderTopColor: n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     paddingVertical: 14,
   },
 
@@ -927,14 +949,14 @@ const styles = StyleSheet.create({
   },
 
   itemTitle: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
 
   itemMeta: {
     marginTop: 3,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
   },
 
@@ -945,27 +967,27 @@ const styles = StyleSheet.create({
   },
 
   itemStatus: {
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 10,
     fontWeight: '700',
   },
 
   itemProgress: {
     marginLeft: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
   },
 
   itemJingle: {
     marginLeft: 4,
-    color: colors.text,
+    color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
     fontSize: 10,
     fontWeight: '800',
   },
 
   itemNebitno: {
     marginLeft: 4,
-    color: colors.textMuted,
+    color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
     fontSize: 10,
     fontStyle: 'italic',
   },

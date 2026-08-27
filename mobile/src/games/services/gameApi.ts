@@ -33,6 +33,21 @@ export const gameApi = {
       body: JSON.stringify(payload),
     }),
 
+  // // catalogueJingleProgressSemanticsV1:GameJingle
+  setFavourite: (
+    gameId: string,
+    favourite: boolean,
+  ) =>
+    apiRequest<GameResponse>(
+      `/games/${encodeURIComponent(gameId)}/favourite`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          favourite,
+        }),
+      },
+    ),
+
   remove: (gameId: string) =>
     apiRequest<void>(`/games/${gameId}`, {
       method: 'DELETE',
@@ -63,3 +78,5 @@ export const gameApi = {
       `/games/metadata/search?query=${encodeURIComponent(query.trim())}`,
     ),
 };
+
+// catalogueJingleProgressSemanticsV1

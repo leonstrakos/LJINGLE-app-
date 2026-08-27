@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -29,6 +28,7 @@ import {
   type ReadingStatus,
 } from '../types/book';
 import type { RootStackParamList } from '../types/navigation';
+import { createdFeedback } from '../utils/crudFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookForm'>;
 
@@ -83,7 +83,10 @@ export function BookFormScreen({ route, navigation }: Props) {
   const [isbn, setIsbn] = useState('');
   const [publishedYear, setPublishedYear] = useState('');
   const [readingStatus, setReadingStatus] = useState<ReadingStatus>('LATER');
-  const [progress, setProgress] = useState('0');
+  // // catalogueJingleProgressSemanticsV1:BookProgress
+  const [legacyProgress, setLegacyProgress] = useState('0');
+  const [totalPages, setTotalPages] = useState('');
+  const [currentPage, setCurrentPage] = useState('');
   const [enjoyment, setEnjoyment] = useState<Enjoyment | null>(null);
   const [favourite, setFavourite] = useState(false);
   const [startedOn, setStartedOn] = useState('');
@@ -91,6 +94,7 @@ export function BookFormScreen({ route, navigation }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -102,11 +106,21 @@ export function BookFormScreen({ route, navigation }: Props) {
       try {
         const book = await bookApi.getById(bookId);
         setTitle(book.title);
-        setAuthor(book.author);
-        setIsbn(book.isbn);
-        setPublishedYear(String(book.publishedYear));
+        setAuthor(book.author || '');
+        setIsbn(book.isbn || '');
+        setPublishedYear(book.publishedYear > 0 ? String(book.publishedYear) : '');
         setReadingStatus(book.readingStatus);
-        setProgress(String(book.progress));
+        setLegacyProgress(String(book.progress));
+        setTotalPages(
+          book.totalPages
+            ? String(book.totalPages)
+            : '',
+        );
+        setCurrentPage(
+          book.currentPage !== null
+            ? String(book.currentPage)
+            : '',
+        );
         setEnjoyment(book.enjoyment);
         setFavourite(book.favourite);
         setStartedOn(book.startedOn ?? '');
@@ -124,21 +138,57 @@ export function BookFormScreen({ route, navigation }: Props) {
   const validate = (): BookRequest | null => {
     const nextErrors: Record<string, string> = {};
     const numericYear = Number(publishedYear);
-    const numericProgress = Number(progress);
+    const numericTotalPages =
+      Number(totalPages);
+    const numericCurrentPage =
+      currentPage.trim()
+        ? Number(currentPage)
+        : 0;
     const maxYear = new Date().getFullYear() + 1;
 
     if (!title.trim()) nextErrors.title = 'Naslov ne smije biti prazan.';
-    if (!author.trim()) nextErrors.author = 'Autor ne smije biti prazan.';
-    if (!isbn.trim()) nextErrors.isbn = 'ISBN ne smije biti prazan.';
-    if (!publishedYear.trim() || !Number.isInteger(numericYear)) {
-      nextErrors.publishedYear = 'Unesite cijelu godinu.';
-    } else if (numericYear < 0 || numericYear > maxYear) {
-      nextErrors.publishedYear = `Godina mora biti između 0 i ${maxYear}.`;
+    if (
+      publishedYear.trim() &&
+      (!Number.isInteger(numericYear) || numericYear <= 0 || numericYear > maxYear)
+    ) {
+      nextErrors.publishedYear = `Godina mora biti između 1 i ${maxYear}.`;
     }
-    if (!progress.trim() || !Number.isInteger(numericProgress)) {
-      nextErrors.progress = 'Unesite cijeli postotak.';
-    } else if (numericProgress < 0 || numericProgress > 100) {
-      nextErrors.progress = 'Napredak mora biti između 0 i 100.';
+    if (
+      totalPages.trim() &&
+      (
+        !Number.isInteger(
+          numericTotalPages,
+        ) ||
+        numericTotalPages <= 0
+      )
+    ) {
+      nextErrors.totalPages =
+        'Broj stranica mora biti pozitivan cijeli broj.';
+    }
+
+    if (
+      currentPage.trim() &&
+      (
+        !Number.isInteger(
+          numericCurrentPage,
+        ) ||
+        numericCurrentPage < 0
+      )
+    ) {
+      nextErrors.currentPage =
+        'Trenutna stranica mora biti 0 ili veća.';
+    }
+
+    if (
+      !nextErrors.totalPages &&
+      !nextErrors.currentPage &&
+      totalPages.trim() &&
+      currentPage.trim() &&
+      numericCurrentPage >
+        numericTotalPages
+    ) {
+      nextErrors.currentPage =
+        'Trenutna stranica ne može biti veća od ukupnog broja stranica.';
     }
     if (startedOn && !isValidIsoDate(startedOn)) {
       nextErrors.startedOn = 'Koristite valjani datum u obliku GGGG-MM-DD.';
@@ -153,13 +203,42 @@ export function BookFormScreen({ route, navigation }: Props) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return null;
 
+    const derivedProgress =
+      totalPages.trim() &&
+      Number.isInteger(
+        numericTotalPages,
+      ) &&
+      numericTotalPages > 0
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              Math.round(
+                numericCurrentPage /
+                  numericTotalPages *
+                  100,
+              ),
+            ),
+          )
+        : Number(
+            legacyProgress,
+          ) || 0;
+
     return {
       title: title.trim(),
       author: author.trim(),
       isbn: isbn.trim(),
-      publishedYear: numericYear,
+      publishedYear: publishedYear.trim() ? numericYear : 0,
       readingStatus,
-      progress: numericProgress,
+      progress: derivedProgress,
+      totalPages:
+        totalPages.trim()
+          ? numericTotalPages
+          : null,
+      currentPage:
+        currentPage.trim()
+          ? numericCurrentPage
+          : null,
       enjoyment,
       favourite,
       startedOn: startedOn || null,
@@ -171,19 +250,25 @@ export function BookFormScreen({ route, navigation }: Props) {
     const payload = validate();
     if (!payload) return;
 
+    setSaveError(null);
+
     setSaving(true);
     try {
       if (bookId) {
         await bookApi.update(bookId, payload);
       } else {
         await bookApi.create(payload);
+
+        createdFeedback();
       }
       navigation.goBack();
     } catch (caught) {
-      Alert.alert(
-        'Spremanje nije uspjelo',
-        caught instanceof Error ? caught.message : 'Pokušajte ponovno.',
-      );
+      const message =
+        caught instanceof Error ? caught.message : 'Pokušajte ponovno.';
+      setSaveError(message);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Spremanje nije uspjelo', message);
+      }
     } finally {
       setSaving(false);
     }
@@ -230,7 +315,7 @@ export function BookFormScreen({ route, navigation }: Props) {
               error={errors.title}
             />
             <FormField
-              label="Autor *"
+              label="Autor"
               value={author}
               onChangeText={(value) => {
                 setAuthor(value);
@@ -241,7 +326,7 @@ export function BookFormScreen({ route, navigation }: Props) {
               autoCapitalize="words"
             />
             <FormField
-              label="ISBN *"
+              label="ISBN"
               value={isbn}
               onChangeText={(value) => {
                 setIsbn(value);
@@ -252,7 +337,7 @@ export function BookFormScreen({ route, navigation }: Props) {
               autoCapitalize="none"
             />
             <FormField
-              label="Godina izdanja *"
+              label="Godina izdanja"
               value={publishedYear}
               onChangeText={(value) => {
                 setPublishedYear(value.replace(/[^0-9]/g, ''));
@@ -281,6 +366,15 @@ export function BookFormScreen({ route, navigation }: Props) {
                       }
 
                       setReadingStatus(status);
+
+                      if (
+                        status === 'COMPLETED' &&
+                        totalPages.trim()
+                      ) {
+                        setCurrentPage(
+                          totalPages,
+                        );
+                      }
                     }}
                     style={[styles.choice, readingStatus === status && styles.choiceSelected]}
                   >
@@ -293,17 +387,77 @@ export function BookFormScreen({ route, navigation }: Props) {
             </View>
 
             <FormField
-              label="Napredak (%)"
-              value={progress}
+              label="Broj stranica"
+              value={totalPages}
               onChangeText={(value) => {
-                setProgress(value.replace(/[^0-9]/g, ''));
-                setErrors((current) => ({ ...current, progress: '' }));
+                setTotalPages(
+                  value.replace(
+                    /[^0-9]/g,
+                    '',
+                  ),
+                );
+
+                setErrors((current) => ({
+                  ...current,
+                  totalPages: '',
+                  currentPage: '',
+                }));
               }}
-              placeholder="0–100"
-              error={errors.progress}
+              placeholder="npr. 320"
+              error={errors.totalPages}
               keyboardType="number-pad"
               autoCapitalize="none"
             />
+
+            <FormField
+              label="Trenutna stranica"
+              value={currentPage}
+              onChangeText={(value) => {
+                setCurrentPage(
+                  value.replace(
+                    /[^0-9]/g,
+                    '',
+                  ),
+                );
+
+                setErrors((current) => ({
+                  ...current,
+                  currentPage: '',
+                }));
+              }}
+              placeholder="npr. 147"
+              error={errors.currentPage}
+              keyboardType="number-pad"
+              autoCapitalize="none"
+            />
+
+            {totalPages.trim() ? (
+              <Text style={styles.calculatedProgress}>
+                Napredak · {
+                  Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Math.round(
+                        (
+                          Number(
+                            currentPage ||
+                              0,
+                          ) /
+                          Math.max(
+                            1,
+                            Number(
+                              totalPages,
+                            ),
+                          )
+                        ) *
+                          100,
+                      ),
+                    ),
+                  )
+                }%
+              </Text>
+            ) : null}
 
             <View style={styles.field}>
               <Text style={styles.label}>Kako ti je bilo?</Text>
@@ -347,30 +501,17 @@ export function BookFormScreen({ route, navigation }: Props) {
               autoCapitalize="none"
             />
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchCopy}>
-                <Text style={styles.label}>Favorit</Text>
-                <Text style={styles.switchHint}>
-                  {favourite ? 'Knjiga je među tvojim favoritima.' : 'Označi knjigu zvjezdicom.'}
-                </Text>
-              </View>
-              <Switch
-                value={favourite}
-                onValueChange={setFavourite}
-                trackColor={{ false: colors.border, true: colors.black }}
-                thumbColor={colors.white}
-                ios_backgroundColor={colors.border}
-              />
-            </View>
+
           </View>
 
+          {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
           <View style={styles.saveArea}>
             <PrimaryButton
               label={editing ? 'Spremi promjene' : 'Dodaj knjigu'}
               onPress={() => void save()}
               loading={saving}
             />
-            <Text style={styles.required}>* obvezno polje</Text>
+            <Text style={styles.required}>Samo je naslov obvezan.</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -496,6 +637,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  saveError: {
+    color: colors.danger,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
+    marginBottom: 10,
+  },
   saveArea: {
     marginTop: 18,
   },
@@ -505,4 +657,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 12,
   },
+  // // catalogueJingleProgressSemanticsV1:BookCalculatedProgress
+  calculatedProgress: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: -6,
+    marginBottom: 18,
+  },
+
 });
+
+// catalogueJingleProgressSemanticsV1

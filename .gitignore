@@ -89,3 +89,4 @@ Thumbs.db
 *.jks
 *.p12
 *.mobileprovision
+mobile/.env.local

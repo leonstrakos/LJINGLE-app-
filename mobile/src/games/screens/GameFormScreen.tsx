@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -19,6 +18,7 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
 import { semanticFeedback } from '../../utils/semanticFeedback';
 import { gameApi } from '../services/gameApi';
+import { createdFeedback } from '../../utils/crudFeedback';
 import {
   enjoymentLabels,
   enjoymentOptions,
@@ -179,6 +179,8 @@ export function GameFormScreen({ route, navigation }: Props) {
         await gameApi.update(gameId, payload);
       } else {
         await gameApi.create(payload);
+
+        createdFeedback();
       }
       navigation.popToTop();
     } catch (caught) {
@@ -337,21 +339,7 @@ export function GameFormScreen({ route, navigation }: Props) {
               autoCapitalize="none"
             />
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchCopy}>
-                <Text style={styles.label}>Favorit</Text>
-                <Text style={styles.switchHint}>
-                  {favourite ? 'Igra je među tvojim favoritima.' : 'Označi igru zvjezdicom.'}
-                </Text>
-              </View>
-              <Switch
-                value={favourite}
-                onValueChange={setFavourite}
-                trackColor={{ false: colors.border, true: colors.black }}
-                thumbColor={colors.white}
-                ios_backgroundColor={colors.border}
-              />
-            </View>
+
           </View>
 
           <PrimaryButton
@@ -412,3 +400,5 @@ const styles = StyleSheet.create({
   switchCopy: { flex: 1 },
   switchHint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
 });
+
+// catalogueJingleProgressSemanticsV1

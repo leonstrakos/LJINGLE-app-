@@ -4,8 +4,10 @@ import { getDatabaseConnection } from '../storage/databaseConnection';
 
 const ACCENT_STORAGE_KEY = 'tracking_app_accent';
 const BACKGROUND_STORAGE_KEY = 'tracking_app_background';
-const DEFAULT_ACCENT = '#1D1D1F';
-const DEFAULT_BACKGROUND = '#F1F1F2';
+// forkN4CelestialDefaultPaletteV12
+// forkLCelestialThemeBindingV1
+const DEFAULT_ACCENT = '#D4AF55';
+const DEFAULT_BACKGROUND = '#0B0F16';
 
 export type RgbColor = { red: number; green: number; blue: number };
 
@@ -169,12 +171,18 @@ export const activeBackgroundColor = readStoredBackground();
 const pixelMode = activeVisualSkinId === 'pixel';
 const aeroMode = activeVisualSkinId === 'aero';
 const backgroundRgb = hexToRgb(activeBackgroundColor);
-const backgroundLuminance =
+// forkKDarkBackgroundContrastV1
+export const backgroundLuminance =
   (backgroundRgb.red * 0.2126 +
     backgroundRgb.green * 0.7152 +
     backgroundRgb.blue * 0.0722) / 255;
 
-const darkBackground = !pixelMode && backgroundLuminance < 0.48;
+export const DARK_BACKGROUND_LUMINANCE_THRESHOLD = 0.48;
+export const isDarkBackground =
+  !pixelMode &&
+  backgroundLuminance < DARK_BACKGROUND_LUMINANCE_THRESHOLD;
+
+const darkBackground = isDarkBackground;
 
 const background = pixelMode ? '#F7F7F2' : activeBackgroundColor;
 
@@ -252,4 +260,5 @@ export const activityAccents = {
   WORK: activityAccent,
   EXERCISE: activityAccent,
   CUSTOM: activityAccent,
+  GLOBAL: activityAccent,
 } as const;

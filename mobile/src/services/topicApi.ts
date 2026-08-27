@@ -38,6 +38,36 @@ export const topicApi = {
   getActivities: (topicId: string) =>
     apiRequest<TopicActivityResponse[]>(`/topics/${topicId}/activities`),
 
+  searchActivities: (query = '') =>
+    apiRequest<TopicActivityResponse[]>(
+      '/activities?query=' +
+        encodeURIComponent(query),
+    ),
+
+  linkActivity: (
+    topicId: string,
+    activityId: string,
+  ) =>
+    apiRequest<TopicActivityResponse>(
+      '/topics/' +
+        encodeURIComponent(topicId) +
+        '/activities/' +
+        encodeURIComponent(activityId),
+      { method: 'POST' },
+    ),
+
+  unlinkActivity: (
+    topicId: string,
+    activityId: string,
+  ) =>
+    apiRequest<void>(
+      '/topics/' +
+        encodeURIComponent(topicId) +
+        '/activities/' +
+        encodeURIComponent(activityId),
+      { method: 'DELETE' },
+    ),
+
   createActivity: (topicId: string, request: TopicActivityRequest) =>
     apiRequest<TopicActivityResponse>(`/topics/${topicId}/activities`, {
       method: 'POST',

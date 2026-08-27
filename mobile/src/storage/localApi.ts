@@ -32,6 +32,14 @@ import { getDatabase } from './database';
 
 type SqlRow = Record<string, string | number | null>;
 
+// aeroSearchQuoteTimerHygieneV3
+const MIN_STORED_SESSION_MS =
+  5_000;
+
+// architectureBatchA_v1
+const GLOBAL_ACTIVITY_ID =
+  '00000000-0000-4000-8000-000000000001';
+
 export class LocalApiFailure extends Error {
   constructor(
     message: string,
@@ -72,6 +80,16 @@ function mapBook(row: SqlRow): BookResponse {
     publishedYear: Number(row.published_year),
     readingStatus: row.reading_status as BookResponse['readingStatus'],
     progress: Number(row.progress),
+    totalPages:
+      row.total_pages === null ||
+      row.total_pages === undefined
+        ? null
+        : Number(row.total_pages),
+    currentPage:
+      row.current_page === null ||
+      row.current_page === undefined
+        ? null
+        : Number(row.current_page),
     enjoyment: row.enjoyment as BookResponse['enjoyment'],
     favourite: Boolean(row.favourite),
     startedOn: row.started_on as string | null,
@@ -224,6 +242,23 @@ async function timerForActivity(
   };
 }
 
+async function ensureGlobalActivity(
+  database: SQLiteDatabase,
+) {
+  const now = nowIso();
+
+  await database.runAsync(
+    `INSERT OR IGNORE INTO activities
+      (activity_id, label, activity_type, book_id, topic_id, media_id, created_at, modified_at)
+     VALUES (?, 'Quick Timer', 'GLOBAL', NULL, NULL, NULL, ?, ?)`,
+    GLOBAL_ACTIVITY_ID,
+    now,
+    now,
+  );
+
+  return GLOBAL_ACTIVITY_ID;
+}
+
 async function startActivity(database: SQLiteDatabase, activityId: string) {
   // tvtimeV3FastRecentDismiss — restarting makes it eligible for Continue again.
   await database.runAsync('DELETE FROM activity_recent_dismissals WHERE activity_id = ?', activityId);
@@ -248,13 +283,57 @@ async function startActivity(database: SQLiteDatabase, activityId: string) {
 }
 
 async function stopActivity(database: SQLiteDatabase, activityId: string) {
-  // sessionNotesV1 ? capture exact session before ending it.
-  const activeSession = await database.getFirstAsync<{ session_id: string }>(
-    'SELECT session_id FROM time_sessions WHERE activity_id = ? AND ended_at IS NULL',
-    activityId,
-  );
+  // aeroSearchQuoteTimerHygieneV3:TimerThreshold
+  // Capture the active row before ending it. Accidental taps under 5 seconds
+  // are removed completely, so History/Stats/context never receive garbage.
+  const activeSession =
+    await database.getFirstAsync<{
+      session_id: string;
+      started_at: string;
+    }>(
+      'SELECT session_id, started_at FROM time_sessions WHERE activity_id = ? AND ended_at IS NULL',
+      activityId,
+    );
 
   const now = nowIso();
+
+  if (
+    activeSession?.session_id
+  ) {
+    const startedAtMs =
+      Date.parse(
+        String(
+          activeSession.started_at,
+        ),
+      );
+
+    const stoppedAtMs =
+      Date.parse(now);
+
+    if (
+      Number.isFinite(
+        startedAtMs,
+      ) &&
+      Number.isFinite(
+        stoppedAtMs,
+      ) &&
+      stoppedAtMs -
+        startedAtMs <
+        MIN_STORED_SESSION_MS
+    ) {
+      await database.runAsync(
+        'DELETE FROM time_sessions WHERE session_id = ?',
+        String(
+          activeSession.session_id,
+        ),
+      );
+
+      return timerForActivity(
+        database,
+        activityId,
+      );
+    }
+  }
 
   await database.runAsync(
     'UPDATE time_sessions SET ended_at = ?, modified_at = ? WHERE activity_id = ? AND ended_at IS NULL',
@@ -263,14 +342,22 @@ async function stopActivity(database: SQLiteDatabase, activityId: string) {
     activityId,
   );
 
-  if (activeSession?.session_id) {
+  if (
+    activeSession?.session_id
+  ) {
     emitSessionStopped({
-      sessionId: String(activeSession.session_id),
+      sessionId:
+        String(
+          activeSession.session_id,
+        ),
       activityId,
     });
   }
 
-  return timerForActivity(database, activityId);
+  return timerForActivity(
+    database,
+    activityId,
+  );
 }
 
 async function ensureReadingActivity(database: SQLiteDatabase, bookId: string) {
@@ -519,7 +606,100 @@ async function history(database: SQLiteDatabase, url: URL): Promise<HistorySessi
   };
 }
 
+async function ensureBookPageColumns(
+  database: SQLiteDatabase,
+) {
+  // // catalogueJingleProgressSemanticsV1:BookPageColumns
+  const columns =
+    await database.getAllAsync<{
+      name: string;
+    }>(
+      'PRAGMA table_info(books)',
+    );
+
+  const names =
+    new Set(
+      columns.map(
+        (column) =>
+          String(column.name),
+      ),
+    );
+
+  if (
+    !names.has(
+      'total_pages',
+    )
+  ) {
+    await database.execAsync(
+      'ALTER TABLE books ADD COLUMN total_pages INTEGER',
+    );
+  }
+
+  if (
+    !names.has(
+      'current_page',
+    )
+  ) {
+    await database.execAsync(
+      'ALTER TABLE books ADD COLUMN current_page INTEGER',
+    );
+  }
+}
+
 async function handleBooks(database: SQLiteDatabase, url: URL, method: string, options?: RequestInit) {
+  await ensureBookPageColumns(
+    database,
+  );
+
+  // // catalogueJingleProgressSemanticsV1:BookFavourite
+  const favouriteMatch =
+    url.pathname.match(
+      /^\/books\/([^/]+)\/favourite$/,
+    );
+
+  if (favouriteMatch) {
+    if (method !== 'PATCH') {
+      throw new LocalApiFailure(
+        'Metoda nije podržana.',
+        405,
+      );
+    }
+
+    const bookId =
+      decodeURIComponent(
+        favouriteMatch[1]!,
+      );
+
+    await rowOr404(
+      database,
+      'books',
+      'book_id',
+      bookId,
+    );
+
+    const payload =
+      parsePayload<{
+        favourite: boolean;
+      }>(options);
+
+    await database.runAsync(
+      'UPDATE books SET favourite=?, modified_at=? WHERE book_id=?',
+      booleanValue(
+        payload.favourite,
+      ),
+      nowIso(),
+      bookId,
+    );
+
+    return mapBook(
+      await rowOr404(
+        database,
+        'books',
+        'book_id',
+        bookId,
+      ),
+    );
+  }
   const match = url.pathname.match(/^\/books\/([^/]+)$/);
   if (!match && method === 'GET') {
     const rows = await database.getAllAsync<SqlRow>('SELECT * FROM books ORDER BY title COLLATE NOCASE');
@@ -545,17 +725,19 @@ async function handleBooks(database: SQLiteDatabase, url: URL, method: string, o
     await database.runAsync(
       `INSERT INTO books
        (book_id, title, author, isbn, published_year, reading_status, progress, enjoyment,
-        favourite, started_on, finished_on, created_at, modified_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        favourite, total_pages, current_page, started_on, finished_on, created_at, modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       requiredText(payload.title, 'Naslov'),
-      requiredText(payload.author, 'Autor'),
-      requiredText(payload.isbn, 'ISBN'),
+      (typeof payload.author === 'string' ? payload.author.trim() : ''),
+      (typeof payload.isbn === 'string' ? payload.isbn.trim() : ''),
       Number(payload.publishedYear),
       payload.readingStatus ?? 'LATER',
       Number(payload.progress ?? 0),
       payload.enjoyment ?? null,
       booleanValue(payload.favourite),
+      payload.totalPages ?? null,
+      payload.currentPage ?? null,
       payload.startedOn ?? null,
       payload.finishedOn ?? null,
       now,
@@ -572,15 +754,17 @@ async function handleBooks(database: SQLiteDatabase, url: URL, method: string, o
     const now = nowIso();
     await database.runAsync(
       `UPDATE books SET title=?, author=?, isbn=?, published_year=?, reading_status=?, progress=?,
-       enjoyment=?, favourite=?, started_on=?, finished_on=?, modified_at=? WHERE book_id=?`,
+       enjoyment=?, favourite=?, total_pages=?, current_page=?, started_on=?, finished_on=?, modified_at=? WHERE book_id=?`,
       requiredText(payload.title, 'Naslov'),
-      requiredText(payload.author, 'Autor'),
-      requiredText(payload.isbn, 'ISBN'),
+      (typeof payload.author === 'string' ? payload.author.trim() : ''),
+      (typeof payload.isbn === 'string' ? payload.isbn.trim() : ''),
       Number(payload.publishedYear),
       payload.readingStatus,
       Number(payload.progress),
       payload.enjoyment ?? null,
       booleanValue(payload.favourite),
+      payload.totalPages ?? null,
+      payload.currentPage ?? null,
       payload.startedOn ?? null,
       payload.finishedOn ?? null,
       now,
@@ -604,43 +788,148 @@ async function handleBooks(database: SQLiteDatabase, url: URL, method: string, o
 }
 
 async function handleTopics(database: SQLiteDatabase, url: URL, method: string, options?: RequestInit) {
+  const timeSummaryMatch =
+    url.pathname.match(
+      /^\/topics\/([^/]+)\/time-summary$/,
+    );
+
+  if (timeSummaryMatch && method === 'GET') {
+    return topicTimeSummary(
+      database,
+      decodeURIComponent(timeSummaryMatch[1]!),
+    );
+  }
+
+  // topicActivityLinkRoutesV1
+  const linkedActivityMatch = url.pathname.match(
+    /^\/topics\/([^/]+)\/activities\/([^/]+)$/,
+  );
+
+  if (linkedActivityMatch) {
+    const topicId = decodeURIComponent(linkedActivityMatch[1]!);
+    const activityId = decodeURIComponent(linkedActivityMatch[2]!);
+
+    await rowOr404(database, 'topics', 'topic_id', topicId);
+
+    const activity = await database.getFirstAsync<SqlRow>(
+      'SELECT * FROM activities WHERE activity_id = ?',
+      activityId,
+    );
+
+    if (!activity || String(activity.activity_type) === 'GLOBAL') {
+      throw new LocalApiFailure('Aktivnost ne postoji.', 404);
+    }
+
+    if (method === 'POST') {
+      const existing = await database.getFirstAsync<SqlRow>(
+        `SELECT * FROM topic_activity_links
+         WHERE topic_id = ? AND activity_id = ?`,
+        topicId,
+        activityId,
+      );
+
+      if (!existing) {
+        const count = await database.getFirstAsync<{ count: number }>(
+          'SELECT COUNT(*) AS count FROM topic_activity_links WHERE topic_id = ?',
+          topicId,
+        );
+
+        const now = nowIso();
+
+        await database.runAsync(
+          `INSERT INTO topic_activity_links
+            (link_id, topic_id, activity_id, position, created_at, modified_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          identifier(),
+          topicId,
+          activityId,
+          Number(count?.count ?? 0),
+          now,
+          now,
+        );
+      }
+
+      return mapTopicActivity(activity);
+    }
+
+    if (method === 'DELETE') {
+      await database.runAsync(
+        `DELETE FROM topic_activity_links
+         WHERE topic_id = ? AND activity_id = ?`,
+        topicId,
+        activityId,
+      );
+
+      return undefined;
+    }
+
+    throw new LocalApiFailure('Metoda nije podržana.', 405);
+  }
+
   const activityMatch = url.pathname.match(/^\/topics\/([^/]+)\/activities$/);
   if (activityMatch) {
     const topicId = decodeURIComponent(activityMatch[1]!);
     await rowOr404(database, 'topics', 'topic_id', topicId);
+
     if (method === 'GET') {
       const rows = await database.getAllAsync<SqlRow>(
-        'SELECT * FROM activities WHERE topic_id = ? ORDER BY label COLLATE NOCASE',
+        `SELECT a.*
+         FROM topic_activity_links tal
+         JOIN activities a
+           ON a.activity_id = tal.activity_id
+         WHERE tal.topic_id = ?
+           AND a.activity_type <> 'GLOBAL'
+         ORDER BY tal.position, a.label COLLATE NOCASE`,
         topicId,
       );
+
       return rows.map(mapTopicActivity);
     }
+
     if (method === 'POST') {
       const payload = parsePayload<TopicActivityRequest>(options);
-      const id = identifier();
+      const activityId = identifier();
       const now = nowIso();
+
       await database.runAsync(
         `INSERT INTO activities
-         (activity_id, label, activity_type, book_id, topic_id, media_id, created_at, modified_at)
-         VALUES (?, ?, ?, NULL, ?, NULL, ?, ?)`,
-        id,
+          (activity_id, label, activity_type, book_id, topic_id, media_id, created_at, modified_at)
+         VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?)`,
+        activityId,
         requiredText(payload.label, 'Naziv aktivnosti'),
         payload.activityType,
+        now,
+        now,
+      );
+
+      await database.runAsync(
+        `INSERT INTO topic_activity_links
+          (link_id, topic_id, activity_id, position, created_at, modified_at)
+         VALUES (
+           ?, ?, ?,
+           (SELECT COUNT(*) FROM topic_activity_links WHERE topic_id = ?),
+           ?, ?
+         )`,
+        identifier(),
+        topicId,
+        activityId,
         topicId,
         now,
         now,
       );
+
       const row = await database.getFirstAsync<SqlRow>(
         'SELECT * FROM activities WHERE activity_id = ?',
-        id,
+        activityId,
       );
+
       return mapTopicActivity(row!);
     }
   }
 
   const match = url.pathname.match(/^\/topics\/([^/]+)$/);
   const select = `SELECT t.*,
-    (SELECT COUNT(*) FROM activities a WHERE a.topic_id = t.topic_id) AS activity_count
+    (SELECT COUNT(*) FROM topic_activity_links tal WHERE tal.topic_id = t.topic_id) AS activity_count
     FROM topics t`;
   if (!match && method === 'GET') {
     const rows = await database.getAllAsync<SqlRow>(`${select} ORDER BY t.name COLLATE NOCASE`);
@@ -697,6 +986,37 @@ async function handleTopics(database: SQLiteDatabase, url: URL, method: string, 
 }
 
 async function handleActivities(database: SQLiteDatabase, url: URL, method: string) {
+  // searchableGlobalActivitiesV1
+  if (url.pathname === '/activities' && method === 'GET') {
+    const query =
+      (url.searchParams.get('query') ?? '')
+        .trim()
+        .toLocaleLowerCase('hr');
+
+    const rows = await database.getAllAsync<SqlRow>(
+      `SELECT *
+       FROM activities
+       WHERE activity_type <> 'GLOBAL'
+       ORDER BY modified_at DESC, label COLLATE NOCASE
+       LIMIT 250`,
+    );
+
+    return rows
+      .map(mapTopicActivity)
+      .filter((activity) =>
+        !query ||
+        (
+          activity.label +
+          ' ' +
+          activity.activityType
+        )
+          .toLocaleLowerCase('hr')
+          .includes(query),
+      )
+      .slice(0, 80);
+  }
+
+
   // tvtimeV3FastRecentDismiss
   const dismissRecent = url.pathname.match(/^\/activities\/([^/]+)\/dismiss-recent$/);
   if (dismissRecent && method === 'POST') {
@@ -709,6 +1029,62 @@ async function handleActivities(database: SQLiteDatabase, url: URL, method: stri
       nowIso(),
     );
     return undefined;
+  }
+
+  if (url.pathname === '/activities/global' && method === 'GET') {
+    return timerForActivity(
+      database,
+      await ensureGlobalActivity(database),
+    );
+  }
+
+  if (url.pathname === '/activities/global/start' && method === 'POST') {
+    return startActivity(
+      database,
+      await ensureGlobalActivity(database),
+    );
+  }
+
+  if (url.pathname === '/activities/global/stop' && method === 'POST') {
+    const activityId =
+      await ensureGlobalActivity(database);
+
+    const active = await database.getFirstAsync<{
+      session_id: string;
+    }>(
+      `SELECT session_id
+       FROM time_sessions
+       WHERE activity_id = ?
+         AND ended_at IS NULL
+       ORDER BY started_at DESC
+       LIMIT 1`,
+      activityId,
+    );
+
+    const timer =
+      await stopActivity(database, activityId);
+
+    const savedSession =
+      active?.session_id
+        ? await database.getFirstAsync<{
+            session_id: string;
+          }>(
+            'SELECT session_id FROM time_sessions WHERE session_id = ? LIMIT 1',
+            String(
+              active.session_id,
+            ),
+          )
+        : null;
+
+    return {
+      timer,
+      sessionId:
+        savedSession?.session_id
+          ? String(
+              savedSession.session_id,
+            )
+          : null,
+    };
   }
 
   const reading = url.pathname.match(/^\/activities\/books\/([^/]+)\/reading(?:\/(start|stop))?$/);
@@ -727,7 +1103,9 @@ async function handleActivities(database: SQLiteDatabase, url: URL, method: stri
     const rows = await database.getAllAsync<SqlRow>(
       `SELECT DISTINCT a.activity_id FROM activities a
        JOIN time_sessions s ON s.activity_id = a.activity_id
-       WHERE s.ended_at IS NULL ORDER BY s.started_at DESC`,
+       WHERE s.ended_at IS NULL
+         AND a.activity_type <> 'GLOBAL'
+       ORDER BY s.started_at DESC`,
     );
     return Promise.all(rows.map((row) => timerForActivity(database, String(row.activity_id))));
   }
@@ -736,7 +1114,8 @@ async function handleActivities(database: SQLiteDatabase, url: URL, method: stri
     const rows = await database.getAllAsync<SqlRow>(
       `SELECT a.activity_id, MAX(COALESCE(s.ended_at, s.started_at)) AS last_used
        FROM activities a JOIN time_sessions s ON s.activity_id = a.activity_id
-       WHERE NOT EXISTS (
+       WHERE a.activity_type <> 'GLOBAL'
+         AND NOT EXISTS (
          SELECT 1 FROM time_sessions running
          WHERE running.activity_id = a.activity_id AND running.ended_at IS NULL
        )
@@ -857,6 +1236,55 @@ async function handleEntries(database: SQLiteDatabase, url: URL, method: string,
 }
 
 async function handleGames(database: SQLiteDatabase, url: URL, method: string, options?: RequestInit) {
+  // // catalogueJingleProgressSemanticsV1:GameFavourite
+  const favouriteMatch =
+    url.pathname.match(
+      /^\/games\/([^/]+)\/favourite$/,
+    );
+
+  if (favouriteMatch) {
+    if (method !== 'PATCH') {
+      throw new LocalApiFailure(
+        'Metoda nije podržana.',
+        405,
+      );
+    }
+
+    const gameId =
+      decodeURIComponent(
+        favouriteMatch[1]!,
+      );
+
+    await rowOr404(
+      database,
+      'games',
+      'game_id',
+      gameId,
+    );
+
+    const payload =
+      parsePayload<{
+        favourite: boolean;
+      }>(options);
+
+    await database.runAsync(
+      'UPDATE games SET favourite=?, modified_at=? WHERE game_id=?',
+      booleanValue(
+        payload.favourite,
+      ),
+      nowIso(),
+      gameId,
+    );
+
+    return mapGame(
+      await rowOr404(
+        database,
+        'games',
+        'game_id',
+        gameId,
+      ),
+    );
+  }
   const timerMatch = url.pathname.match(/^\/games\/([^/]+)\/timer(?:\/(start|stop))?$/);
   if (timerMatch) {
     const gameId = decodeURIComponent(timerMatch[1]!);
@@ -1209,6 +1637,20 @@ async function localEntityReference(
     if (!row) throw new LocalApiFailure('Tema ne postoji.', 404);
     return { entityType, entityId, title: String(row.name), subtitle: row.description as string | null };
   }
+  if (entityType === 'FREQUENCY') {
+    const row = await database.getFirstAsync<SqlRow>(
+      'SELECT * FROM audio_tracks WHERE track_id=?',
+      entityId,
+    );
+    if (!row) throw new LocalApiFailure('Frekvencija ne postoji.', 404);
+    return {
+      entityType,
+      entityId,
+      title: String(row.title),
+      subtitle: row.artist as string | null,
+    };
+  }
+
   const row = await database.getFirstAsync<SqlRow>('SELECT * FROM entries WHERE entry_id=?', entityId);
   if (!row) throw new LocalApiFailure('Zapis ne postoji.', 404);
   return { entityType: 'ENTRY', entityId, title: localEntryTitle(row), subtitle: String(row.entry_type) };
@@ -1231,6 +1673,17 @@ async function localEntityReferences(database: SQLiteDatabase, search: string) {
   games.forEach((row) => references.push({ entityType: 'GAME', entityId: String(row.game_id), title: String(row.title), subtitle: String(row.platform) }));
   const topics = await database.getAllAsync<SqlRow>('SELECT * FROM topics ORDER BY name COLLATE NOCASE');
   topics.forEach((row) => references.push({ entityType: 'TOPIC', entityId: String(row.topic_id), title: String(row.name), subtitle: row.description as string | null }));
+  const frequencies = await database.getAllAsync<SqlRow>(
+    'SELECT * FROM audio_tracks ORDER BY created_at DESC',
+  );
+  frequencies.forEach((row) =>
+    references.push({
+      entityType: 'FREQUENCY',
+      entityId: String(row.track_id),
+      title: String(row.title),
+      subtitle: row.artist as string | null,
+    }),
+  );
   const entries = await database.getAllAsync<SqlRow>('SELECT * FROM entries ORDER BY modified_at DESC');
   entries.forEach((row) => references.push({ entityType: 'ENTRY', entityId: String(row.entry_id), title: localEntryTitle(row), subtitle: String(row.entry_type) }));
 
@@ -1240,6 +1693,99 @@ async function localEntityReferences(database: SQLiteDatabase, search: string) {
     .slice(0, 120);
 }
 
+async function localJingleReferences(
+  database: SQLiteDatabase,
+) {
+  const roots: EntityReference[] = [];
+
+  const books = await database.getAllAsync<SqlRow>(
+    'SELECT * FROM books WHERE favourite=1 ORDER BY title COLLATE NOCASE',
+  );
+  books.forEach((row) =>
+    roots.push({
+      entityType: 'BOOK',
+      entityId: String(row.book_id),
+      title: String(row.title),
+      subtitle: String(row.author ?? ''),
+    }),
+  );
+
+  const media = await database.getAllAsync<SqlRow>(
+    'SELECT * FROM media_items WHERE favourite=1 ORDER BY title COLLATE NOCASE',
+  );
+  media.forEach((row) =>
+    roots.push({
+      entityType: 'MEDIA',
+      entityId: String(row.media_id),
+      title: String(row.title),
+      subtitle: String(row.media_type ?? ''),
+    }),
+  );
+
+  const games = await database.getAllAsync<SqlRow>(
+    'SELECT * FROM games WHERE favourite=1 ORDER BY title COLLATE NOCASE',
+  );
+  games.forEach((row) =>
+    roots.push({
+      entityType: 'GAME',
+      entityId: String(row.game_id),
+      title: String(row.title),
+      subtitle: row.platform as string | null,
+    }),
+  );
+
+  const seen = new Map<string, EntityReference>();
+  roots.forEach((item) =>
+    seen.set(item.entityType + ':' + item.entityId, item),
+  );
+
+  for (const root of roots) {
+    const rows = await database.getAllAsync<SqlRow>(
+      `SELECT * FROM entity_links
+       WHERE (source_type=? AND source_id=?)
+          OR (target_type=? AND target_id=?)
+       ORDER BY created_at DESC`,
+      root.entityType,
+      root.entityId,
+      root.entityType,
+      root.entityId,
+    );
+
+    for (const row of rows) {
+      const candidates = [
+        {
+          type: String(row.source_type) as EntityReferenceType,
+          id: String(row.source_id),
+        },
+        {
+          type: String(row.target_type) as EntityReferenceType,
+          id: String(row.target_id),
+        },
+      ];
+
+      for (const candidate of candidates) {
+        try {
+          const reference = await localEntityReference(
+            database,
+            candidate.type,
+            candidate.id,
+          );
+          seen.set(
+            reference.entityType + ':' + reference.entityId,
+            reference,
+          );
+        } catch {
+          // Ignore orphaned graph edges.
+        }
+      }
+    }
+  }
+
+  return [...seen.values()].sort((left, right) =>
+    left.title.localeCompare(right.title, 'hr'),
+  );
+}
+
 function mapCollectionSummary(row: SqlRow): CollectionSummary {
   return {
     collectionId: String(row.collection_id),
@@ -1247,6 +1793,8 @@ function mapCollectionSummary(row: SqlRow): CollectionSummary {
     description: row.description as string | null,
     symbol: row.symbol as string | null,
     itemCount: Number(row.item_count ?? 0),
+    // forkLCollectionsMemoryBoxV2
+    position: Number(row.position ?? 0),
   };
 }
 
@@ -1302,10 +1850,54 @@ async function handleCollections(
        FROM collections c
        JOIN collection_items ci ON ci.collection_id=c.collection_id
        WHERE ci.entity_type=? AND ci.entity_id=?
-       ORDER BY c.name COLLATE NOCASE`,
+       ORDER BY c.position, c.created_at, c.name COLLATE NOCASE`,
       entityType,
       entityId,
     );
+    return rows.map(mapCollectionSummary);
+  }
+
+  // forkLCollectionsMemoryBoxV2 — reorder top-level Memory Boxes.
+  if (url.pathname === '/collections/order' && method === 'PUT') {
+    const payload = parsePayload<{ collectionIds?: string[] }>(options);
+    const requested = Array.isArray(payload.collectionIds)
+      ? payload.collectionIds.map((value) => String(value))
+      : [];
+
+    const unique = [...new Set(requested)];
+    const existing = await database.getAllAsync<{ collection_id: string }>(
+      'SELECT collection_id FROM collections',
+    );
+
+    const existingIds = new Set(
+      existing.map((row) => String(row.collection_id)),
+    );
+
+    if (
+      unique.length !== existingIds.size ||
+      unique.some((collectionId) => !existingIds.has(collectionId))
+    ) {
+      throw new LocalApiFailure(
+        'Redoslijed kolekcija više nije aktualan. Osvježi listu i pokušaj ponovno.',
+        409,
+      );
+    }
+
+    for (let index = 0; index < unique.length; index += 1) {
+      await database.runAsync(
+        'UPDATE collections SET position=? WHERE collection_id=?',
+        index,
+        unique[index]!,
+      );
+    }
+
+    const rows = await database.getAllAsync<SqlRow>(
+      `SELECT c.*,
+        (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id=c.collection_id) AS item_count
+       FROM collections c
+       ORDER BY c.position, c.created_at, c.name COLLATE NOCASE`,
+    );
+
     return rows.map(mapCollectionSummary);
   }
 
@@ -1366,7 +1958,7 @@ async function handleCollections(
   if (!match && method === 'GET') {
     const rows = await database.getAllAsync<SqlRow>(
       `SELECT c.*, (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id=c.collection_id) AS item_count
-       FROM collections c ORDER BY c.name COLLATE NOCASE`,
+       FROM collections c ORDER BY c.position, c.created_at, c.name COLLATE NOCASE`,
     );
     return rows.map(mapCollectionSummary);
   }
@@ -1376,7 +1968,7 @@ async function handleCollections(
     const now = nowIso();
     try {
       await database.runAsync(
-        'INSERT INTO collections (collection_id, name, description, symbol, created_at, modified_at) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO collections (collection_id, name, description, symbol, position, created_at, modified_at) VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM collections), ?, ?)',
         collectionId,
         requiredText(payload.name, 'Naziv kolekcije'),
         payload.description?.trim() || null,
@@ -1445,6 +2037,59 @@ async function handleEntityLinks(
   options?: RequestInit,
 ) {
   const match = url.pathname.match(/^\/entity-links\/([^/]+)$/);
+  // editEntityLinkV3
+  if (match && method === 'PUT') {
+    const linkId = decodeURIComponent(match[1]!);
+    const existing = await database.getFirstAsync<SqlRow>(
+      'SELECT * FROM entity_links WHERE link_id=?',
+      linkId,
+    );
+
+    if (!existing) {
+      throw new LocalApiFailure('Poveznica ne postoji.', 404);
+    }
+
+    const payload = parsePayload<{
+      relationType: RelationType;
+      note?: string | null;
+    }>(options);
+
+    const relationType =
+      payload.relationType ?? String(existing.relation_type) as RelationType;
+    const note = payload.note?.trim() || null;
+    const modifiedAt = nowIso();
+
+    try {
+      await database.runAsync(
+        `UPDATE entity_links
+         SET relation_type=?, note=?, modified_at=?
+         WHERE link_id=?`,
+        relationType,
+        note,
+        modifiedAt,
+        linkId,
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes('unique')
+      ) {
+        throw new LocalApiFailure(
+          'Takva poveznica već postoji.',
+          409,
+        );
+      }
+      throw error;
+    }
+
+    const updated = await database.getFirstAsync<SqlRow>(
+      'SELECT * FROM entity_links WHERE link_id=?',
+      linkId,
+    );
+
+    return localLinkResponse(database, updated!);
+  }
+
   if (match && method === 'DELETE') {
     await database.runAsync('DELETE FROM entity_links WHERE link_id=?', decodeURIComponent(match[1]!));
     return undefined;
@@ -1514,6 +2159,288 @@ async function handleEntityLinks(
   throw new LocalApiFailure('Metoda nije podržana.', 405);
 }
 
+async function handleSessionContexts(
+  database: SQLiteDatabase,
+  url: URL,
+  method: string,
+  options?: RequestInit,
+) {
+  const deleteMatch = url.pathname.match(
+    /^\/sessions\/([^/]+)\/contexts\/([^/]+)$/,
+  );
+
+  if (deleteMatch && method === 'DELETE') {
+    const sessionId =
+      decodeURIComponent(deleteMatch[1]!);
+    const contextId =
+      decodeURIComponent(deleteMatch[2]!);
+
+    await database.runAsync(
+      `DELETE FROM session_contexts
+       WHERE session_id = ? AND context_id = ?`,
+      sessionId,
+      contextId,
+    );
+
+    return undefined;
+  }
+
+  const match = url.pathname.match(
+    /^\/sessions\/([^/]+)\/contexts$/,
+  );
+
+  if (!match) {
+    throw new LocalApiFailure(
+      'Nepoznata putanja konteksta sesije.',
+      404,
+    );
+  }
+
+  const sessionId =
+    decodeURIComponent(match[1]!);
+
+  const session = await database.getFirstAsync<SqlRow>(
+    'SELECT session_id FROM time_sessions WHERE session_id = ?',
+    sessionId,
+  );
+
+  if (!session) {
+    throw new LocalApiFailure(
+      'Sesija ne postoji.',
+      404,
+    );
+  }
+
+  if (method === 'GET') {
+    const rows = await database.getAllAsync<SqlRow>(
+      `SELECT * FROM session_contexts
+       WHERE session_id = ?
+       ORDER BY created_at`,
+      sessionId,
+    );
+
+    const result = [];
+
+    for (const row of rows) {
+      try {
+        const entityType =
+          String(row.entity_type) as EntityReferenceType;
+
+        const reference =
+          await localEntityReference(
+            database,
+            entityType,
+            String(row.entity_id),
+          );
+
+        result.push({
+          contextId: String(row.context_id),
+          sessionId,
+          entityType,
+          entityId: reference.entityId,
+          title: reference.title,
+          subtitle: reference.subtitle,
+          createdAt: String(row.created_at),
+        });
+      } catch {
+        // Ignore orphaned polymorphic contexts.
+      }
+    }
+
+    return result;
+  }
+
+  if (method === 'POST') {
+    const payload = parsePayload<{
+      entityType: EntityReferenceType;
+      entityId: string;
+    }>(options);
+
+    const entityType = payload.entityType;
+    const entityId =
+      requiredText(
+        payload.entityId,
+        'Identifikator konteksta',
+      );
+
+    const reference =
+      await localEntityReference(
+        database,
+        entityType,
+        entityId,
+      );
+
+    const existing =
+      await database.getFirstAsync<SqlRow>(
+        `SELECT * FROM session_contexts
+         WHERE session_id = ?
+           AND entity_type = ?
+           AND entity_id = ?`,
+        sessionId,
+        entityType,
+        entityId,
+      );
+
+    if (existing) {
+      return {
+        contextId: String(existing.context_id),
+        sessionId,
+        entityType,
+        entityId,
+        title: reference.title,
+        subtitle: reference.subtitle,
+        createdAt: String(existing.created_at),
+      };
+    }
+
+    const contextId = identifier();
+    const createdAt = nowIso();
+
+    await database.runAsync(
+      `INSERT INTO session_contexts
+        (context_id, session_id, entity_type, entity_id, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      contextId,
+      sessionId,
+      entityType,
+      entityId,
+      createdAt,
+    );
+
+    return {
+      contextId,
+      sessionId,
+      entityType,
+      entityId,
+      title: reference.title,
+      subtitle: reference.subtitle,
+      createdAt,
+    };
+  }
+
+  throw new LocalApiFailure(
+    'Metoda nije podržana.',
+    405,
+  );
+}
+
+async function topicTimeSummary(
+  database: SQLiteDatabase,
+  topicId: string,
+) {
+  await rowOr404(
+    database,
+    'topics',
+    'topic_id',
+    topicId,
+  );
+
+  const rows = await database.getAllAsync<SqlRow>(
+    `SELECT DISTINCT
+       s.session_id,
+       s.started_at,
+       s.ended_at,
+       a.activity_id,
+       a.label,
+       a.activity_type,
+       CASE
+         WHEN tal.link_id IS NOT NULL THEN 1
+         ELSE 0
+       END AS linked_activity,
+       CASE
+         WHEN sc.context_id IS NOT NULL THEN 1
+         ELSE 0
+       END AS direct_context
+     FROM time_sessions s
+     JOIN activities a
+       ON a.activity_id = s.activity_id
+     LEFT JOIN topic_activity_links tal
+       ON tal.activity_id = s.activity_id
+      AND tal.topic_id = ?
+     LEFT JOIN session_contexts sc
+       ON sc.session_id = s.session_id
+      AND sc.entity_type = 'TOPIC'
+      AND sc.entity_id = ?
+     WHERE tal.link_id IS NOT NULL
+        OR sc.context_id IS NOT NULL
+     ORDER BY s.started_at DESC`,
+    topicId,
+    topicId,
+  );
+
+  const now = Date.now();
+
+  const activityTotals =
+    new Map<string, {
+      activityId: string;
+      label: string;
+      activityType: string;
+      totalSeconds: number;
+      running: boolean;
+    }>();
+
+  let totalSeconds = 0;
+  let directSeconds = 0;
+
+  for (const row of rows) {
+    const started =
+      Date.parse(String(row.started_at));
+
+    const ended =
+      row.ended_at
+        ? Date.parse(String(row.ended_at))
+        : now;
+
+    const seconds = Math.max(
+      0,
+      Math.floor((ended - started) / 1000),
+    );
+
+    totalSeconds += seconds;
+
+    const linkedActivity =
+      Number(row.linked_activity ?? 0) === 1;
+
+    if (!linkedActivity) {
+      directSeconds += seconds;
+      continue;
+    }
+
+    const activityId =
+      String(row.activity_id);
+
+    const current =
+      activityTotals.get(activityId);
+
+    if (current) {
+      current.totalSeconds += seconds;
+      current.running ||=
+        row.ended_at === null;
+    } else {
+      activityTotals.set(activityId, {
+        activityId,
+        label: String(row.label),
+        activityType:
+          String(row.activity_type),
+        totalSeconds: seconds,
+        running: row.ended_at === null,
+      });
+    }
+  }
+
+  return {
+    topicId,
+    totalSeconds,
+    directSeconds,
+    activities:
+      [...activityTotals.values()].sort(
+        (left, right) =>
+          right.totalSeconds -
+          left.totalSeconds,
+      ),
+  };
+}
+
 export async function localApiRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const database = await getDatabase();
   const url = new URL(path, 'https://local.life-catalogue');
@@ -1524,8 +2451,10 @@ export async function localApiRequest<T>(path: string, options?: RequestInit): P
     result = await handleBooks(database, url, method, options);
   } else if (url.pathname === '/topics' || url.pathname.startsWith('/topics/')) {
     result = await handleTopics(database, url, method, options);
-  } else if (url.pathname.startsWith('/activities/')) {
+  } else if (url.pathname === '/activities' || url.pathname.startsWith('/activities/')) {
     result = await handleActivities(database, url, method);
+  } else if (url.pathname.startsWith('/sessions/')) {
+    result = await handleSessionContexts(database, url, method, options);
   } else if (url.pathname === '/entries' || url.pathname.startsWith('/entries/')) {
     result = await handleEntries(database, url, method, options);
   } else if (url.pathname === '/games' || url.pathname.startsWith('/games/')) {
@@ -1536,6 +2465,8 @@ export async function localApiRequest<T>(path: string, options?: RequestInit): P
     result = await handleCollections(database, url, method, options);
   } else if (url.pathname === '/entity-links' || url.pathname.startsWith('/entity-links/')) {
     result = await handleEntityLinks(database, url, method, options);
+  } else if (url.pathname === '/entity-references/jingle' && method === 'GET') {
+    result = await localJingleReferences(database);
   } else if (url.pathname === '/entity-references' && method === 'GET') {
     result = await localEntityReferences(database, url.searchParams.get('query') ?? '');
   } else if (url.pathname === '/stats/daily' && method === 'GET') {
@@ -1548,3 +2479,5 @@ export async function localApiRequest<T>(path: string, options?: RequestInit): P
 
   return result as T;
 }
+
+// catalogueJingleProgressSemanticsV1

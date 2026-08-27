@@ -15,6 +15,12 @@ type TvMazeEpisode = {
   image?: { medium?: string | null; original?: string | null } | null;
 };
 
+export type ManualSeriesEpisodeInput = {
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+};
+
 type EpisodeRow = {
   episode_id: number;
   season_number: number;
@@ -71,6 +77,55 @@ async function cached(mediaId: string) {
   return rows.map(mapEpisode);
 }
 
+async function persistSeriesProgress(
+  mediaId: string,
+  progress: SeriesProgress,
+) {
+  // // catalogueJingleProgressSemanticsV1:SeriesDerivedProgress
+  const percent =
+    progress.totalCount > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            Math.round(
+              progress.watchedCount /
+                progress.totalCount *
+                100,
+            ),
+          ),
+        )
+      : 0;
+
+  const database =
+    await getDatabase();
+
+  await database.runAsync(
+    'UPDATE media_items SET progress=?, modified_at=? WHERE media_id=?',
+    percent,
+    new Date().toISOString(),
+    mediaId,
+  );
+
+  return progress;
+}
+
+async function summarizedAndPersisted(
+  mediaId: string,
+) {
+  const progress =
+    summarize(
+      await cached(mediaId),
+    );
+
+  return persistSeriesProgress(
+    mediaId,
+    progress,
+  );
+}
+
+
+
 async function requestJson<T>(url: string): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -118,10 +173,17 @@ export const seriesApi = {
           episode.image?.original ?? episode.image?.medium ?? null,
         );
       }
-      return summarize(await cached(mediaId));
+      return summarizedAndPersisted(
+        mediaId,
+      );
     } catch (error) {
       const episodes = await cached(mediaId);
-      if (episodes.length) return summarize(episodes);
+      if (episodes.length) {
+        return persistSeriesProgress(
+          mediaId,
+          summarize(episodes),
+        );
+      }
       throw error;
     }
   },
@@ -135,6 +197,111 @@ export const seriesApi = {
       mediaId,
       episodeId,
     );
-    return summarize(await cached(mediaId));
+    return summarizedAndPersisted(
+      mediaId,
+    );
+  },
+
+  // forkK13_3SafeDomainAdaptersV1
+  async setWatchedAt(
+    mediaId: string,
+    episodeId: number,
+    watched: boolean,
+    watchedAt?: string | null,
+  ): Promise<SeriesProgress> {
+    const database = await getDatabase();
+    await database.runAsync(
+      'UPDATE series_episodes SET watched=?, watched_at=? WHERE media_id=? AND episode_id=?',
+      watched ? 1 : 0,
+      watched ? (watchedAt ?? new Date().toISOString()) : null,
+      mediaId,
+      episodeId,
+    );
+    return summarizedAndPersisted(
+      mediaId,
+    );
+  },
+
+  async upsertManualEpisodes(
+    mediaId: string,
+    episodes: ManualSeriesEpisodeInput[],
+  ): Promise<SeriesProgress> {
+    // // catalogueJingleProgressSemanticsV1:ManualEpisodes
+    const database =
+      await getDatabase();
+
+    for (
+      const episode
+      of episodes
+    ) {
+      const existing =
+        await database.getFirstAsync<{
+          episode_id: number;
+        }>(
+          `SELECT episode_id
+           FROM series_episodes
+           WHERE media_id=?
+             AND season_number=?
+             AND episode_number=?
+           LIMIT 1`,
+          mediaId,
+          episode.seasonNumber,
+          episode.episodeNumber,
+        );
+
+      if (existing) {
+        // Keep watched/watched_at and remote runtime metadata.
+        await database.runAsync(
+          `UPDATE series_episodes
+           SET name=?
+           WHERE media_id=?
+             AND episode_id=?`,
+          episode.name,
+          mediaId,
+          Number(
+            existing.episode_id,
+          ),
+        );
+
+        continue;
+      }
+
+      // Negative deterministic IDs cannot collide with normal TV provider IDs.
+      const manualEpisodeId =
+        -(
+          episode.seasonNumber *
+            100000 +
+          episode.episodeNumber
+        );
+
+      await database.runAsync(
+        `INSERT INTO series_episodes
+         (
+           media_id,
+           episode_id,
+           season_number,
+           episode_number,
+           name,
+           watched
+         )
+         VALUES (?, ?, ?, ?, ?, 0)
+         ON CONFLICT(media_id, episode_id)
+         DO UPDATE SET
+           season_number=excluded.season_number,
+           episode_number=excluded.episode_number,
+           name=excluded.name`,
+        mediaId,
+        manualEpisodeId,
+        episode.seasonNumber,
+        episode.episodeNumber,
+        episode.name,
+      );
+    }
+
+    return summarizedAndPersisted(
+      mediaId,
+    );
   },
 };
+
+// catalogueJingleProgressSemanticsV1

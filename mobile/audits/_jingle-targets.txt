@@ -1,0 +1,528 @@
+LJINGLE — exact Jingle targets
+==============================
+
+
+### src/components/JingleBellIcon.tsx [1-120]
+
+   1 | ﻿import { useEffect, useRef } from 'react';
+   2 | import { Animated } from 'react-native';
+   3 | import type { ImageStyle, StyleProp } from 'react-native';
+   4 | 
+   5 | import { jingleSwing, semanticSpring } from '../utils/semanticMotion';
+   6 | import { useReducedMotion } from '../utils/useReducedMotion';
+   7 | 
+   8 | type Props = {
+   9 |   active: boolean;
+  10 |   inactiveOpacity?: number;
+  11 |   style?: StyleProp<ImageStyle>;
+  12 | };
+  13 | 
+  14 | // semanticJingleMotionV1
+  15 | export function JingleBellIcon({
+  16 |   active,
+  17 |   inactiveOpacity = 0.5,
+  18 |   style,
+  19 | }: Props) {
+  20 |   const reducedMotion = useReducedMotion();
+  21 |   const progress = useRef(new Animated.Value(0)).current;
+  22 |   const previousActive = useRef(active);
+  23 | 
+  24 |   useEffect(() => {
+  25 |     const becameActive =
+  26 |       active && !previousActive.current;
+  27 | 
+  28 |     previousActive.current = active;
+  29 | 
+  30 |     if (!becameActive || reducedMotion) {
+  31 |       progress.stopAnimation();
+  32 |       progress.setValue(0);
+  33 |       return;
+  34 |     }
+  35 | 
+  36 |     progress.stopAnimation();
+  37 |     progress.setValue(0);
+  38 | 
+  39 |     Animated.spring(progress, {
+  40 |       toValue: 1,
+  41 |       ...semanticSpring.jingle,
+  42 |       useNativeDriver: true,
+  43 |     }).start();
+  44 |   }, [active, progress, reducedMotion]);
+  45 | 
+  46 |   const rotate = progress.interpolate({
+  47 |     inputRange: jingleSwing.inputRange,
+  48 |     outputRange: jingleSwing.rotate,
+  49 |   });
+  50 | 
+  51 |   const scale = progress.interpolate({
+  52 |     inputRange: [0, 0.45, 1],
+  53 |     outputRange: [1, 1.08, 1],
+  54 |   });
+  55 | 
+  56 |   return (
+  57 |     <Animated.Image
+  58 |       accessibilityIgnoresInvertColors
+  59 |       resizeMode="contain"
+  60 |       source={require('../assets/aero/fav.png')}
+  61 |       style={[
+  62 |         style,
+  63 |         {
+  64 |           opacity: active ? 1 : inactiveOpacity,
+  65 |           transform: [{ rotate }, { scale }],
+  66 |         },
+  67 |       ]}
+  68 |     />
+  69 |   );
+  70 | }
+  71 | 
+
+### src/screens/BookListScreen.tsx [295-345]
+
+ 295 |           }}
+ 296 |           scrollEventThrottle={100}
+ 297 |           onContentSizeChange={restoreBookScroll}
+ 298 |           keyExtractor={(item) => item.bookId}
+ 299 |           renderItem={({ item }) => (
+ 300 |             <View style={styles.jingleRow}>
+ 301 |               <BookCard
+ 302 |                 book={item}
+ 303 |                 onPress={() =>
+ 304 |                   navigation.navigate('BookDetails', { bookId: item.bookId })
+ 305 |                 }
+ 306 |               />
+ 307 | 
+ 308 |               <Pressable
+ 309 |                 accessibilityRole="button"
+ 310 |                 accessibilityLabel={
+ 311 |                   item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
+ 312 |                 }
+ 313 |                 onPress={() => void toggleBookJingle(item)}
+ 314 |                 style={({ pressed }) => [
+ 315 |                   styles.jingleButton,
+ 316 |                   pressed && styles.jinglePressed,
+ 317 |                 ]}
+ 318 |               >
+ 319 |                 <Image
+ 320 |                   source={require('../assets/aero/fav.png')}
+ 321 |                   resizeMode="contain"
+ 322 |                   style={[
+ 323 |                     styles.jingleIcon,
+ 324 |                     { opacity: item.favourite ? 1 : 0.5 },
+ 325 |                   ]}
+ 326 |                 />
+ 327 |               </Pressable>
+ 328 |             </View>
+ 329 |           )}
+ 330 |           contentContainerStyle={styles.list}
+ 331 |           ListEmptyComponent={<FeedbackView type="empty" />}
+ 332 |           refreshControl={
+ 333 |             <RefreshControl
+ 334 |               refreshing={refreshing}
+ 335 |               onRefresh={() => void loadBooks(true)}
+ 336 |               tintColor={colors.black}
+ 337 |               colors={[colors.black]}
+ 338 |             />
+ 339 |           }
+ 340 |         />
+ 341 |       )}
+ 342 | 
+ 343 |       <Pressable
+ 344 |         accessibilityRole="button"
+ 345 |         accessibilityLabel="Dodaj novu knjigu"
+
+### src/screens/MediaListScreen.tsx [372-415]
+
+ 372 |           onContentSizeChange={restoreScroll}
+ 373 |           onViewableItemsChanged={onViewableItemsChanged}
+ 374 |           viewabilityConfig={moviePosterViewability}
+ 375 |           keyExtractor={(item) => item.mediaId}
+ 376 |           renderItem={({ item }) => (
+ 377 |             <View style={styles.jingleRow}>
+ 378 |               <MediaCard
+ 379 |                             item={item}
+ 380 |                             onPress={() => navigation.navigate('MediaDetails', { mediaId: item.mediaId })}
+ 381 |                           />
+ 382 |               <Pressable
+ 383 |                 accessibilityRole="button"
+ 384 |                 accessibilityLabel={item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'}
+ 385 |                 hitSlop={8}
+ 386 |                 disabled={jingleBusy === item.mediaId}
+ 387 |                 onPress={() => void toggleJingle(item)}
+ 388 |                 style={({ pressed }) => [styles.jingleButton, pressed && styles.jingleButtonPressed]}
+ 389 |               >
+ 390 |                 <JingleBellIcon
+ 391 |                   active={item.favourite}
+ 392 |                   inactiveOpacity={0.5}
+ 393 |                   style={styles.jingleIcon}
+ 394 |                 />
+ 395 |               </Pressable>
+ 396 |             </View>
+ 397 |           )}
+ 398 |           contentContainerStyle={styles.list}
+ 399 |           ListEmptyComponent={
+ 400 |             <MediaFeedbackView
+ 401 |               type="empty"
+ 402 |               message="Nema naslova koji odgovaraju odabranim filtrima."
+ 403 |             />
+ 404 |           }
+ 405 |           refreshControl={
+ 406 |             <RefreshControl
+ 407 |               refreshing={refreshing}
+ 408 |               onRefresh={() => void load(true)}
+ 409 |               tintColor={colors.black}
+ 410 |               colors={[colors.black]}
+ 411 |             />
+ 412 |           }
+ 413 |         />
+ 414 |       )}
+ 415 |     </SafeAreaView>
+
+### src/games/screens/GameListScreen.tsx [375-425]
+
+ 375 |           keyExtractor={(item) => item.gameId}
+ 376 |           renderItem={({ item }) => (
+ 377 |             <View style={styles.jingleRow}>
+ 378 |               <GameCard
+ 379 |                 game={item}
+ 380 |                 onPress={() =>
+ 381 |                   navigation.navigate('GameDetails', { gameId: item.gameId })
+ 382 |                 }
+ 383 |               />
+ 384 | 
+ 385 |               <Pressable
+ 386 |                 accessibilityRole="button"
+ 387 |                 accessibilityLabel={
+ 388 |                   item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
+ 389 |                 }
+ 390 |                 onPress={() => void toggleGameJingle(item)}
+ 391 |                 style={({ pressed }) => [
+ 392 |                   styles.jingleButton,
+ 393 |                   pressed && styles.jinglePressed,
+ 394 |                 ]}
+ 395 |               >
+ 396 |                 <Image
+ 397 |                   source={require('../../assets/aero/fav.png')}
+ 398 |                   resizeMode="contain"
+ 399 |                   style={[
+ 400 |                     styles.jingleIcon,
+ 401 |                     { opacity: item.favourite ? 1 : 0.5 },
+ 402 |                   ]}
+ 403 |                 />
+ 404 |               </Pressable>
+ 405 |             </View>
+ 406 |           )}
+ 407 |           contentContainerStyle={styles.list}
+ 408 |           ListEmptyComponent={(
+ 409 |             <FeedbackView
+ 410 |               type="empty"
+ 411 |               message={status ? 'Nema igara s odabranim statusom.' : 'Još nema igara u katalogu.'}
+ 412 |             />
+ 413 |           )}
+ 414 |           refreshControl={(
+ 415 |             <RefreshControl
+ 416 |               refreshing={refreshing}
+ 417 |               onRefresh={() => void loadGames(true)}
+ 418 |               tintColor={colors.black}
+ 419 |               colors={[colors.black]}
+ 420 |             />
+ 421 |           )}
+ 422 |         />
+ 423 |       )}
+ 424 |     </SafeAreaView>
+ 425 |   );
+
+### src/utils/semanticMotion.ts [1-220]
+
+   1 | import type {
+   2 |   EasingFunction,
+   3 | } from 'react-native';
+   4 | 
+   5 | import { Easing } from 'react-native';
+   6 | 
+   7 | // semanticMotionV1
+   8 | //
+   9 | // Central motion language.
+  10 | //
+  11 | // Same principle as semanticFeedback:
+  12 | // components request a meaningful motion,
+  13 | // rather than inventing arbitrary animation durations.
+  14 | //
+  15 | // These are configuration primitives only.
+  16 | // Nothing animates automatically.
+  17 | 
+  18 | export type SemanticMotionName =
+  19 |   | 'ENTER'
+  20 |   | 'EXIT'
+  21 |   | 'SETTLE'
+  22 |   | 'PRESS'
+  23 |   | 'JINGLE'
+  24 |   | 'TUNING'
+  25 |   | 'PEEK'
+  26 |   | 'UNDO';
+  27 | 
+  28 | export type TimingMotion = {
+  29 |   duration: number;
+  30 |   easing: EasingFunction;
+  31 | };
+  32 | 
+  33 | export type SpringMotion = {
+  34 |   damping: number;
+  35 |   stiffness: number;
+  36 |   mass: number;
+  37 | };
+  38 | 
+  39 | export const semanticTiming = {
+  40 |   enter: {
+  41 |     duration: 220,
+  42 |     easing: Easing.out(
+  43 |       Easing.cubic,
+  44 |     ),
+  45 |   },
+  46 | 
+  47 |   exit: {
+  48 |     duration: 160,
+  49 |     easing: Easing.in(
+  50 |       Easing.cubic,
+  51 |     ),
+  52 |   },
+  53 | 
+  54 |   settle: {
+  55 |     duration: 260,
+  56 |     easing: Easing.out(
+  57 |       Easing.quad,
+  58 |     ),
+  59 |   },
+  60 | 
+  61 |   tuning: {
+  62 |     duration: 420,
+  63 |     easing: Easing.inOut(
+  64 |       Easing.sin,
+  65 |     ),
+  66 |   },
+  67 | 
+  68 |   undo: {
+  69 |     duration: 200,
+  70 |     easing: Easing.out(
+  71 |       Easing.cubic,
+  72 |     ),
+  73 |   },
+  74 | } satisfies Record<
+  75 |   'enter' | 'exit' | 'settle' | 'tuning' | 'undo',
+  76 |   TimingMotion
+  77 | >;
+  78 | 
+  79 | export const semanticSpring = {
+  80 |   press: {
+  81 |     damping: 18,
+  82 |     stiffness: 260,
+  83 |     mass: 0.7,
+  84 |   },
+  85 | 
+  86 |   peek: {
+  87 |     damping: 22,
+  88 |     stiffness: 240,
+  89 |     mass: 0.8,
+  90 |   },
+  91 | 
+  92 |   jingle: {
+  93 |     damping: 12,
+  94 |     stiffness: 210,
+  95 |     mass: 0.65,
+  96 |   },
+  97 | } satisfies Record<
+  98 |   'press' | 'peek' | 'jingle',
+  99 |   SpringMotion
+ 100 | >;
+ 101 | 
+ 102 | export const semanticScale = {
+ 103 |   pressed: 0.975,
+ 104 |   settled: 1,
+ 105 | };
+ 106 | 
+ 107 | export const jingleSwing = {
+ 108 |   inputRange: [0, 0.25, 0.5, 0.75, 1],
+ 109 | 
+ 110 |   rotate: [
+ 111 |     '0deg',
+ 112 |     '-9deg',
+ 113 |     '7deg',
+ 114 |     '-3deg',
+ 115 |     '0deg',
+ 116 |   ],
+ 117 | };
+ 118 | 
+ 119 | export const tuningMotion = {
+ 120 |   opacity: {
+ 121 |     from: 0.72,
+ 122 |     to: 1,
+ 123 |   },
+ 124 | 
+ 125 |   scale: {
+ 126 |     from: 0.985,
+ 127 |     to: 1,
+ 128 |   },
+ 129 | };
+ 130 | 
+ 131 | export const completionMotion = {
+ 132 |   scale: {
+ 133 |     from: 1,
+ 134 |     peak: 1.015,
+ 135 |     to: 1,
+ 136 |   },
+ 137 | 
+ 138 |   opacity: {
+ 139 |     from: 0.88,
+ 140 |     to: 1,
+ 141 |   },
+ 142 | };
+ 143 | 
+ 144 | // Respect system accessibility settings at integration time.
+ 145 | // Individual components should disable or simplify decorative
+ 146 | // movement when Reduce Motion is enabled.
+ 147 | export const reducedMotionFallback = {
+ 148 |   duration: 0,
+ 149 | };
+ 150 | 
+
+### src/utils/semanticFeedback.ts [1-140]
+
+   1 | import { Platform } from 'react-native';
+   2 | import * as Haptics from 'expo-haptics';
+   3 | import { playUiCue } from '../audio/uiFeedback';
+   4 | 
+   5 | // semanticFeedbackV1
+   6 | //
+   7 | // Screens describe WHAT happened.
+   8 | // This module decides HOW that should feel.
+   9 | //
+  10 | // Keep feedback intentionally subtle.
+  11 | // No feature should call expo-haptics directly once integrated.
+  12 | 
+  13 | export type SemanticFeedbackEvent =
+  14 |   | 'JINGLE'
+  15 |   | 'COMPLETE'
+  16 |   | 'TIMER_START'
+  17 |   | 'TIMER_STOP'
+  18 |   | 'GESTURE_THRESHOLD'
+  19 |   | 'RANDOM_PICK'
+  20 |   | 'UNDO'
+  21 |   | 'SELECTION'
+  22 |   | 'ERROR';
+  23 | 
+  24 | let enabled = true;
+  25 | let lastEventAt = 0;
+  26 | 
+  27 | const MIN_INTERVAL_MS = 45;
+  28 | 
+  29 | export function setSemanticFeedbackEnabled(
+  30 |   value: boolean,
+  31 | ) {
+  32 |   enabled = value;
+  33 | }
+  34 | 
+  35 | export function isSemanticFeedbackEnabled() {
+  36 |   return enabled;
+  37 | }
+  38 | 
+  39 | function canPlay() {
+  40 |   if (!enabled) return false;
+  41 | 
+  42 |   // Web haptics are deliberately disabled.
+  43 |   if (Platform.OS === 'web') {
+  44 |     return false;
+  45 |   }
+  46 | 
+  47 |   const now = Date.now();
+  48 | 
+  49 |   if (now - lastEventAt < MIN_INTERVAL_MS) {
+  50 |     return false;
+  51 |   }
+  52 | 
+  53 |   lastEventAt = now;
+  54 | 
+  55 |   return true;
+  56 | }
+  57 | 
+  58 | export async function playSemanticFeedback(
+  59 |   event: SemanticFeedbackEvent,
+  60 | ) {
+  61 |   if (!canPlay()) return;
+  62 | 
+  63 |   try {
+  64 |     switch (event) {
+  65 |       case 'JINGLE':
+  66 |         // semanticJingleSoundV1
+  67 |         void playUiCue('jingle');
+  68 |         await Haptics.impactAsync(
+  69 |           Haptics.ImpactFeedbackStyle.Light,
+  70 |         );
+  71 |         return;
+  72 | 
+  73 |       case 'COMPLETE':
+  74 |         await Haptics.notificationAsync(
+  75 |           Haptics.NotificationFeedbackType.Success,
+  76 |         );
+  77 |         return;
+  78 | 
+  79 |       case 'TIMER_START':
+  80 |         await Haptics.impactAsync(
+  81 |           Haptics.ImpactFeedbackStyle.Light,
+  82 |         );
+  83 |         return;
+  84 | 
+  85 |       case 'TIMER_STOP':
+  86 |         await Haptics.impactAsync(
+  87 |           Haptics.ImpactFeedbackStyle.Medium,
+  88 |         );
+  89 |         return;
+  90 | 
+  91 |       case 'GESTURE_THRESHOLD':
+  92 |         await Haptics.selectionAsync();
+  93 |         return;
+  94 | 
+  95 |       case 'RANDOM_PICK':
+  96 |         await Haptics.selectionAsync();
+  97 |         return;
+  98 | 
+  99 |       case 'UNDO':
+ 100 |         await Haptics.impactAsync(
+ 101 |           Haptics.ImpactFeedbackStyle.Light,
+ 102 |         );
+ 103 |         return;
+ 104 | 
+ 105 |       case 'SELECTION':
+ 106 |         await Haptics.selectionAsync();
+ 107 |         return;
+ 108 | 
+ 109 |       case 'ERROR':
+ 110 |         await Haptics.notificationAsync(
+ 111 |           Haptics.NotificationFeedbackType.Error,
+ 112 |         );
+ 113 |         return;
+ 114 |     }
+ 115 |   } catch {
+ 116 |     // Haptics must never break the actual interaction.
+ 117 |   }
+ 118 | }
+ 119 | 
+ 120 | export const semanticFeedback = {
+ 121 |   // semanticCrudSoundFinalV1
+ 122 |   create: () => playUiCue('create'),
+ 123 |   delete: () => playUiCue('delete'),
+ 124 |   jingle: () =>
+ 125 |     playSemanticFeedback('JINGLE'),
+ 126 | 
+ 127 |   complete: () =>
+ 128 |     playSemanticFeedback('COMPLETE'),
+ 129 | 
+ 130 |   timerStart: () =>
+ 131 |     playSemanticFeedback('TIMER_START'),
+ 132 | 
+ 133 |   timerStop: () =>
+ 134 |     playSemanticFeedback('TIMER_STOP'),
+ 135 | 
+ 136 |   gestureThreshold: () =>
+ 137 |     playSemanticFeedback(
+ 138 |       'GESTURE_THRESHOLD',
+ 139 |     ),
+ 140 | 

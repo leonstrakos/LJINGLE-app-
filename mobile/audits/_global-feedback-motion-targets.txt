@@ -1,0 +1,3592 @@
+LJINGLE — Global Feedback + Motion Targets
+==========================================
+
+CORE FILES
+----------
+
+### src/components/PrimaryButton.tsx
+
+   1 | import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | 
+   5 | type Props = {
+   6 |   label: string;
+   7 |   onPress: () => void;
+   8 |   loading?: boolean;
+   9 |   disabled?: boolean;
+  10 |   variant?: 'primary' | 'secondary' | 'danger';
+  11 | };
+  12 | 
+  13 | export function PrimaryButton({
+  14 |   label,
+  15 |   onPress,
+  16 |   loading = false,
+  17 |   disabled = false,
+  18 |   variant = 'primary',
+  19 | }: Props) {
+  20 |   const isDisabled = disabled || loading;
+  21 | 
+  22 |   return (
+  23 |     <Pressable
+  24 |       accessibilityRole="button"
+  25 |       disabled={isDisabled}
+  26 |       onPress={onPress}
+  27 |       style={({ pressed }) => [
+  28 |         styles.button,
+  29 |         styles[variant],
+  30 |         pressed && !isDisabled && styles.pressed,
+  31 |         isDisabled && styles.disabled,
+  32 |       ]}
+  33 |     >
+  34 |       {loading ? (
+  35 |         <ActivityIndicator
+  36 |           color={variant === 'primary' ? colors.white : variant === 'danger' ? colors.danger : colors.black}
+  37 |         />
+  38 |       ) : (
+  39 |         <Text
+  40 |           style={[
+  41 |             styles.label,
+  42 |             variant === 'secondary' && styles.secondaryLabel,
+  43 |             variant === 'danger' && styles.dangerLabel,
+  44 |           ]}
+  45 |         >
+  46 |           {label}
+  47 |         </Text>
+  48 |       )}
+  49 |     </Pressable>
+  50 |   );
+  51 | }
+  52 | 
+  53 | const styles = StyleSheet.create({
+  54 |   button: {
+  55 |     minHeight: 52,
+  56 |     borderRadius: 14,
+  57 |     justifyContent: 'center',
+  58 |     alignItems: 'center',
+  59 |     paddingHorizontal: 18,
+  60 |   },
+  61 |   primary: {
+  62 |     backgroundColor: colors.black,
+  63 |   },
+  64 |   secondary: {
+  65 |     backgroundColor: colors.fillStrong,
+  66 |   },
+  67 |   danger: {
+  68 |     backgroundColor: colors.surface,
+  69 |     borderWidth: 1,
+  70 |     borderColor: colors.separator,
+  71 |   },
+  72 |   label: {
+  73 |     color: colors.white,
+  74 |     fontSize: 16,
+  75 |     fontWeight: '700',
+  76 |   },
+  77 |   secondaryLabel: {
+  78 |     color: colors.black,
+  79 |   },
+  80 |   dangerLabel: {
+  81 |     color: colors.danger,
+  82 |   },
+  83 |   pressed: {
+  84 |     opacity: 0.8,
+  85 |     transform: [{ scale: 0.99 }],
+  86 |   },
+  87 |   disabled: {
+  88 |     opacity: 0.55,
+  89 |   },
+  90 | });
+
+### src/components/AnimatedPressable.tsx
+
+   1 | import {
+   2 |   Animated,
+   3 |   Pressable,
+   4 |   type PressableProps,
+   5 |   type StyleProp,
+   6 |   type ViewStyle,
+   7 | } from 'react-native';
+   8 | import { useRef } from 'react';
+   9 | 
+  10 | import {
+  11 |   pressIn,
+  12 |   pressOut,
+  13 | } from '../motion/uiMotion';
+  14 | import {
+  15 |   playUiCue,
+  16 |   type UiCue,
+  17 | } from '../audio/uiFeedback';
+  18 | 
+  19 | type AnimatedPressableProps = Omit<
+  20 |   PressableProps,
+  21 |   'style' | 'onPressIn' | 'onPressOut'
+  22 | > & {
+  23 |   style?: StyleProp<ViewStyle>;
+  24 |   pressedStyle?: StyleProp<ViewStyle>;
+  25 |   cue?: UiCue | false;
+  26 |   scaleTo?: number;
+  27 | };
+  28 | 
+  29 | // animatedPressableV1
+  30 | // Reusable physical-button feedback without changing screen layout.
+  31 | export function AnimatedPressable({
+  32 |   children,
+  33 |   style,
+  34 |   pressedStyle,
+  35 |   cue = 'tap',
+  36 |   scaleTo = 0.975,
+  37 |   onPress,
+  38 |   disabled,
+  39 |   ...props
+  40 | }: AnimatedPressableProps) {
+  41 |   const scale = useRef(
+  42 |     new Animated.Value(1),
+  43 |   ).current;
+  44 | 
+  45 |   const handlePressIn = () => {
+  46 |     // Keep the shared motion helper as the default physical feel.
+  47 |     if (scaleTo === 0.975) {
+  48 |       pressIn(scale).start();
+  49 |       return;
+  50 |     }
+  51 | 
+  52 |     Animated.spring(scale, {
+  53 |       toValue: scaleTo,
+  54 |       damping: 18,
+  55 |       stiffness: 320,
+  56 |       mass: 0.45,
+  57 |       useNativeDriver: true,
+  58 |     }).start();
+  59 |   };
+  60 | 
+  61 |   const handlePressOut = () => {
+  62 |     pressOut(scale).start();
+  63 |   };
+  64 | 
+  65 |   return (
+  66 |     <Animated.View
+  67 |       style={{
+  68 |         transform: [{ scale }],
+  69 |       }}
+  70 |     >
+  71 |       <Pressable
+  72 |         {...props}
+  73 |         disabled={disabled}
+  74 |         onPressIn={handlePressIn}
+  75 |         onPressOut={handlePressOut}
+  76 |         onPress={(event) => {
+  77 |           if (cue) {
+  78 |             void playUiCue(cue);
+  79 |           }
+  80 | 
+  81 |           onPress?.(event);
+  82 |         }}
+  83 |         style={({ pressed }) => [
+  84 |           style,
+  85 |           pressed ? pressedStyle : null,
+  86 |         ]}
+  87 |       >
+  88 |         {children}
+  89 |       </Pressable>
+  90 |     </Animated.View>
+  91 |   );
+  92 | }
+  93 | 
+
+### src/utils/semanticFeedback.ts
+
+   1 | import { Platform } from 'react-native';
+   2 | import * as Haptics from 'expo-haptics';
+   3 | import { playUiCue, playUiSound } from '../audio/uiFeedback';
+   4 | 
+   5 | // semanticFeedbackV1
+   6 | //
+   7 | // Screens describe WHAT happened.
+   8 | // This module decides HOW that should feel.
+   9 | //
+  10 | // Keep feedback intentionally subtle.
+  11 | // No feature should call expo-haptics directly once integrated.
+  12 | 
+  13 | export type SemanticFeedbackEvent =
+  14 |   | 'JINGLE'
+  15 |   | 'COMPLETE'
+  16 |   | 'TIMER_START'
+  17 |   | 'TIMER_STOP'
+  18 |   | 'GESTURE_THRESHOLD'
+  19 |   | 'RANDOM_PICK'
+  20 |   | 'UNDO'
+  21 |   | 'SELECTION'
+  22 |   | 'ERROR';
+  23 | 
+  24 | let enabled = true;
+  25 | let lastEventAt = 0;
+  26 | 
+  27 | const MIN_INTERVAL_MS = 45;
+  28 | 
+  29 | export function setSemanticFeedbackEnabled(
+  30 |   value: boolean,
+  31 | ) {
+  32 |   enabled = value;
+  33 | }
+  34 | 
+  35 | export function isSemanticFeedbackEnabled() {
+  36 |   return enabled;
+  37 | }
+  38 | 
+  39 | function canPlay() {
+  40 |   if (!enabled) return false;
+  41 | 
+  42 |   // Web haptics are deliberately disabled.
+  43 |   if (Platform.OS === 'web') {
+  44 |     return false;
+  45 |   }
+  46 | 
+  47 |   const now = Date.now();
+  48 | 
+  49 |   if (now - lastEventAt < MIN_INTERVAL_MS) {
+  50 |     return false;
+  51 |   }
+  52 | 
+  53 |   lastEventAt = now;
+  54 | 
+  55 |   return true;
+  56 | }
+  57 | 
+  58 | export async function playSemanticFeedback(
+  59 |   event: SemanticFeedbackEvent,
+  60 | ) {
+  61 |   // jingleSoundIndependentV2
+  62 |   if (event === 'JINGLE') {
+  63 |     void playUiSound('jingle');
+  64 |   }
+  65 | 
+  66 |   if (!canPlay()) return;
+  67 | 
+  68 |   try {
+  69 |     switch (event) {
+  70 |       case 'JINGLE':
+  71 |         await Haptics.impactAsync(
+  72 |           Haptics.ImpactFeedbackStyle.Light,
+  73 |         );
+  74 |         return;
+  75 | 
+  76 |       case 'COMPLETE':
+  77 |         await Haptics.notificationAsync(
+  78 |           Haptics.NotificationFeedbackType.Success,
+  79 |         );
+  80 |         return;
+  81 | 
+  82 |       case 'TIMER_START':
+  83 |         await Haptics.impactAsync(
+  84 |           Haptics.ImpactFeedbackStyle.Light,
+  85 |         );
+  86 |         return;
+  87 | 
+  88 |       case 'TIMER_STOP':
+  89 |         await Haptics.impactAsync(
+  90 |           Haptics.ImpactFeedbackStyle.Medium,
+  91 |         );
+  92 |         return;
+  93 | 
+  94 |       case 'GESTURE_THRESHOLD':
+  95 |         await Haptics.selectionAsync();
+  96 |         return;
+  97 | 
+  98 |       case 'RANDOM_PICK':
+  99 |         await Haptics.selectionAsync();
+ 100 |         return;
+ 101 | 
+ 102 |       case 'UNDO':
+ 103 |         await Haptics.impactAsync(
+ 104 |           Haptics.ImpactFeedbackStyle.Light,
+ 105 |         );
+ 106 |         return;
+ 107 | 
+ 108 |       case 'SELECTION':
+ 109 |         await Haptics.selectionAsync();
+ 110 |         return;
+ 111 | 
+ 112 |       case 'ERROR':
+ 113 |         await Haptics.notificationAsync(
+ 114 |           Haptics.NotificationFeedbackType.Error,
+ 115 |         );
+ 116 |         return;
+ 117 |     }
+ 118 |   } catch {
+ 119 |     // Haptics must never break the actual interaction.
+ 120 |   }
+ 121 | }
+ 122 | 
+ 123 | export const semanticFeedback = {
+ 124 |   // semanticCrudSoundFinalV1
+ 125 |   create: () => playUiCue('create'),
+ 126 |   delete: () => playUiCue('delete'),
+ 127 |   jingle: () =>
+ 128 |     playSemanticFeedback('JINGLE'),
+ 129 | 
+ 130 |   complete: () =>
+ 131 |     playSemanticFeedback('COMPLETE'),
+ 132 | 
+ 133 |   timerStart: () =>
+ 134 |     playSemanticFeedback('TIMER_START'),
+ 135 | 
+ 136 |   timerStop: () =>
+ 137 |     playSemanticFeedback('TIMER_STOP'),
+ 138 | 
+ 139 |   gestureThreshold: () =>
+ 140 |     playSemanticFeedback(
+ 141 |       'GESTURE_THRESHOLD',
+ 142 |     ),
+ 143 | 
+ 144 |   randomPick: () =>
+ 145 |     playSemanticFeedback('RANDOM_PICK'),
+ 146 | 
+ 147 |   undo: () =>
+ 148 |     playSemanticFeedback('UNDO'),
+ 149 | 
+ 150 |   selection: () =>
+ 151 |     playSemanticFeedback('SELECTION'),
+ 152 | 
+ 153 |   error: () =>
+ 154 |     playSemanticFeedback('ERROR'),
+ 155 | };
+ 156 | 
+
+### src/utils/crudFeedback.ts
+
+   1 | import { semanticFeedback } from './semanticFeedback';
+   2 | 
+   3 | // crudFeedbackV1
+   4 | // Call ONLY after a mutation actually succeeds.
+   5 | export function createdFeedback() {
+   6 |   void semanticFeedback.create();
+   7 | }
+   8 | 
+   9 | export function deletedFeedback() {
+  10 |   void semanticFeedback.delete();
+  11 | }
+  12 | 
+
+### src/utils/semanticMotion.ts
+
+   1 | import type {
+   2 |   EasingFunction,
+   3 | } from 'react-native';
+   4 | 
+   5 | import { Easing } from 'react-native';
+   6 | 
+   7 | // semanticMotionV1
+   8 | //
+   9 | // Central motion language.
+  10 | //
+  11 | // Same principle as semanticFeedback:
+  12 | // components request a meaningful motion,
+  13 | // rather than inventing arbitrary animation durations.
+  14 | //
+  15 | // These are configuration primitives only.
+  16 | // Nothing animates automatically.
+  17 | 
+  18 | export type SemanticMotionName =
+  19 |   | 'ENTER'
+  20 |   | 'EXIT'
+  21 |   | 'SETTLE'
+  22 |   | 'PRESS'
+  23 |   | 'JINGLE'
+  24 |   | 'TUNING'
+  25 |   | 'PEEK'
+  26 |   | 'UNDO';
+  27 | 
+  28 | export type TimingMotion = {
+  29 |   duration: number;
+  30 |   easing: EasingFunction;
+  31 | };
+  32 | 
+  33 | export type SpringMotion = {
+  34 |   damping: number;
+  35 |   stiffness: number;
+  36 |   mass: number;
+  37 | };
+  38 | 
+  39 | export const semanticTiming = {
+  40 |   enter: {
+  41 |     duration: 220,
+  42 |     easing: Easing.out(
+  43 |       Easing.cubic,
+  44 |     ),
+  45 |   },
+  46 | 
+  47 |   exit: {
+  48 |     duration: 160,
+  49 |     easing: Easing.in(
+  50 |       Easing.cubic,
+  51 |     ),
+  52 |   },
+  53 | 
+  54 |   settle: {
+  55 |     duration: 260,
+  56 |     easing: Easing.out(
+  57 |       Easing.quad,
+  58 |     ),
+  59 |   },
+  60 | 
+  61 |   tuning: {
+  62 |     duration: 420,
+  63 |     easing: Easing.inOut(
+  64 |       Easing.sin,
+  65 |     ),
+  66 |   },
+  67 | 
+  68 |   undo: {
+  69 |     duration: 200,
+  70 |     easing: Easing.out(
+  71 |       Easing.cubic,
+  72 |     ),
+  73 |   },
+  74 | } satisfies Record<
+  75 |   'enter' | 'exit' | 'settle' | 'tuning' | 'undo',
+  76 |   TimingMotion
+  77 | >;
+  78 | 
+  79 | export const semanticSpring = {
+  80 |   press: {
+  81 |     damping: 18,
+  82 |     stiffness: 260,
+  83 |     mass: 0.7,
+  84 |   },
+  85 | 
+  86 |   peek: {
+  87 |     damping: 22,
+  88 |     stiffness: 240,
+  89 |     mass: 0.8,
+  90 |   },
+  91 | 
+  92 |   jingle: {
+  93 |     damping: 12,
+  94 |     stiffness: 210,
+  95 |     mass: 0.65,
+  96 |   },
+  97 | } satisfies Record<
+  98 |   'press' | 'peek' | 'jingle',
+  99 |   SpringMotion
+ 100 | >;
+ 101 | 
+ 102 | export const semanticScale = {
+ 103 |   pressed: 0.975,
+ 104 |   settled: 1,
+ 105 | };
+ 106 | 
+ 107 | export const jingleSwing = {
+ 108 |   inputRange: [0, 0.25, 0.5, 0.75, 1],
+ 109 | 
+ 110 |   rotate: [
+ 111 |     '0deg',
+ 112 |     '-9deg',
+ 113 |     '7deg',
+ 114 |     '-3deg',
+ 115 |     '0deg',
+ 116 |   ],
+ 117 | };
+ 118 | 
+ 119 | export const tuningMotion = {
+ 120 |   opacity: {
+ 121 |     from: 0.72,
+ 122 |     to: 1,
+ 123 |   },
+ 124 | 
+ 125 |   scale: {
+ 126 |     from: 0.985,
+ 127 |     to: 1,
+ 128 |   },
+ 129 | };
+ 130 | 
+ 131 | export const completionMotion = {
+ 132 |   scale: {
+ 133 |     from: 1,
+ 134 |     peak: 1.015,
+ 135 |     to: 1,
+ 136 |   },
+ 137 | 
+ 138 |   opacity: {
+ 139 |     from: 0.88,
+ 140 |     to: 1,
+ 141 |   },
+ 142 | };
+ 143 | 
+ 144 | // Respect system accessibility settings at integration time.
+ 145 | // Individual components should disable or simplify decorative
+ 146 | // movement when Reduce Motion is enabled.
+ 147 | export const reducedMotionFallback = {
+ 148 |   duration: 0,
+ 149 | };
+ 150 | 
+
+
+CREATE CANDIDATES
+-----------------
+
+### src\screens\BookDetailsScreen.tsx:76
+    69 |     } finally {
+    70 |       setLoading(false);
+    71 |     }
+    72 |   }, [bookId]);
+    73 | 
+    74 |   useEffect(() => {
+    75 |     void loadBook();
+>   76 |     return navigation.addListener('focus', () => {
+    77 |       void loadBook();
+    78 |     });
+    79 |   }, [loadBook, navigation]);
+    80 | 
+    81 |   const confirmDelete = () => {
+    82 |     if (!book) return;
+    83 |     setDeleteError(null);
+    84 |     setConfirmVisible(true);
+    85 |   };
+    86 | 
+    87 |   const toggleReadingTimer = async () => {
+    88 |     if (!readingTimer || timerLoading) return;
+
+### src\screens\BookDetailsScreen.tsx:259
+   252 |         onCancel={cancelDelete}
+   253 |         onConfirm={() => void deleteBook()}
+   254 |       />
+   255 |     </SafeAreaView>
+   256 |   );
+   257 | }
+   258 | 
+>  259 | const styles = StyleSheet.create({
+   260 |   safeArea: {
+   261 |     flex: 1,
+   262 |     backgroundColor: colors.background,
+   263 |   },
+   264 |   content: {
+   265 |     padding: 20,
+   266 |     paddingBottom: 40,
+   267 |   },
+   268 |   cover: {
+   269 |     minHeight: 270,
+   270 |     justifyContent: 'flex-end',
+   271 |     backgroundColor: colors.navy,
+
+### src\screens\BookFormScreen.tsx:179
+   172 |     if (!payload) return;
+   173 | 
+   174 |     setSaving(true);
+   175 |     try {
+   176 |       if (bookId) {
+   177 |         await bookApi.update(bookId, payload);
+   178 |       } else {
+>  179 |         await bookApi.create(payload);
+   180 |       }
+   181 |       navigation.goBack();
+   182 |     } catch (caught) {
+   183 |       Alert.alert(
+   184 |         'Spremanje nije uspjelo',
+   185 |         caught instanceof Error ? caught.message : 'Pokušajte ponovno.',
+   186 |       );
+   187 |     } finally {
+   188 |       setSaving(false);
+   189 |     }
+   190 |   };
+   191 | 
+
+### src\screens\BookFormScreen.tsx:381
+   374 |           </View>
+   375 |         </ScrollView>
+   376 |       </KeyboardAvoidingView>
+   377 |     </SafeAreaView>
+   378 |   );
+   379 | }
+   380 | 
+>  381 | const styles = StyleSheet.create({
+   382 |   safeArea: {
+   383 |     flex: 1,
+   384 |     backgroundColor: colors.background,
+   385 |   },
+   386 |   flex: {
+   387 |     flex: 1,
+   388 |   },
+   389 |   content: {
+   390 |     paddingHorizontal: 16,
+   391 |     paddingTop: 16,
+   392 |     paddingBottom: 36,
+   393 |   },
+
+### src\screens\BookListScreen.tsx:354
+   347 |         <Text style={styles.fabPlus}>+</Text>
+   348 |         <Text style={styles.fabLabel}>Nova knjiga</Text>
+   349 |       </Pressable>
+   350 |     </SafeAreaView>
+   351 |   );
+   352 | }
+   353 | 
+>  354 | const styles = StyleSheet.create({
+   355 |   safeArea: {
+   356 |     flex: 1,
+   357 |     backgroundColor: colors.background,
+   358 |   },
+   359 |   hero: {
+   360 |     paddingHorizontal: 22,
+   361 |     paddingTop: 20,
+   362 |     paddingBottom: 22,
+   363 |   },
+   364 |   eyebrow: {
+   365 |     color: colors.textMuted,
+   366 |     fontWeight: '600',
+
+### src\screens\BookMetadataImportScreen.tsx:221
+   214 |           </View>
+   215 |         )}
+   216 |       </ScrollView>
+   217 |     </SafeAreaView>
+   218 |   );
+   219 | }
+   220 | 
+>  221 | const styles = StyleSheet.create({
+   222 |   safeArea: {
+   223 |     flex: 1,
+   224 |     backgroundColor: colors.background,
+   225 |   },
+   226 |   content: {
+   227 |     width: '100%',
+   228 |     maxWidth: 760,
+   229 |     alignSelf: 'center',
+   230 |     paddingHorizontal: 20,
+   231 |     paddingTop: 26,
+   232 |     paddingBottom: 48,
+   233 |   },
+
+### src\screens\BookSearchScreen.tsx:80
+    73 |           </Pressable>}
+    74 |         />
+    75 |       )}
+    76 |     </SafeAreaView>
+    77 |   );
+    78 | }
+    79 | 
+>   80 | const styles = StyleSheet.create({
+    81 |   safeArea: { flex: 1, backgroundColor: colors.background },
+    82 |   hero: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 15 },
+    83 |   eyebrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+    84 |   heading: { marginTop: 4, color: colors.text, fontSize: 34, lineHeight: 40, fontWeight: '900', letterSpacing: -0.8 },
+    85 |   intro: { marginTop: 7, color: colors.textMuted, fontSize: 14, lineHeight: 20 },
+    86 |   searchBox: { minHeight: 58, marginTop: 20, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.surface },
+    87 |   searchIcon: { color: colors.black, fontSize: 25, marginRight: 11 }, input: { flex: 1, color: colors.text, fontSize: 16 }, clear: { color: colors.textMuted, fontSize: 27, padding: 5 },
+    88 |   loading: { marginTop: 80 }, list: { paddingHorizontal: 18, paddingBottom: 36 },
+    89 |   card: { minHeight: 84, marginBottom: 10, padding: 14, flexDirection: 'row', alignItems: 'center', borderRadius: 19, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.surface },
+    90 |   kind: { minWidth: 88, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 10, backgroundColor: colors.fillStrong }, kindText: { color: colors.black, fontSize: 10, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5 },
+    91 |   copy: { flex: 1, marginLeft: 13 }, title: { color: colors.text, fontSize: 17, fontWeight: '800' }, detail: { marginTop: 4, color: colors.textMuted, fontSize: 12 }, arrow: { color: colors.textMuted, fontSize: 28 }, pressed: { opacity: 0.68, transform: [{ scale: 0.99 }] },
+    92 |   error: { margin: 20, padding: 18, borderRadius: 18, backgroundColor: colors.dangerSoft }, errorText: { color: colors.danger, fontSize: 14 }, retry: { marginTop: 8, color: colors.danger, fontWeight: '800' },
+
+### src\screens\BookStatsScreen.tsx:152
+   145 |           <Text style={styles.rangeTitle}>{stats.averageYear ? String(stats.averageYear) : '—'}</Text>
+   146 |         </View>
+   147 |       </ScrollView>
+   148 |     </SafeAreaView>
+   149 |   );
+   150 | }
+   151 | 
+>  152 | const styles = StyleSheet.create({
+   153 |   safeArea: {
+   154 |     flex: 1,
+   155 |     backgroundColor: colors.background,
+   156 |   },
+   157 |   content: {
+   158 |     paddingHorizontal: 16,
+   159 |     paddingTop: 16,
+   160 |     paddingBottom: 36,
+   161 |   },
+   162 |   eyebrow: {
+   163 |     color: colors.textMuted,
+   164 |     fontSize: 15,
+
+### src\screens\CatalogueHomeScreen.tsx:1515
+  1508 |       >
+  1509 |         {title}
+  1510 |       </Text>
+  1511 |     );
+  1512 |   }
+  1513 | 
+  1514 |   const escaped = usefulTerms.map((term) =>
+> 1515 |     term.replace(/[.*+?^${}()|[\]\\]/g, '\\const styles = StyleSheet.create({')
+  1516 |   );
+  1517 | 
+  1518 |   let matcher: RegExp;
+  1519 | 
+  1520 |   try {
+  1521 |     matcher = new RegExp(
+  1522 |       '(' + escaped.join('|') + ')',
+  1523 |       'gi',
+  1524 |     );
+  1525 |   } catch {
+  1526 |     return (
+  1527 |       <Text
+
+### src\screens\CatalogueHomeScreen.tsx:1566
+  1559 |           </Text>
+  1560 |         );
+  1561 |       })}
+  1562 |     </Text>
+  1563 |   );
+  1564 | }
+  1565 | 
+> 1566 | const styles = StyleSheet.create({
+  1567 |   safeArea: {
+  1568 |     flex: 1,
+  1569 |     backgroundColor: colors.background,
+  1570 |   },
+  1571 | 
+  1572 |   content: {
+  1573 |     width: '100%',
+  1574 |     maxWidth: 820,
+  1575 |     alignSelf: 'center',
+  1576 |     paddingHorizontal: 20,
+  1577 |     paddingTop: 22,
+  1578 |     paddingBottom: 48,
+
+### src\screens\ChronologyScreen.tsx:719
+   712 |           </>
+   713 |         ) : null}
+   714 |       </ScrollView>
+   715 |     </SafeAreaView>
+   716 |   );
+   717 | }
+   718 | 
+>  719 | const styles = StyleSheet.create({
+   720 |   safe: {
+   721 |     flex: 1,
+   722 |     backgroundColor: colors.background,
+   723 |   },
+   724 | 
+   725 |   content: {
+   726 |     padding: 22,
+   727 |     paddingBottom: 70,
+   728 |   },
+   729 | 
+   730 |   center: {
+   731 |     flex: 1,
+
+### src\screens\CollectionDetailsScreen.tsx:95
+    88 |   };
+    89 | 
+    90 |   const add = async (reference: EntityReference) => {
+    91 |     if (busyId || !collection) return;
+    92 |     setBusyId(reference.entityId);
+    93 |     setError(null);
+    94 |     try {
+>   95 |       const item = await collectionApi.addItem(collectionId, reference.entityType, reference.entityId);
+    96 |       setCollection({ ...collection, items: [...collection.items, item] });
+    97 |     } catch (caught) {
+    98 |       setError(caught instanceof Error ? caught.message : 'Stavka nije dodana.');
+    99 |     } finally {
+   100 |       setBusyId(null);
+   101 |     }
+   102 |   };
+   103 | 
+   104 |   const remove = async (itemId: string) => {
+   105 |     if (busyId || !collection) return;
+   106 |     setBusyId(itemId);
+   107 |     setError(null);
+
+### src\screens\CollectionDetailsScreen.tsx:243
+   236 |           />
+   237 |         </ModalSafeAreaView>
+   238 |       </Modal>
+   239 |     </SafeAreaView>
+   240 |   );
+   241 | }
+   242 | 
+>  243 | const styles = StyleSheet.create({
+   244 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   245 |   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 30 },
+   246 |   content: { width: '100%', maxWidth: 820, alignSelf: 'center', padding: 20, paddingBottom: 50 },
+   247 |   hero: { paddingTop: 8, paddingBottom: 19 },
+   248 |   heroSymbol: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.black, marginBottom: 17 },
+   249 |   heroSymbolText: { color: colors.white, fontSize: 31, fontWeight: '900' },
+   250 |   eyebrow: { color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1, textTransform: 'uppercase' },
+   251 |   heading: { marginTop: 3, color: colors.text, fontSize: 36, lineHeight: 42, fontWeight: '900', letterSpacing: -1 },
+   252 |   description: { marginTop: 7, color: colors.textMuted, fontSize: 14, lineHeight: 21, maxWidth: 580 },
+   253 |   count: { marginTop: 10, color: colors.text, fontSize: 12, fontWeight: '800' },
+   254 |   addButton: { minHeight: 82, padding: 14, flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+   255 |   addPlus: { width: 48, height: 48, textAlign: 'center', lineHeight: 45, borderRadius: 15, backgroundColor: colors.black, color: colors.white, fontSize: 26 },
+
+### src\screens\CollectionsScreen.tsx:53
+    46 |   useFocusEffect(useCallback(() => { void load(); }, [load]));
+    47 | 
+    48 |   const create = async () => {
+    49 |     if (!name.trim() || saving) return;
+    50 |     setSaving(true);
+    51 |     setError(null);
+    52 |     try {
+>   53 |       const created = await collectionApi.create({
+    54 |         name: name.trim(),
+    55 |         description: description.trim() || null,
+    56 |         symbol: symbol.trim() || '◇',
+    57 |       });
+    58 |       setCollections((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, 'hr')));
+    59 |       setName('');
+    60 |       setDescription('');
+    61 |       setSymbol('◇');
+    62 |       setCreateVisible(false);
+    63 |       navigation.navigate('CollectionDetails', { collectionId: created.collectionId });
+    64 |     } catch (caught) {
+    65 |       setError(caught instanceof Error ? caught.message : 'Kolekcija nije spremljena.');
+
+### src\screens\CollectionsScreen.tsx:159
+   152 |           <View style={styles.form}>
+   153 |             <Text style={styles.label}>Simbol</Text>
+   154 |             <TextInput value={symbol} onChangeText={setSymbol} maxLength={16} style={[styles.input, styles.symbolInput]} />
+   155 |             <Text style={styles.label}>Naziv</Text>
+   156 |             <TextInput value={name} onChangeText={setName} placeholder="npr. Rainy Night Movies" placeholderTextColor={colors.textMuted} style={styles.input} />
+   157 |             <Text style={styles.label}>Opis</Text>
+   158 |             <TextInput value={description} onChangeText={setDescription} multiline placeholder="Neobavezno" placeholderTextColor={colors.textMuted} style={[styles.input, styles.textarea]} />
+>  159 |             <Pressable disabled={!name.trim() || saving} onPress={() => void create()} style={({ pressed }) => [styles.saveButton, (!name.trim() || saving) && styles.disabled, pressed && styles.pressed]}>
+   160 |               {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveText}>Spremi kolekciju</Text>}
+   161 |             </Pressable>
+   162 |           </View>
+   163 |         </ModalSafeAreaView>
+   164 |       </Modal>
+   165 |     </SafeAreaView>
+   166 |   );
+   167 | }
+   168 | 
+   169 | const styles = StyleSheet.create({
+   170 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   171 |   content: { width: '100%', maxWidth: 820, alignSelf: 'center', padding: 20, paddingBottom: 46 },
+
+### src\screens\CollectionsScreen.tsx:169
+   162 |           </View>
+   163 |         </ModalSafeAreaView>
+   164 |       </Modal>
+   165 |     </SafeAreaView>
+   166 |   );
+   167 | }
+   168 | 
+>  169 | const styles = StyleSheet.create({
+   170 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   171 |   content: { width: '100%', maxWidth: 820, alignSelf: 'center', padding: 20, paddingBottom: 46 },
+   172 |   hero: { paddingTop: 8, paddingBottom: 18 },
+   173 |   eyebrow: { color: colors.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 1, textTransform: 'uppercase' },
+   174 |   heading: { marginTop: 4, color: colors.text, fontSize: 39, lineHeight: 46, fontWeight: '900', letterSpacing: -1.2 },
+   175 |   intro: { marginTop: 8, maxWidth: 560, color: colors.textMuted, fontSize: 14, lineHeight: 21 },
+   176 |   createCard: { minHeight: 86, marginBottom: 16, padding: 15, flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: colors.black },
+   177 |   createPlus: { width: 48, color: colors.white, fontSize: 30, textAlign: 'center' },
+   178 |   createCopy: { flex: 1, minWidth: 0, marginLeft: 7 },
+   179 |   createTitle: { color: colors.white, fontSize: 17, fontWeight: '900' },
+   180 |   createSubtitle: { marginTop: 3, color: '#C7C7CC', fontSize: 11, lineHeight: 15 },
+   181 |   arrow: { marginLeft: 10, color: colors.textMuted, fontSize: 30, fontWeight: '300' },
+
+### src\screens\EntryFormScreen.tsx:235
+   228 |     setSaveError(null);
+   229 |     try {
+   230 |       let savedEntryId = entryId;
+   231 | 
+   232 |       if (entryId) {
+   233 |         await entryApi.update(entryId, payload);
+   234 |       } else {
+>  235 |         const created = await entryApi.create(payload);
+   236 |         savedEntryId = created.entryId;
+   237 |       }
+   238 | 
+   239 |       if (savedEntryId) {
+   240 |         try {
+   241 |           await saveEntryImageChanges(
+   242 |             savedEntryId,
+   243 |             pendingImages,
+   244 |             removedImageIds,
+   245 |           );
+   246 |         } catch {
+   247 |           Alert.alert(
+
+### src\screens\EntryFormScreen.tsx:241
+   234 |       } else {
+   235 |         const created = await entryApi.create(payload);
+   236 |         savedEntryId = created.entryId;
+   237 |       }
+   238 | 
+   239 |       if (savedEntryId) {
+   240 |         try {
+>  241 |           await saveEntryImageChanges(
+   242 |             savedEntryId,
+   243 |             pendingImages,
+   244 |             removedImageIds,
+   245 |           );
+   246 |         } catch {
+   247 |           Alert.alert(
+   248 |             'Zapis je spremljen',
+   249 |             'Tekst je spremljen, ali neke slike nisu. Zapis možeš ponovno otvoriti i pokušati ih dodati.',
+   250 |           );
+   251 |         }
+   252 |       }
+   253 | 
+
+### src\screens\EntryFormScreen.tsx:420
+   413 |                   Dodaj fotografije ili slike koje želiš sačuvati uz ovaj zapis.
+   414 |                 </Text>
+   415 |               </View>
+   416 | 
+   417 |               <Pressable
+   418 |                 accessibilityRole="button"
+   419 |                 disabled={pickingImages}
+>  420 |                 onPress={() => void addImages()}
+   421 |                 style={({ pressed }) => [
+   422 |                   styles.addImageButton,
+   423 |                   pressed && styles.pressed,
+   424 |                 ]}
+   425 |               >
+   426 |                 {pickingImages ? (
+   427 |                   <ActivityIndicator color={colors.white} size="small" />
+   428 |                 ) : (
+   429 |                   <Text style={styles.addImageButtonText}>+ Dodaj</Text>
+   430 |                 )}
+   431 |               </Pressable>
+   432 |             </View>
+
+### src\screens\EntryFormScreen.tsx:591
+   584 |   return (
+   585 |     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.formatButton, pressed && styles.pressed]}>
+   586 |       <Text style={[styles.formatButtonText, strong && styles.formatButtonStrong]}>{label}</Text>
+   587 |     </Pressable>
+   588 |   );
+   589 | }
+   590 | 
+>  591 | const styles = StyleSheet.create({
+   592 |   safeArea: {
+   593 |     flex: 1,
+   594 |     backgroundColor: colors.background,
+   595 |   },
+   596 |   flex: {
+   597 |     flex: 1,
+   598 |   },
+   599 |   contentContainer: {
+   600 |     width: '100%',
+   601 |     maxWidth: 860,
+   602 |     alignSelf: 'center',
+   603 |     paddingHorizontal: 28,
+
+### src\screens\EntryListScreen.tsx:364
+   357 |       ]}
+   358 |     >
+   359 |       <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text>
+   360 |     </Pressable>
+   361 |   );
+   362 | }
+   363 | 
+>  364 | const styles = StyleSheet.create({
+   365 |   entrySearchWrap: {
+   366 |     marginTop: 18,
+   367 |     marginBottom: 4,
+   368 |   },
+   369 |   entrySearchInput: {
+   370 |     minHeight: 52,
+   371 |     borderWidth: 1,
+   372 |     borderColor: colors.border,
+   373 |     borderRadius: 18,
+   374 |     backgroundColor: colors.surface,
+   375 |     paddingHorizontal: 16,
+   376 |     color: colors.text,
+
+### src\screens\HistoryScreen.tsx:338
+   331 |         showsVerticalScrollIndicator={false}
+   332 |         stickySectionHeadersEnabled={false}
+   333 |       />
+   334 |     </SafeAreaView>
+   335 |   );
+   336 | }
+   337 | 
+>  338 | const styles = StyleSheet.create({
+   339 |   safeArea: {
+   340 |     flex: 1,
+   341 |     backgroundColor: colors.background,
+   342 |   },
+   343 |   content: {
+   344 |     paddingHorizontal: 16,
+   345 |     paddingBottom: 40,
+   346 |   },
+   347 |   hero: {
+   348 |     paddingHorizontal: 6,
+   349 |     paddingTop: 18,
+   350 |     paddingBottom: 26,
+
+### src\screens\MediaDetailsScreen.tsx:77
+    70 |     } finally {
+    71 |       setLoading(false);
+    72 |     }
+    73 |   }, [mediaId]);
+    74 | 
+    75 |   useEffect(() => {
+    76 |     void load();
+>   77 |     return navigation.addListener('focus', () => void load());
+    78 |   }, [load, navigation]);
+    79 | 
+    80 |   const updateSeriesProgress = useCallback(() => {
+    81 |     void load();
+    82 |   }, [load]);
+    83 | 
+    84 |   const toggleTimer = async () => {
+    85 |     if (!timer || timerLoading) return;
+    86 |     setTimerLoading(true);
+    87 |     setTimerError(null);
+    88 |     try {
+    89 |       setTimer(timer.running
+
+### src\screens\MediaDetailsScreen.tsx:278
+   271 |     <View style={styles.detailRow}>
+   272 |       <Text style={styles.detailLabel}>{label}</Text>
+   273 |       <Text style={styles.detailValue}>{value}</Text>
+   274 |     </View>
+   275 |   );
+   276 | }
+   277 | 
+>  278 | const styles = StyleSheet.create({
+   279 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   280 |   content: { padding: 20, paddingBottom: 40 },
+   281 |   hero: { flexDirection: 'row', gap: 20, alignItems: 'flex-end' },
+   282 |   heroText: { flex: 1, paddingBottom: 4 },
+   283 |   type: {
+   284 |     color: colors.textMuted,
+   285 |     fontSize: 12,
+   286 |     fontWeight: '800',
+   287 |     textTransform: 'uppercase',
+   288 |     letterSpacing: 0.8,
+   289 |   },
+   290 |   title: { color: colors.text, fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 6 },
+
+### src\screens\MediaFormScreen.tsx:145
+   138 |     if (!payload) return;
+   139 |     setSaving(true);
+   140 |     try {
+   141 |       if (mediaId) {
+   142 |         await mediaApi.update(mediaId, payload);
+   143 |         navigation.goBack();
+   144 |       } else {
+>  145 |         const created = await mediaApi.create(payload);
+   146 |         navigation.replace('MediaDetails', { mediaId: created.mediaId });
+   147 |       }
+   148 |     } catch (caught) {
+   149 |       Alert.alert('Spremanje nije uspjelo', caught instanceof Error ? caught.message : 'Pokušajte ponovno.');
+   150 |     } finally {
+   151 |       setSaving(false);
+   152 |     }
+   153 |   };
+   154 | 
+   155 |   if (loading) return <MediaFeedbackView type="loading" message="Učitavanje podataka…" />;
+   156 |   if (loadError) return <MediaFeedbackView type="error" message={loadError} />;
+   157 | 
+
+### src\screens\MediaFormScreen.tsx:263
+   256 |   return (
+   257 |     <Pressable disabled={disabled} onPress={onPress} style={[styles.chip, active && styles.chipActive, disabled && styles.chipDisabled]}>
+   258 |       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+   259 |     </Pressable>
+   260 |   );
+   261 | }
+   262 | 
+>  263 | const styles = StyleSheet.create({
+   264 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   265 |   flex: { flex: 1 },
+   266 |   content: { padding: 20, paddingBottom: 45 },
+   267 |   eyebrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+   268 |   heading: { color: colors.text, fontSize: 31, lineHeight: 37, fontWeight: '900', letterSpacing: -0.6, marginTop: 3, marginBottom: 18 },
+   269 |   card: { padding: 17, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+   270 |   field: { marginBottom: 16 },
+   271 |   fieldLabel: { color: colors.text, fontSize: 13, fontWeight: '800', marginBottom: 7 },
+   272 |   input: { minHeight: 49, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 15 },
+   273 |   multiline: { minHeight: 110, paddingTop: 13, textAlignVertical: 'top' },
+   274 |   inputError: { borderColor: colors.danger },
+   275 |   error: { color: colors.danger, fontSize: 12, marginTop: 6 },
+
+### src\screens\MediaListScreen.tsx:436
+   429 |       style={[styles.chip, active && styles.chipActive]}
+   430 |     >
+   431 |       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+   432 |     </Pressable>
+   433 |   );
+   434 | }
+   435 | 
+>  436 | const styles = StyleSheet.create({
+   437 |   // jingleCatalogueV3
+   438 |   jingleRow: { position: 'relative' },
+   439 |   jingleButton: {
+   440 |     // mediaJingleMatchesGamesV1
+   441 |     position: 'absolute',
+   442 |     top: 2,
+   443 |     right: 2,
+   444 |     zIndex: 40,
+   445 |     width: 76,
+   446 |     height: 80,
+   447 |     alignItems: 'center',
+   448 |     justifyContent: 'center',
+
+### src\screens\MediaSearchScreen.tsx:74
+    67 |         watchStatus: 'WATCHLIST',
+    68 |         progress: 0,
+    69 |         enjoyment: null,
+    70 |         favourite: false,
+    71 |         startedOn: null,
+    72 |         completedOn: null,
+    73 |       };
+>   74 |       const created = await mediaApi.create(payload);
+    75 |       navigation.replace('MediaDetails', { mediaId: created.mediaId });
+    76 |     } catch (caught) {
+    77 |       Alert.alert(
+    78 |         'Dodavanje nije uspjelo',
+    79 |         caught instanceof Error ? caught.message : 'Pokušajte ponovno.',
+    80 |       );
+    81 |     } finally {
+    82 |       setAddingId(null);
+    83 |     }
+    84 |   };
+    85 | 
+    86 |   return (
+
+### src\screens\MediaSearchScreen.tsx:161
+   154 |               <View style={styles.resultContent}>
+   155 |                 <Text numberOfLines={2} style={styles.resultTitle}>{item.title}</Text>
+   156 |                 <Text style={styles.resultMeta}>{item.releaseYear ?? 'Godina nije poznata'}</Text>
+   157 |                 <Text numberOfLines={2} style={styles.resultOverview}>{item.overview ?? 'Opis nije dostupan.'}</Text>
+   158 |                 <View style={styles.resultActions}>
+   159 |                   <Pressable
+   160 |                     disabled={addingId !== null}
+>  161 |                     onPress={() => void addToCatalog(item)}
+   162 |                     style={[styles.addButton, addingId !== null && styles.disabled]}
+   163 |                   >
+   164 |                     <Text style={styles.addLabel}>{addingId === item.tmdbId ? 'Dodavanje…' : 'Dodaj u katalog'}</Text>
+   165 |                   </Pressable>
+   166 |                   <Pressable
+   167 |                     onPress={() => navigation.navigate('MediaForm', { draft: item })}
+   168 |                     style={styles.editButton}
+   169 |                   >
+   170 |                     <Text style={styles.editLabel}>Pregledaj</Text>
+   171 |                   </Pressable>
+   172 |                 </View>
+   173 |               </View>
+
+### src\screens\MediaSearchScreen.tsx:182
+   175 |           )}
+   176 |         />
+   177 |       )}
+   178 |     </SafeAreaView>
+   179 |   );
+   180 | }
+   181 | 
+>  182 | const styles = StyleSheet.create({
+   183 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   184 |   header: { paddingHorizontal: 20, paddingTop: 17, paddingBottom: 16 },
+   185 |   eyebrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+   186 |   heading: { color: colors.text, fontSize: 32, lineHeight: 38, fontWeight: '900', letterSpacing: -0.7, marginTop: 3 },
+   187 |   typeRow: { flexDirection: 'row', gap: 8, marginTop: 17 },
+   188 |   typeChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+   189 |   typeChipActive: { backgroundColor: colors.black, borderColor: colors.black },
+   190 |   typeText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+   191 |   typeTextActive: { color: colors.white },
+   192 |   sourceNote: { color: colors.textMuted, fontSize: 11, marginTop: 9 },
+   193 |   sourceLink: { color: colors.text, fontWeight: '700', textDecorationLine: 'underline' },
+   194 |   searchRow: { flexDirection: 'row', gap: 9, marginTop: 13 },
+
+### src\screens\MemoryRadioScreen.tsx:954
+   947 |                         style={styles.frequencyEditInput}
+   948 |                       />
+   949 | 
+   950 |                       <View style={styles.frequencyEditActions}>
+   951 |                         <Pressable
+   952 |                           disabled={savingTrackMetadata}
+   953 |                           onPress={() =>
+>  954 |                             void saveFrequencyMetadata(
+   955 |                               memory
+   956 |                             )
+   957 |                           }
+   958 |                           style={({ pressed }) => [
+   959 |                             styles.frequencyEditSave,
+   960 |                             pressed && styles.pressed,
+   961 |                             savingTrackMetadata &&
+   962 |                               styles.disabled,
+   963 |                           ]}
+   964 |                         >
+   965 |                           <Text style={styles.frequencyEditSaveText}>
+   966 |                             {savingTrackMetadata
+
+### src\screens\MemoryRadioScreen.tsx:1047
+  1040 |           </View>
+  1041 |         ) : null}
+  1042 |       </ScrollView>
+  1043 |     </SafeAreaView>
+  1044 |   );
+  1045 | }
+  1046 | 
+> 1047 | const styles = StyleSheet.create({
+  1048 |   safeArea: { flex: 1, backgroundColor: colors.background },
+  1049 |   content: { width: '100%', maxWidth: 860, alignSelf: 'center', padding: 22, paddingBottom: 70 },
+  1050 |   hero: { paddingVertical: 20 },
+  1051 |   kicker: { color: colors.navy, fontSize: 11, fontWeight: '900', letterSpacing: 1.5 },
+  1052 |   heading: { marginTop: 7, color: colors.text, fontSize: 43, fontWeight: '900', letterSpacing: -1.6 },
+  1053 |   intro: { marginTop: 10, maxWidth: 570, color: colors.textMuted, fontSize: 16, lineHeight: 24 },
+  1054 |   broadcast: { overflow: 'hidden', borderWidth: 1, borderColor: colors.border, borderRadius: 32, backgroundColor: colors.surface, padding: 25 },
+  1055 |   broadcastGlow: { position: 'absolute', top: -90, right: -50, width: 220, height: 220, borderRadius: 110, backgroundColor: colors.navy },
+  1056 |   broadcastLabel: { color: colors.navy, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  1057 |   memoryTitle: { marginTop: 20, color: colors.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.7 },
+  1058 |   memoryText: { marginTop: 10, color: colors.text, fontSize: 18, lineHeight: 27 },
+  1059 |   emptyBroadcast: { marginTop: 18, maxWidth: 440, color: colors.textMuted, fontSize: 17, lineHeight: 25 },
+
+### src\screens\ReconstructionScreen.tsx:527
+   520 | 
+   521 | 
+   522 |       </ScrollView>
+   523 |     </SafeAreaView>
+   524 |   );
+   525 | }
+   526 | 
+>  527 | const styles = StyleSheet.create({
+   528 |   safe: {
+   529 |     flex: 1,
+   530 |     backgroundColor: colors.background,
+   531 |   },
+   532 | 
+   533 |   content: {
+   534 |     padding: 22,
+   535 |     paddingBottom: 70,
+   536 |   },
+   537 | 
+   538 |   center: {
+   539 |     flex: 1,
+
+### src\screens\StatsScreen.tsx:306
+   299 |           <TemporalStatsSection />
+   300 |           <CatalogueSnapshotsSection />
+   301 |         </ScrollView>
+   302 |     </SafeAreaView>
+   303 |   );
+   304 | }
+   305 | 
+>  306 | const styles = StyleSheet.create({
+   307 |   safe: {
+   308 |     flex: 1,
+   309 |     backgroundColor: aeroMeadow ? '#D8DED6' : aeroMode ? '#DDF6FF' : colors.background,
+   310 |   },
+   311 |   content: {
+   312 |     width: '100%',
+   313 |     maxWidth: 760,
+   314 |     alignSelf: 'center',
+   315 |     paddingHorizontal: 20,
+   316 |     paddingTop: 22,
+   317 |     paddingBottom: 52,
+   318 |   },
+
+### src\screens\ThemePickerScreen.tsx:344
+   337 |         anchor.download = filename;
+   338 |         web.document.body?.appendChild(anchor);
+   339 |         anchor.click();
+   340 |         anchor.remove();
+   341 |         setTimeout(() => web.URL?.revokeObjectURL(href), 0);
+   342 |       } else {
+   343 |         const file = new File(Paths.document, filename);
+>  344 |         file.create({ overwrite: true, intermediates: true });
+   345 |         file.write(text);
+   346 |       }
+   347 | 
+   348 |       setLastExportName(filename);
+   349 |     } catch (caught) {
+   350 |       Alert.alert(
+   351 |         'Izvoz nije uspio',
+   352 |         caught instanceof Error ? caught.message : 'Podaci nisu promijenjeni. Pokušaj ponovno.',
+   353 |       );
+   354 |     } finally {
+   355 |       setSaving(false);
+   356 |     }
+
+### src\screens\ThemePickerScreen.tsx:1114
+  1107 |           </View>
+  1108 |         </View>
+  1109 |       </Modal>
+  1110 |     </SafeAreaView>
+  1111 |   );
+  1112 | }
+  1113 | 
+> 1114 | const styles = StyleSheet.create({
+  1115 |   safeArea: { flex: 1, backgroundColor: colors.background },
+  1116 |   content: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 20, paddingBottom: 48 },
+  1117 |   hero: { paddingHorizontal: 3, paddingBottom: 24 },
+  1118 |   eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
+  1119 |   heading: { color: colors.text, fontSize: 38, lineHeight: 45, fontWeight: '900', letterSpacing: -1, marginTop: 4 },
+  1120 |   intro: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: 8, maxWidth: 500 },
+  1121 |   section: { padding: 16, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+  1122 |   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  1123 |   sectionLabel: { color: colors.text, fontSize: 18, fontWeight: '900' },
+  1124 |   sectionHint: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
+  1125 |   skinGrid: { marginTop: 15, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  1126 |   skinCard: { flexGrow: 1, flexBasis: 210, minHeight: 170, padding: 16, borderRadius: 18, backgroundColor: colors.fill, borderWidth: 1, borderColor: colors.separator },
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:1035
+  1028 | // frutigerHeroPlayTuneV1
+  1029 | // aeroSearchIconColorLOCKV1
+  1030 | // aeroSearchDateMicroV1Applied
+  1031 | // aeroReflectionPassV2Applied
+  1032 | // aeroReflectionPolishV3Applied
+  1033 | // aeroIconAssetSweepV1
+  1034 | // aeroMobileFinalFitV1
+> 1035 | const styles = StyleSheet.create({
+  1036 | 
+  1037 |   // ----------------------------------------------------------
+  1038 |   // FINAL AERO MOBILE-ONLY FIT
+  1039 |   // Classic / Pixel / Aero web stay untouched.
+  1040 |   // ----------------------------------------------------------
+  1041 | 
+  1042 |   aeroTimerMeadowImageMobile: {
+  1043 |     ...StyleSheet.absoluteFillObject,
+  1044 |     opacity: 0.38,
+  1045 |     zIndex: 0,
+  1046 |   },
+  1047 | 
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:1020
+  1013 | // frutigerHeroPlayTuneV1
+  1014 | // aeroSearchIconColorLOCKV1
+  1015 | // aeroSearchDateMicroV1Applied
+  1016 | // aeroReflectionPassV2Applied
+  1017 | // aeroReflectionPolishV3Applied
+  1018 | // aeroIconAssetSweepV1
+  1019 | // aeroMobileFinalFitV1
+> 1020 | const styles = StyleSheet.create({
+  1021 | 
+  1022 |   // ----------------------------------------------------------
+  1023 |   // FINAL AERO MOBILE-ONLY FIT
+  1024 |   // Classic / Pixel / Aero web stay untouched.
+  1025 |   // ----------------------------------------------------------
+  1026 | 
+  1027 |   aeroTimerMeadowImageMobile: {
+  1028 |     ...StyleSheet.absoluteFillObject,
+  1029 |     opacity: 0.38,
+  1030 |     zIndex: 0,
+  1031 |   },
+  1032 | 
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1056
+  1049 | // frutigerHeroPlayTuneV1
+  1050 | // aeroSearchIconColorLOCKV1
+  1051 | // aeroSearchDateMicroV1Applied
+  1052 | // aeroReflectionPassV2Applied
+  1053 | // aeroReflectionPolishV3Applied
+  1054 | // aeroIconAssetSweepV1
+  1055 | // aeroMobileFinalFitV1
+> 1056 | const styles = StyleSheet.create({
+  1057 | 
+  1058 |   // ----------------------------------------------------------
+  1059 |   // FINAL AERO MOBILE-ONLY FIT
+  1060 |   // Classic / Pixel / Aero web stay untouched.
+  1061 |   // ----------------------------------------------------------
+  1062 | 
+  1063 |   aeroTimerMeadowImageMobile: {
+  1064 |     ...StyleSheet.absoluteFillObject,
+  1065 |     opacity: 0.38,
+  1066 |     zIndex: 0,
+  1067 |   },
+  1068 | 
+
+### src\screens\TodayScreen.tsx:1059
+  1052 | // frutigerHeroPlayTuneV1
+  1053 | // aeroSearchIconColorLOCKV1
+  1054 | // aeroSearchDateMicroV1Applied
+  1055 | // aeroReflectionPassV2Applied
+  1056 | // aeroReflectionPolishV3Applied
+  1057 | // aeroIconAssetSweepV1
+  1058 | // aeroMobileFinalFitV1
+> 1059 | const styles = StyleSheet.create({
+  1060 | 
+  1061 |   // ----------------------------------------------------------
+  1062 |   // FINAL AERO MOBILE-ONLY FIT
+  1063 |   // Classic / Pixel / Aero web stay untouched.
+  1064 |   // ----------------------------------------------------------
+  1065 | 
+  1066 |   aeroTimerMeadowImageMobile: {
+  1067 |     position: 'absolute',
+  1068 | 
+  1069 |     left: 0,
+  1070 |     right: 0,
+  1071 | 
+
+### src\screens\TopicDetailsScreen.tsx:328
+   321 |           showsVerticalScrollIndicator={false}
+   322 |         />
+   323 |       </KeyboardAvoidingView>
+   324 |     </SafeAreaView>
+   325 |   );
+   326 | }
+   327 | 
+>  328 | const styles = StyleSheet.create({
+   329 |   safeArea: {
+   330 |     flex: 1,
+   331 |     backgroundColor: colors.background,
+   332 |   },
+   333 |   flex: {
+   334 |     flex: 1,
+   335 |   },
+   336 |   loadingState: {
+   337 |     flex: 1,
+   338 |     alignItems: 'center',
+   339 |     justifyContent: 'center',
+   340 |     padding: 32,
+
+### src\screens\TopicListScreen.tsx:81
+    74 |     const trimmedName = name.trim();
+    75 |     if (!trimmedName || saving) return;
+    76 | 
+    77 |     setSaving(true);
+    78 |     setFormError(null);
+    79 |     try {
+    80 |       const trimmedDescription = description.trim();
+>   81 |       const created = await topicApi.create({
+    82 |         name: trimmedName,
+    83 |         ...(trimmedDescription ? { description: trimmedDescription } : {}),
+    84 |       });
+    85 |       setTopics((current) => [created, ...current]);
+    86 |       setFormVisible(false);
+    87 |       setName('');
+    88 |       setDescription('');
+    89 |     } catch (caught) {
+    90 |       setFormError(caught instanceof Error ? caught.message : 'Stvaranje teme nije uspjelo.');
+    91 |     } finally {
+    92 |       setSaving(false);
+    93 |     }
+
+### src\screens\TopicListScreen.tsx:222
+   215 |           showsVerticalScrollIndicator={false}
+   216 |         />
+   217 |       </KeyboardAvoidingView>
+   218 |     </SafeAreaView>
+   219 |   );
+   220 | }
+   221 | 
+>  222 | const styles = StyleSheet.create({
+   223 |   safeArea: {
+   224 |     flex: 1,
+   225 |     backgroundColor: colors.background,
+   226 |   },
+   227 |   flex: {
+   228 |     flex: 1,
+   229 |   },
+   230 |   loadingState: {
+   231 |     flex: 1,
+   232 |     alignItems: 'center',
+   233 |     justifyContent: 'center',
+   234 |     padding: 32,
+
+### src\games\screens\GameDetailsScreen.tsx:82
+    75 |     } finally {
+    76 |       setLoading(false);
+    77 |     }
+    78 |   }, [gameId]);
+    79 | 
+    80 |   useEffect(() => {
+    81 |     void loadGame();
+>   82 |     return navigation.addListener('focus', () => void loadGame());
+    83 |   }, [loadGame, navigation]);
+    84 | 
+    85 |   const toggleTimer = async () => {
+    86 |     if (!timer || timerLoading) return;
+    87 |     setTimerLoading(true);
+    88 |     setTimerError(null);
+    89 |     try {
+    90 |       setTimer(timer.running
+    91 |         ? await gameApi.stopTimer(gameId)
+    92 |         : await gameApi.startTimer(gameId));
+    93 |     } catch (caught) {
+    94 |       setTimerError(caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.');
+
+### src\games\screens\GameDetailsScreen.tsx:284
+   277 |         onCancel={cancelDelete}
+   278 |         onConfirm={() => void deleteGame()}
+   279 |       />
+   280 |     </SafeAreaView>
+   281 |   );
+   282 | }
+   283 | 
+>  284 | const styles = StyleSheet.create({
+   285 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   286 |   content: { padding: 20, paddingBottom: 42 },
+   287 |   hero: {
+   288 |     flexDirection: 'row',
+   289 |     gap: 20,
+   290 |     alignItems: 'flex-end',
+   291 |   },
+   292 |   heroText: {
+   293 |     flex: 1,
+   294 |     minWidth: 0,
+   295 |     paddingBottom: 4,
+   296 |   },
+
+### src\games\screens\GameFormScreen.tsx:181
+   174 |     const payload = validate();
+   175 |     if (!payload) return;
+   176 |     setSaving(true);
+   177 |     try {
+   178 |       if (gameId) {
+   179 |         await gameApi.update(gameId, payload);
+   180 |       } else {
+>  181 |         await gameApi.create(payload);
+   182 |       }
+   183 |       navigation.popToTop();
+   184 |     } catch (caught) {
+   185 |       Alert.alert(
+   186 |         'Spremanje nije uspjelo',
+   187 |         caught instanceof Error ? caught.message : 'Pokušajte ponovno.',
+   188 |       );
+   189 |     } finally {
+   190 |       setSaving(false);
+   191 |     }
+   192 |   };
+   193 | 
+
+### src\games\screens\GameFormScreen.tsx:368
+   361 |           />
+   362 |         </ScrollView>
+   363 |       </KeyboardAvoidingView>
+   364 |     </SafeAreaView>
+   365 |   );
+   366 | }
+   367 | 
+>  368 | const styles = StyleSheet.create({
+   369 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   370 |   flex: { flex: 1 },
+   371 |   content: { padding: 20, paddingBottom: 44 },
+   372 |   intro: { marginBottom: 18 },
+   373 |   eyebrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+   374 |   heading: { color: colors.text, fontSize: 31, lineHeight: 38, fontWeight: '800', marginTop: 3 },
+   375 |   introText: { color: colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 7 },
+   376 |   formCard: {
+   377 |     backgroundColor: colors.surface,
+   378 |     borderWidth: 1,
+   379 |     borderColor: colors.separator,
+   380 |     borderRadius: 18,
+
+### src\games\screens\GameListScreen.tsx:426
+   419 |           )}
+   420 |         />
+   421 |       )}
+   422 |     </SafeAreaView>
+   423 |   );
+   424 | }
+   425 | 
+>  426 | const styles = StyleSheet.create({
+   427 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   428 |   hero: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10 },
+   429 |   eyebrow: { color: colors.textMuted, fontSize: 15, fontWeight: '600' },
+   430 |   heading: {
+   431 |     color: colors.text,
+   432 |     fontSize: 34,
+   433 |     lineHeight: 40,
+   434 |     fontWeight: '800',
+   435 |     letterSpacing: -0.8,
+   436 |     marginTop: 3,
+   437 |   },
+   438 |   count: { color: colors.textMuted, fontSize: 14, marginTop: 7 },
+
+### src\games\screens\GameMetadataSearchScreen.tsx:121
+   114 |           )}
+   115 |         />
+   116 |       )}
+   117 |     </SafeAreaView>
+   118 |   );
+   119 | }
+   120 | 
+>  121 | const styles = StyleSheet.create({
+   122 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   123 |   header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
+   124 |   eyebrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+   125 |   heading: { color: colors.text, fontSize: 31, lineHeight: 38, fontWeight: '800', marginTop: 3 },
+   126 |   intro: { color: colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 8 },
+   127 |   searchRow: { flexDirection: 'row', gap: 9, marginTop: 18 },
+   128 |   input: {
+   129 |     flex: 1,
+   130 |     minHeight: 48,
+   131 |     color: colors.text,
+   132 |     backgroundColor: colors.surface,
+   133 |     borderWidth: 1,
+
+### src\components\ActiveTimerCard.tsx:83
+    76 |           </>
+    77 |         )}
+    78 |       </Pressable>
+    79 |     </View>
+    80 |   );
+    81 | }
+    82 | 
+>   83 | const styles = StyleSheet.create({
+    84 |   card: {
+    85 |     marginBottom: 14,
+    86 |     borderRadius: 22,
+    87 |     backgroundColor: colors.black,
+    88 |     overflow: 'hidden',
+    89 |     shadowColor: colors.black,
+    90 |     shadowOffset: { width: 0, height: 7 },
+    91 |     shadowOpacity: 0.16,
+    92 |     shadowRadius: 14,
+    93 |     elevation: 5,
+    94 |   },
+    95 |   cardBody: {
+
+### src\components\ActivityCreateForm.tsx:116
+   109 |           <Text style={styles.submitText}>Dodaj aktivnost</Text>
+   110 |         )}
+   111 |       </Pressable>
+   112 |     </View>
+   113 |   );
+   114 | }
+   115 | 
+>  116 | const styles = StyleSheet.create({
+   117 |   card: {
+   118 |     marginBottom: 19,
+   119 |     padding: 18,
+   120 |     borderRadius: 22,
+   121 |     borderWidth: 1,
+   122 |     borderColor: colors.separator,
+   123 |     backgroundColor: colors.surface,
+   124 |   },
+   125 |   headingRow: {
+   126 |     flexDirection: 'row',
+   127 |     alignItems: 'flex-start',
+   128 |     justifyContent: 'space-between',
+
+### src\components\ApproximateDateCard.tsx:578
+   571 |         </View>
+   572 |       ) : null}
+   573 |     </View>
+   574 |   );
+   575 | }
+   576 | 
+   577 | const styles =
+>  578 |   StyleSheet.create({
+   579 |     card: {
+   580 |       marginTop: 16,
+   581 |       padding: 17,
+   582 |       borderWidth: 1,
+   583 |       borderColor:
+   584 |         colors.separator,
+   585 |       borderRadius: 18,
+   586 |       backgroundColor:
+   587 |         colors.surface,
+   588 |     },
+   589 | 
+   590 |     header: {
+
+### src\components\AroundSameTimeSection.tsx:221
+   214 |         relacija.
+   215 |       </Text>
+   216 |     </View>
+   217 |   );
+   218 | }
+   219 | 
+   220 | const styles =
+>  221 |   StyleSheet.create({
+   222 |     card: {
+   223 |       marginTop: 16,
+   224 |       padding: 17,
+   225 |       borderWidth: 1,
+   226 |       borderColor:
+   227 |         colors.separator,
+   228 |       borderRadius: 18,
+   229 |       backgroundColor:
+   230 |         colors.surface,
+   231 |     },
+   232 | 
+   233 |     eyebrow: {
+
+### src\components\BackdatedSessionCard.tsx:374
+   367 |         </View>
+   368 |       ) : null}
+   369 |     </View>
+   370 |   );
+   371 | }
+   372 | 
+   373 | const styles =
+>  374 |   StyleSheet.create({
+   375 |     card: {
+   376 |       marginTop: 16,
+   377 |       padding: 17,
+   378 |       borderWidth: 1,
+   379 |       borderColor:
+   380 |         colors.separator,
+   381 |       borderRadius: 18,
+   382 |       backgroundColor:
+   383 |         colors.surface,
+   384 |     },
+   385 | 
+   386 |     headingRow: {
+
+### src\components\BookCard.tsx:81
+    74 |       </View>
+    75 | 
+    76 |       <Text style={styles.arrow}>›</Text>
+    77 |     </Pressable>
+    78 |   );
+    79 | }
+    80 | 
+>   81 | const styles = StyleSheet.create({
+    82 |   cardCompact: { minHeight: 76, paddingVertical: 11 },
+    83 |   contentCompact: { paddingLeft: 0 },
+    84 |   card: {
+    85 |     flexDirection: 'row',
+    86 |     alignItems: 'center',
+    87 |     backgroundColor: colors.surface,
+    88 |     borderRadius: 20,
+    89 |     marginBottom: 10,
+    90 |     borderWidth: 1,
+    91 |     borderColor: colors.separator,
+    92 |     padding: 14,
+    93 |   },
+
+### src\components\BookCover.tsx:306
+   299 |           style={StyleSheet.absoluteFill}
+   300 |         />
+   301 |       ) : null}
+   302 |     </View>
+   303 |   );
+   304 | }
+   305 | 
+>  306 | const styles = StyleSheet.create({
+   307 |   container: {
+   308 |     alignItems: 'center',
+   309 |     justifyContent: 'center',
+   310 |     overflow: 'hidden',
+   311 |     backgroundColor: colors.black,
+   312 |     borderWidth: StyleSheet.hairlineWidth,
+   313 |     borderColor: '#3A3A3C',
+   314 |   },
+   315 |   initial: {
+   316 |     color: colors.white,
+   317 |     fontSize: 25,
+   318 |     fontWeight: '700',
+
+### src\components\BookImportPreview.tsx:117
+   110 |       <View style={styles.cancelButton}>
+   111 |         <PrimaryButton label="Natrag" onPress={onCancel} variant="secondary" />
+   112 |       </View>
+   113 |     </View>
+   114 |   );
+   115 | }
+   116 | 
+>  117 | const styles = StyleSheet.create({
+   118 |   panel: {
+   119 |     backgroundColor: colors.surface,
+   120 |     borderRadius: 22,
+   121 |     borderWidth: 1,
+   122 |     borderColor: colors.separator,
+   123 |     padding: 20,
+   124 |   },
+   125 |   eyebrow: {
+   126 |     color: colors.textMuted,
+   127 |     fontSize: 11,
+   128 |     fontWeight: '700',
+   129 |     letterSpacing: 1.2,
+
+### src\components\BookMetadataCard.tsx:52
+    45 |         </View>
+    46 |       </View>
+    47 |       <Text style={styles.chevron}>›</Text>
+    48 |     </Pressable>
+    49 |   );
+    50 | }
+    51 | 
+>   52 | const styles = StyleSheet.create({
+    53 |   card: {
+    54 |     flexDirection: 'row',
+    55 |     alignItems: 'center',
+    56 |     gap: 14,
+    57 |     backgroundColor: colors.surface,
+    58 |     borderRadius: 18,
+    59 |     borderWidth: 1,
+    60 |     borderColor: colors.separator,
+    61 |     padding: 12,
+    62 |     marginBottom: 12,
+    63 |   },
+    64 |   pressed: {
+
+### src\components\CatalogueCoverOverride.tsx:167
+   160 |   const save = async () => {
+   161 |     if (!pending || saving) return;
+   162 | 
+   163 |     setSaving(true);
+   164 |     setError(null);
+   165 | 
+   166 |     try {
+>  167 |       await saveCatalogueCoverOverride(
+   168 |         entityType,
+   169 |         entityId,
+   170 |         pending,
+   171 |       );
+   172 | 
+   173 |       setPending(null);
+   174 |     } catch (caught) {
+   175 |       setError(
+   176 |         caught instanceof Error
+   177 |           ? caught.message
+   178 |           : 'Naslovnica se nije mogla spremiti.',
+   179 |       );
+
+### src\components\CatalogueCoverOverride.tsx:359
+   352 |           ) : null}
+   353 |         </View>
+   354 |       )}
+   355 |     </View>
+   356 |   );
+   357 | }
+   358 | 
+>  359 | const styles = StyleSheet.create({
+   360 |   card: {
+   361 |     marginTop: 14,
+   362 |     marginBottom: 18,
+   363 |     borderWidth: 1,
+   364 |     borderColor: colors.separator,
+   365 |     borderRadius: 20,
+   366 |     backgroundColor: colors.surface,
+   367 |     padding: 16,
+   368 |   },
+   369 | 
+   370 |   headingRow: {
+   371 |     flexDirection: 'row',
+
+### src\components\CatalogueSnapshotsSection.tsx:489
+   482 |               kasnije vidi što se promijenilo.
+   483 |             </Text>
+   484 |           </View>
+   485 | 
+   486 |           <Pressable
+   487 |             accessibilityRole="button"
+   488 |             disabled={creating}
+>  489 |             onPress={() => void create()}
+   490 |             style={({ pressed }) => [
+   491 |               styles.createButton,
+   492 |               pressed && styles.pressed,
+   493 |             ]}
+   494 |           >
+   495 |             {creating ? (
+   496 |               <ActivityIndicator
+   497 |                 color={colors.white}
+   498 |                 size="small"
+   499 |               />
+   500 |             ) : (
+   501 |               <Text style={styles.createButtonText}>
+
+### src\components\CatalogueSnapshotsSection.tsx:584
+   577 |         details={details}
+   578 |         onClose={() => setDetails(null)}
+   579 |       />
+   580 |     </>
+   581 |   );
+   582 | }
+   583 | 
+>  584 | const styles = StyleSheet.create({
+   585 |   section: {
+   586 |     marginTop: 28,
+   587 |     marginBottom: 28,
+   588 |     borderWidth: 1,
+   589 |     borderColor: colors.separator,
+   590 |     borderRadius: 28,
+   591 |     backgroundColor: colors.surface,
+   592 |     padding: 22,
+   593 |   },
+   594 | 
+   595 |   headingRow: {
+   596 |     flexDirection: 'row',
+
+### src\components\ClipEditor.tsx:55
+    48 |   useEffect(() => {
+    49 |     if (Platform.OS !== 'web') return;
+    50 |     const element = new Audio(uri);
+    51 |     element.preload = 'metadata';
+    52 |     const loaded = () => {
+    53 |       if (Number.isFinite(element.duration)) setWebDuration(element.duration);
+    54 |     };
+>   55 |     element.addEventListener('loadedmetadata', loaded);
+    56 |     element.load();
+    57 |     return () => {
+    58 |       element.removeEventListener('loadedmetadata', loaded);
+    59 |       element.src = '';
+    60 |     };
+    61 |   }, [uri]);
+    62 | 
+    63 |   useEffect(() => listenForAudioFocus((owner) => {
+    64 |     if (owner !== 'clip-preview') player.pause();
+    65 |   }), [player]);
+    66 | 
+    67 |   useEffect(() => {
+
+### src\components\ClipEditor.tsx:206
+   199 |         selectTextOnFocus
+   200 |         style={styles.cutTime}
+   201 |       />
+   202 |     </View>
+   203 |   );
+   204 | }
+   205 | 
+>  206 | const styles = StyleSheet.create({
+   207 |   shell: { marginTop: 18, borderRadius: 22, backgroundColor: colors.fill, padding: 18 },
+   208 |   headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+   209 |   kicker: { color: colors.navy, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+   210 |   title: { marginTop: 4, color: colors.text, fontSize: 17, fontWeight: '900' },
+   211 |   preview: { borderRadius: 999, backgroundColor: colors.navy, paddingHorizontal: 16, paddingVertical: 11 },
+   212 |   previewText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
+   213 |   timeline: { height: 44, justifyContent: 'center', marginTop: 17 },
+   214 |   rail: { height: 8, borderRadius: 999, backgroundColor: colors.border },
+   215 |   selection: { position: 'absolute', height: 12, borderRadius: 999, backgroundColor: colors.navy },
+   216 |   marker: { position: 'absolute', width: 4, height: 28, marginLeft: -2, borderRadius: 4, backgroundColor: colors.text },
+   217 |   help: { color: colors.textMuted, fontSize: 10 },
+   218 |   cuts: { marginTop: 16, flexDirection: 'row', gap: 12 },
+
+### src\components\CommandPalette.tsx:900
+   893 |           ) : null}
+   894 |         </View>
+   895 |       </View>
+   896 |     </Modal>
+   897 |   );
+   898 | }
+   899 | 
+>  900 | const styles = StyleSheet.create({
+   901 |   backdrop: {
+   902 |     flex: 1,
+   903 |     alignItems: 'center',
+   904 |     justifyContent: 'flex-start',
+   905 |     paddingHorizontal: 18,
+   906 |     paddingTop:
+   907 |       Platform.OS === 'web'
+   908 |         ? 92
+   909 |         : 54,
+   910 |     backgroundColor: 'rgba(0,0,0,0.34)',
+   911 |   },
+   912 | 
+
+### src\components\CommandPaletteEdgeGesture.tsx:81
+    74 |       reset();
+    75 |       onOpen();
+    76 |     });
+    77 |   };
+    78 | 
+    79 |   const responder = useMemo(
+    80 |     () =>
+>   81 |       PanResponder.create({
+    82 |         // Important:
+    83 |         // a normal tap in this small zone remains untouched.
+    84 |         onStartShouldSetPanResponder: () => false,
+    85 | 
+    86 |         onMoveShouldSetPanResponder: (
+    87 |           _event,
+    88 |           gesture,
+    89 |         ) => {
+    90 |           if (Platform.OS === 'web') {
+    91 |             return false;
+    92 |           }
+    93 | 
+
+### src\components\CommandPaletteEdgeGesture.tsx:264
+   257 |         collapsable={false}
+   258 |         style={styles.edgeZone}
+   259 |       />
+   260 |     </>
+   261 |   );
+   262 | }
+   263 | 
+>  264 | const styles = StyleSheet.create({
+   265 |   edgeZone: {
+   266 |     position: 'absolute',
+   267 | 
+   268 |     // Inset from Android's back-gesture edge so both
+   269 |     // diagonal swipe and long-press remain reachable.
+   270 |     right: 24,
+   271 |     bottom: 34,
+   272 | 
+   273 |     width: 32,
+   274 |     height: 174,
+   275 | 
+   276 |     zIndex: 9997,
+
+### src\components\DeleteConfirmationModal.tsx:50
+    43 |           </View>
+    44 |         </View>
+    45 |       </View>
+    46 |     </Modal>
+    47 |   );
+    48 | }
+    49 | 
+>   50 | const styles = StyleSheet.create({
+    51 |   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.42)', padding: 24 },
+    52 |   dialog: { width: '100%', maxWidth: 430, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, padding: 24, shadowColor: colors.black, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 18, elevation: 12 },
+    53 |   iconCircle: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', borderRadius: 23, backgroundColor: colors.dangerSoft },
+    54 |   icon: { color: colors.danger, fontSize: 24, fontWeight: '700' },
+    55 |   title: { marginTop: 16, color: colors.text, fontSize: 22, fontWeight: '700', textAlign: 'center' },
+    56 |   message: { marginTop: 10, color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
+    57 |   error: { marginTop: 14, borderRadius: 12, backgroundColor: colors.dangerSoft, padding: 10, color: colors.danger, fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    58 |   actions: { flexDirection: 'row', marginTop: 22 },
+    59 |   button: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 13, paddingHorizontal: 14 },
+    60 |   cancelButton: { marginRight: 10, backgroundColor: colors.fillStrong },
+    61 |   deleteButton: { backgroundColor: colors.danger },
+    62 |   cancelLabel: { color: colors.black, fontSize: 15, fontWeight: '600' },
+
+### src\components\EntityRelationsPanel.tsx:84
+    77 |     setError(null);
+    78 |     try {
+    79 |       if (membershipIds.has(collection.collectionId)) {
+    80 |         const detail = await collectionApi.getById(collection.collectionId);
+    81 |         const item = detail.items.find((candidate) => candidate.entityType === entityType && candidate.entityId === entityId);
+    82 |         if (item) await collectionApi.removeItem(collection.collectionId, item.itemId);
+    83 |       } else {
+>   84 |         await collectionApi.addItem(collection.collectionId, entityType, entityId);
+    85 |       }
+    86 |       const [collections, entityCollections] = await Promise.all([
+    87 |         collectionApi.getAll(),
+    88 |         collectionApi.getForEntity(entityType, entityId),
+    89 |       ]);
+    90 |       setAllCollections(collections);
+    91 |       setMemberships(entityCollections);
+    92 |     } catch (caught) {
+    93 |       setError(caught instanceof Error ? caught.message : 'Kolekcija nije promijenjena.');
+    94 |     } finally {
+    95 |       setBusyCollection(null);
+    96 |     }
+
+### src\components\EntityRelationsPanel.tsx:325
+   318 |                     </Pressable>
+   319 |                   )}
+   320 |                 />
+   321 |               </>
+   322 |             )}
+   323 |             <Text style={styles.fieldLabel}>Bilješka · neobavezno</Text>
+   324 |             <TextInput value={note} onChangeText={setNote} placeholder="Zašto su povezani?" placeholderTextColor={colors.textMuted} style={styles.noteInput} />
+>  325 |             <Pressable disabled={!selected || linkSaving} onPress={() => void saveLink()} style={[styles.saveLink, (!selected || linkSaving) && styles.disabled]}>
+   326 |               {linkSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveLinkText}>Spremi poveznicu</Text>}
+   327 |             </Pressable>
+   328 |           </View>
+   329 |         </SafeAreaView>
+   330 |       </Modal>
+   331 |     </View>
+   332 |   );
+   333 | }
+   334 | 
+   335 | const styles = StyleSheet.create({
+   336 |   panel: { marginTop: 18, padding: 17, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+   337 |   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+### src\components\EntityRelationsPanel.tsx:335
+   328 |           </View>
+   329 |         </SafeAreaView>
+   330 |       </Modal>
+   331 |     </View>
+   332 |   );
+   333 | }
+   334 | 
+>  335 | const styles = StyleSheet.create({
+   336 |   panel: { marginTop: 18, padding: 17, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+   337 |   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+   338 |   kicker: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
+   339 |   heading: { marginTop: 3, color: colors.text, fontSize: 17, fontWeight: '900' },
+   340 |   block: { marginTop: 16 },
+   341 |   blockHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+   342 |   blockTitle: { color: colors.text, fontSize: 13, fontWeight: '900' },
+   343 |   smallAction: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 9, backgroundColor: colors.fillStrong },
+   344 |   smallActionText: { color: colors.text, fontSize: 10, fontWeight: '900' },
+   345 |   chips: { marginTop: 9, flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+   346 |   collectionChip: { paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: colors.fill },
+   347 |   collectionSymbol: { marginRight: 5, color: colors.text, fontSize: 12 },
+
+### src\components\EntryCard.tsx:195
+   188 |           </View>
+   189 |         ) : null}
+   190 |       </View>
+   191 |     </View>
+   192 |   );
+   193 | }
+   194 | 
+>  195 | const styles = StyleSheet.create({
+   196 |   card: {
+   197 |     marginBottom: 22,
+   198 |     borderWidth: 1,
+   199 |     borderColor: colors.separator,
+   200 |     borderRadius: 28,
+   201 |     backgroundColor: colors.surface,
+   202 |     padding: 28,
+   203 |     shadowColor: colors.black,
+   204 |     shadowOffset: { width: 0, height: 8 },
+   205 |     shadowOpacity: 0.05,
+   206 |     shadowRadius: 18,
+   207 |     elevation: 2,
+
+### src\components\EntryDeleteModal.tsx:80
+    73 |           </View>
+    74 |         </View>
+    75 |       </View>
+    76 |     </Modal>
+    77 |   );
+    78 | }
+    79 | 
+>   80 | const styles = StyleSheet.create({
+    81 |   backdrop: {
+    82 |     flex: 1,
+    83 |     alignItems: 'center',
+    84 |     justifyContent: 'center',
+    85 |     backgroundColor: 'rgba(0, 0, 0, 0.42)',
+    86 |     padding: 24,
+    87 |   },
+    88 |   dialog: {
+    89 |     width: '100%',
+    90 |     maxWidth: 430,
+    91 |     borderWidth: 1,
+    92 |     borderColor: colors.separator,
+
+### src\components\EntryLinkPicker.tsx:160
+   153 |           />
+   154 |         </SafeAreaView>
+   155 |       </Modal>
+   156 |     </View>
+   157 |   );
+   158 | }
+   159 | 
+>  160 | const styles = StyleSheet.create({
+   161 |   field: {
+   162 |     marginBottom: 16,
+   163 |   },
+   164 |   label: {
+   165 |     marginBottom: 7,
+   166 |     color: colors.text,
+   167 |     fontSize: 13,
+   168 |     fontWeight: '600',
+   169 |   },
+   170 |   trigger: {
+   171 |     minHeight: 54,
+   172 |     flexDirection: 'row',
+
+### src\components\EntryMarkup.tsx:67
+    60 |         );
+    61 |       })}
+    62 |       {quote ? '”' : ''}
+    63 |     </Text>
+    64 |   );
+    65 | }
+    66 | 
+>   67 | const styles = StyleSheet.create({
+    68 |   content: {
+    69 |     color: colors.text,
+    70 |     fontSize: 15,
+    71 |     lineHeight: 22,
+    72 |   },
+    73 |   quote: {
+    74 |     color: colors.navySoft,
+    75 |     fontSize: 16,
+    76 |     fontStyle: 'italic',
+    77 |     lineHeight: 24,
+    78 |   },
+    79 |   bold: {
+
+### src\components\FeedbackView.tsx:42
+    35 |           <Text style={styles.retryText}>Pokušaj ponovno</Text>
+    36 |         </Pressable>
+    37 |       ) : null}
+    38 |     </View>
+    39 |   );
+    40 | }
+    41 | 
+>   42 | const styles = StyleSheet.create({
+    43 |   container: {
+    44 |     flex: 1,
+    45 |     minHeight: 320,
+    46 |     justifyContent: 'center',
+    47 |     alignItems: 'center',
+    48 |     padding: 32,
+    49 |   },
+    50 |   symbol: {
+    51 |     width: 54,
+    52 |     height: 54,
+    53 |     borderRadius: 27,
+    54 |     textAlign: 'center',
+
+### src\components\FrequencyLinksPanel.tsx:132
+   125 |   ) => {
+   126 |     if (busy) return;
+   127 | 
+   128 |     setBusy(true);
+   129 |     setError(null);
+   130 | 
+   131 |     try {
+>  132 |       await entityLinksApi.create({
+   133 |         sourceType: 'FREQUENCY',
+   134 |         sourceId: frequency.trackId,
+   135 |         targetType: target.entityType,
+   136 |         targetId: target.entityId,
+   137 |         relationType: relation,
+   138 |       });
+   139 | 
+   140 |       setVisible(false);
+   141 |       setQuery('');
+   142 |       await load();
+   143 |     } catch (caught) {
+   144 |       setError(
+
+### src\components\FrequencyLinksPanel.tsx:366
+   359 |           </SafeAreaView>
+   360 |         </View>
+   361 |       </Modal>
+   362 |     </View>
+   363 |   );
+   364 | }
+   365 | 
+>  366 | const styles = StyleSheet.create({
+   367 |   root: {
+   368 |     width: '100%',
+   369 |     marginTop: 12,
+   370 |     paddingTop: 12,
+   371 |     borderTopWidth: StyleSheet.hairlineWidth,
+   372 |     borderTopColor: colors.separator,
+   373 |   },
+   374 |   headingRow: {
+   375 |     flexDirection: 'row',
+   376 |     alignItems: 'center',
+   377 |     justifyContent: 'space-between',
+   378 |     gap: 10,
+
+### src\components\GlobalUndoToast.tsx:193
+   186 |       </Animated.View>
+   187 |     </View>
+   188 |   );
+   189 | }
+   190 | 
+   191 | 
+   192 | const styles =
+>  193 |   StyleSheet.create({
+   194 |     layer: {
+   195 |       ...StyleSheet.absoluteFillObject,
+   196 | 
+   197 |       zIndex: 9999,
+   198 |       elevation: 9999,
+   199 | 
+   200 |       justifyContent: 'flex-end',
+   201 |       alignItems: 'center',
+   202 |     },
+   203 | 
+   204 |     toast: {
+   205 |       position: 'absolute',
+
+### src\components\JingleReasonCard.tsx:274
+   267 |           {error}
+   268 |         </Text>
+   269 |       ) : null}
+   270 |     </View>
+   271 |   );
+   272 | }
+   273 | 
+>  274 | const styles = StyleSheet.create({
+   275 |   emptyCard: {
+   276 |     marginTop: 14,
+   277 |     minHeight: 74,
+   278 |     flexDirection: 'row',
+   279 |     alignItems: 'center',
+   280 |     paddingHorizontal: 15,
+   281 |     paddingVertical: 12,
+   282 |     borderRadius: 17,
+   283 |     borderWidth: 1,
+   284 |     borderColor: colors.separator,
+   285 |     backgroundColor: colors.surface,
+   286 |   },
+
+
+DELETE CANDIDATES
+-----------------
+
+### src\screens\BookDetailsScreen.tsx:112
+   105 |   const deleteBook = async () => {
+   106 |     setDeleting(true);
+   107 |     setDeleteError(null);
+   108 |     try {
+   109 |       if (readingTimer?.running && readingTimer.activityId) {
+   110 |         await activityApi.stop(readingTimer.activityId);
+   111 |       }
+>  112 |       await bookApi.remove(bookId);
+   113 |       await deleteCatalogueCoverOverride('BOOK', bookId).catch(() => undefined);
+   114 |       setConfirmVisible(false);
+   115 |       navigation.goBack();
+   116 |     } catch (caught) {
+   117 |       setDeleteError(
+   118 |         caught instanceof Error ? caught.message : 'Brisanje nije uspjelo. Pokušajte ponovno.',
+   119 |       );
+   120 |     } finally {
+   121 |       setDeleting(false);
+   122 |     }
+   123 |   };
+   124 | 
+
+### src\screens\BookDetailsScreen.tsx:113
+   106 |     setDeleting(true);
+   107 |     setDeleteError(null);
+   108 |     try {
+   109 |       if (readingTimer?.running && readingTimer.activityId) {
+   110 |         await activityApi.stop(readingTimer.activityId);
+   111 |       }
+   112 |       await bookApi.remove(bookId);
+>  113 |       await deleteCatalogueCoverOverride('BOOK', bookId).catch(() => undefined);
+   114 |       setConfirmVisible(false);
+   115 |       navigation.goBack();
+   116 |     } catch (caught) {
+   117 |       setDeleteError(
+   118 |         caught instanceof Error ? caught.message : 'Brisanje nije uspjelo. Pokušajte ponovno.',
+   119 |       );
+   120 |     } finally {
+   121 |       setDeleting(false);
+   122 |     }
+   123 |   };
+   124 | 
+   125 |   const cancelDelete = () => {
+
+### src\screens\BookDetailsScreen.tsx:253
+   246 | 
+   247 |       <DeleteConfirmationModal
+   248 |         visible={confirmVisible}
+   249 |         bookTitle={book.title}
+   250 |         loading={deleting}
+   251 |         errorMessage={deleteError}
+   252 |         onCancel={cancelDelete}
+>  253 |         onConfirm={() => void deleteBook()}
+   254 |       />
+   255 |     </SafeAreaView>
+   256 |   );
+   257 | }
+   258 | 
+   259 | const styles = StyleSheet.create({
+   260 |   safeArea: {
+   261 |     flex: 1,
+   262 |     backgroundColor: colors.background,
+   263 |   },
+   264 |   content: {
+   265 |     padding: 20,
+
+### src\screens\CollectionDetailsScreen.tsx:109
+   102 |   };
+   103 | 
+   104 |   const remove = async (itemId: string) => {
+   105 |     if (busyId || !collection) return;
+   106 |     setBusyId(itemId);
+   107 |     setError(null);
+   108 |     try {
+>  109 |       await collectionApi.removeItem(collectionId, itemId);
+   110 |       setCollection({ ...collection, items: collection.items.filter((item) => item.itemId !== itemId) });
+   111 |     } catch (caught) {
+   112 |       setError(caught instanceof Error ? caught.message : 'Stavka nije uklonjena.');
+   113 |     } finally {
+   114 |       setBusyId(null);
+   115 |     }
+   116 |   };
+   117 | 
+   118 |   const removeCollection = async () => {
+   119 |     if (deleting) return;
+   120 |     setDeleting(true);
+   121 |     try {
+
+### src\screens\CollectionDetailsScreen.tsx:122
+   115 |     }
+   116 |   };
+   117 | 
+   118 |   const removeCollection = async () => {
+   119 |     if (deleting) return;
+   120 |     setDeleting(true);
+   121 |     try {
+>  122 |       await collectionApi.remove(collectionId);
+   123 |       navigation.goBack();
+   124 |     } catch (caught) {
+   125 |       setError(caught instanceof Error ? caught.message : 'Kolekcija nije obrisana.');
+   126 |     } finally {
+   127 |       setDeleting(false);
+   128 |     }
+   129 |   };
+   130 | 
+   131 |   const memberKeys = new Set(collection?.items.map((item) => `${item.entityType}:${item.entityId}`) ?? []);
+   132 | 
+   133 |   if (loading && !collection) {
+   134 |     return <SafeAreaView style={styles.center}><ActivityIndicator color={colors.black} size="large" /></SafeAreaView>;
+
+### src\screens\CollectionDetailsScreen.tsx:191
+   184 |         renderItem={({ item }) => (
+   185 |           <View style={styles.itemCard}>
+   186 |             <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{entityTypeLabels[item.entityType]}</Text></View>
+   187 |             <View style={styles.itemCopy}>
+   188 |               <Text numberOfLines={2} style={styles.itemTitle}>{item.title}</Text>
+   189 |               {item.subtitle ? <Text numberOfLines={1} style={styles.itemSubtitle}>{item.subtitle}</Text> : null}
+   190 |             </View>
+>  191 |             <Pressable disabled={busyId === item.itemId} onPress={() => void remove(item.itemId)} style={styles.removeButton}>
+   192 |               {busyId === item.itemId ? <ActivityIndicator color={colors.textMuted} size="small" /> : <Text style={styles.removeText}>×</Text>}
+   193 |             </Pressable>
+   194 |           </View>
+   195 |         )}
+   196 |         ListFooterComponent={
+   197 |           <Pressable disabled={deleting} onPress={() => void removeCollection()} style={({ pressed }) => [styles.deleteCollection, pressed && styles.pressed]}>
+   198 |             {deleting ? <ActivityIndicator color={colors.danger} /> : <Text style={styles.deleteText}>Obriši kolekciju</Text>}
+   199 |           </Pressable>
+   200 |         }
+   201 |       />
+   202 | 
+   203 |       <Modal animationType="slide" visible={pickerVisible} onRequestClose={() => setPickerVisible(false)}>
+
+### src\screens\CollectionDetailsScreen.tsx:197
+   190 |             </View>
+   191 |             <Pressable disabled={busyId === item.itemId} onPress={() => void remove(item.itemId)} style={styles.removeButton}>
+   192 |               {busyId === item.itemId ? <ActivityIndicator color={colors.textMuted} size="small" /> : <Text style={styles.removeText}>×</Text>}
+   193 |             </Pressable>
+   194 |           </View>
+   195 |         )}
+   196 |         ListFooterComponent={
+>  197 |           <Pressable disabled={deleting} onPress={() => void removeCollection()} style={({ pressed }) => [styles.deleteCollection, pressed && styles.pressed]}>
+   198 |             {deleting ? <ActivityIndicator color={colors.danger} /> : <Text style={styles.deleteText}>Obriši kolekciju</Text>}
+   199 |           </Pressable>
+   200 |         }
+   201 |       />
+   202 | 
+   203 |       <Modal animationType="slide" visible={pickerVisible} onRequestClose={() => setPickerVisible(false)}>
+   204 |         <ModalSafeAreaView style={styles.modalSafe}>
+   205 |           <View style={styles.modalHeader}>
+   206 |             <View><Text style={styles.modalEyebrow}>Add anything</Text><Text style={styles.modalTitle}>{collection.name}</Text></View>
+   207 |             <Pressable onPress={() => setPickerVisible(false)} style={styles.doneButton}><Text style={styles.doneText}>Gotovo</Text></Pressable>
+   208 |           </View>
+   209 |           <TextInput
+
+### src\screens\EntryFormScreen.tsx:456
+   449 |                     />
+   450 | 
+   451 |                     <Pressable
+   452 |                       accessibilityLabel="Makni sliku"
+   453 |                       accessibilityRole="button"
+   454 |                       hitSlop={6}
+   455 |                       onPress={() =>
+>  456 |                         removeExistingImage(image.attachmentId)
+   457 |                       }
+   458 |                       style={styles.removeImageButton}
+   459 |                     >
+   460 |                       <Text style={styles.removeImageText}>×</Text>
+   461 |                     </Pressable>
+   462 |                   </View>
+   463 |                 ))}
+   464 | 
+   465 |                 {pendingImages.map((image) => (
+   466 |                   <View
+   467 |                     key={image.tempId}
+   468 |                     style={styles.imagePreviewWrap}
+
+### src\screens\EntryFormScreen.tsx:485
+   478 |                     </View>
+   479 | 
+   480 |                     <Pressable
+   481 |                       accessibilityLabel="Makni sliku"
+   482 |                       accessibilityRole="button"
+   483 |                       hitSlop={6}
+   484 |                       onPress={() =>
+>  485 |                         removePendingImage(image.tempId)
+   486 |                       }
+   487 |                       style={styles.removeImageButton}
+   488 |                     >
+   489 |                       <Text style={styles.removeImageText}>×</Text>
+   490 |                     </Pressable>
+   491 |                   </View>
+   492 |                 ))}
+   493 |               </ScrollView>
+   494 |             ) : (
+   495 |               <View style={styles.imagesEmpty}>
+   496 |                 <Text style={styles.imagesEmptyText}>
+   497 |                   Nema dodanih slika.
+
+### src\screens\EntryListScreen.tsx:124
+   117 |   };
+   118 | 
+   119 |   const deleteEntry = async () => {
+   120 |     if (!deleteTarget || deleting) return;
+   121 |     setDeleting(true);
+   122 |     setDeleteError(null);
+   123 |     try {
+>  124 |       await entryApi.remove(deleteTarget.entryId);
+   125 |       setEntries((current) =>
+   126 |         current.filter((entry) => entry.entryId !== deleteTarget.entryId),
+   127 |       );
+   128 |       setImagePreviews((current) => {
+   129 |         const next = { ...current };
+   130 |         delete next[deleteTarget.entryId];
+   131 |         return next;
+   132 |       });
+   133 |       setDeleteTarget(null);
+   134 |     } catch (caught) {
+   135 |       setDeleteError(caught instanceof Error ? caught.message : 'Brisanje nije uspjelo.');
+   136 |     } finally {
+
+### src\screens\EntryListScreen.tsx:336
+   329 |       />
+   330 | 
+   331 |       <EntryDeleteModal
+   332 |         entry={deleteTarget}
+   333 |         errorMessage={deleteError}
+   334 |         loading={deleting}
+   335 |         onCancel={closeDelete}
+>  336 |         onConfirm={() => void deleteEntry()}
+   337 |       />
+   338 |     </SafeAreaView>
+   339 |   );
+   340 | }
+   341 | 
+   342 | type FilterChipProps = {
+   343 |   active: boolean;
+   344 |   label: string;
+   345 |   onPress: () => void;
+   346 | };
+   347 | 
+   348 | function FilterChip({ active, label, onPress }: FilterChipProps) {
+
+### src\screens\MediaDetailsScreen.tsx:109
+   102 |     setConfirmVisible(true);
+   103 |   };
+   104 | 
+   105 |   const confirmRemove = async () => {
+   106 |     setDeleting(true);
+   107 |     setDeleteError(null);
+   108 |     try {
+>  109 |       await mediaApi.remove(mediaId);
+   110 |       // mediaDetailsCoverNullGuardV1
+   111 |       if (item) {
+   112 |         await deleteCatalogueCoverOverride(
+   113 |           item.mediaType,
+   114 |           mediaId,
+   115 |         ).catch(() => undefined);
+   116 |       }
+   117 |       setConfirmVisible(false);
+   118 |       navigation.goBack();
+   119 |     } catch (caught) {
+   120 |       setDeleteError(caught instanceof Error ? caught.message : 'Brisanje nije uspjelo.');
+   121 |     } finally {
+
+### src\screens\MediaDetailsScreen.tsx:112
+   105 |   const confirmRemove = async () => {
+   106 |     setDeleting(true);
+   107 |     setDeleteError(null);
+   108 |     try {
+   109 |       await mediaApi.remove(mediaId);
+   110 |       // mediaDetailsCoverNullGuardV1
+   111 |       if (item) {
+>  112 |         await deleteCatalogueCoverOverride(
+   113 |           item.mediaType,
+   114 |           mediaId,
+   115 |         ).catch(() => undefined);
+   116 |       }
+   117 |       setConfirmVisible(false);
+   118 |       navigation.goBack();
+   119 |     } catch (caught) {
+   120 |       setDeleteError(caught instanceof Error ? caught.message : 'Brisanje nije uspjelo.');
+   121 |     } finally {
+   122 |       setDeleting(false);
+   123 |     }
+   124 |   };
+
+### src\screens\MemoryRadioScreen.tsx:484
+   477 |     }
+   478 | 
+   479 |     setBusyTrackId(memory.trackId);
+   480 |     setConfirmDeleteTrackId(null);
+   481 |     setError(null);
+   482 |     try {
+   483 |       if (audio.current?.trackId === memory.trackId) audio.clear();
+>  484 |       await memoryRadioApi.deleteTrack(memory.trackId);
+   485 |       await load();
+   486 |     } catch (caught) {
+   487 |       setError(caught instanceof Error ? caught.message : 'Frekvencija se nije mogla obrisati.');
+   488 |     } finally {
+   489 |       setBusyTrackId(null);
+   490 |     }
+   491 |   };
+   492 | 
+   493 |   const shuffle = () => {
+   494 |     if (station.pool.length === 0) return;
+   495 | 
+   496 |     const choices =
+
+### src\screens\MemoryRadioScreen.tsx:1026
+  1019 |                     ) : (
+  1020 |                       <Pressable disabled={busy} onPress={() => void relinkMemory(memory)} style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}>
+  1021 |                         <Text style={styles.rowActionText}>{busy ? '...' : 'POVEŽI'}</Text>
+  1022 |                       </Pressable>
+  1023 |                     )}
+  1024 |                     <Pressable
+  1025 |                       disabled={busy}
+> 1026 |                       onPress={() => void deleteFrequency(memory)}
+  1027 |                       style={({ pressed }) => [styles.rowAction, styles.rowDeleteAction, pressed && styles.pressed]}
+  1028 |                     >
+  1029 |                       <Text style={styles.rowDeleteText}>{confirming ? 'POTVRDI' : 'OBRIŠI'}</Text>
+  1030 |                     </Pressable>
+  1031 |                   </View>
+  1032 |                   ) : null}
+  1033 | 
+  1034 |                   <FrequencyLinksPanel
+  1035 |                     frequency={memory}
+  1036 |                   />
+  1037 |                 </View>
+  1038 |               );
+
+### src\screens\ThemePickerScreen.tsx:285
+   278 |       [
+   279 |         { text: 'Odustani', style: 'cancel' },
+   280 |         {
+   281 |           text: 'Delete',
+   282 |           style: 'destructive',
+   283 |           onPress: () => void (async () => {
+   284 |             try {
+>  285 |               await deleteCloudSnapshot(revision);
+   286 |               await refreshCloudHistory();
+   287 |             } catch (caught) {
+   288 |               Alert.alert(
+   289 |                 'Brisanje nije uspjelo',
+   290 |                 caught instanceof Error
+   291 |                   ? caught.message
+   292 |                   : 'Checkpoint nije obrisan.',
+   293 |               );
+   294 |             }
+   295 |           })(),
+   296 |         },
+   297 |       ],
+
+### src\screens\ThemePickerScreen.tsx:340
+   333 |         const blob = new web.Blob([text], { type: 'application/json;charset=utf-8' });
+   334 |         const href = web.URL.createObjectURL(blob);
+   335 |         const anchor = web.document.createElement('a');
+   336 |         anchor.href = href;
+   337 |         anchor.download = filename;
+   338 |         web.document.body?.appendChild(anchor);
+   339 |         anchor.click();
+>  340 |         anchor.remove();
+   341 |         setTimeout(() => web.URL?.revokeObjectURL(href), 0);
+   342 |       } else {
+   343 |         const file = new File(Paths.document, filename);
+   344 |         file.create({ overwrite: true, intermediates: true });
+   345 |         file.write(text);
+   346 |       }
+   347 | 
+   348 |       setLastExportName(filename);
+   349 |     } catch (caught) {
+   350 |       Alert.alert(
+   351 |         'Izvoz nije uspio',
+   352 |         caught instanceof Error ? caught.message : 'Podaci nisu promijenjeni. Pokušaj ponovno.',
+
+### src\screens\ThemePickerScreen.tsx:981
+   974 |                   style={[styles.importButton, { flex: 1, marginTop: 0 }]}
+   975 |                 >
+   976 |                   <Text style={styles.importButtonText}>Restore</Text>
+   977 |                 </Pressable>
+   978 | 
+   979 |                 <Pressable
+   980 |                   disabled={cloudHistoryBusy}
+>  981 |                   onPress={() => deleteCloudRevision(snapshot.revision)}
+   982 |                   style={[styles.restoreButton, { flex: 1, marginTop: 0 }]}
+   983 |                 >
+   984 |                   <Text style={styles.restoreButtonText}>Delete</Text>
+   985 |                 </Pressable>
+   986 |               </View>
+   987 |             </View>
+   988 |           ))}
+   989 |         </View>
+   990 |         <Pressable
+   991 |           accessibilityRole="button"
+   992 |           disabled={saving}
+   993 |           onPress={() => void exportData()}
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:379
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+>  379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+   383 |   };
+   384 | 
+   385 |   const startRecentActivity = async (activity: ActivityTimerResponse) => {
+   386 |     if (!activity.activityId || startingIds.has(activity.activityId)) return;
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:403
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+>  403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+   407 |   };
+   408 | 
+   409 |   const liveDailyIncrement = Math.max(0, Math.floor((now - dailyMeasuredAt) / 1000));
+   410 |   const liveDailyTotal = dailyTime
+   411 |     ? dailyTime.totalSeconds
+   412 |       + dailyTime.activities.filter((activity) => activity.running).length * liveDailyIncrement
+   413 |     : 0;
+   414 | 
+   415 |   const header = (
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:379
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+>  379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+   383 |   };
+   384 | 
+   385 |   const startRecentActivity = async (activity: ActivityTimerResponse) => {
+   386 |     if (!activity.activityId || startingIds.has(activity.activityId)) return;
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:403
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+>  403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+   407 |   };
+   408 | 
+   409 |   const liveDailyIncrement = Math.max(0, Math.floor((now - dailyMeasuredAt) / 1000));
+   410 |   const liveDailyTotal = dailyTime
+   411 |     ? dailyTime.totalSeconds
+   412 |       + dailyTime.activities.filter((activity) => activity.running).length * liveDailyIncrement
+   413 |     : 0;
+   414 | 
+   415 |   const header = (
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:379
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+>  379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+   383 |   };
+   384 | 
+   385 |   const startRecentActivity = async (activity: ActivityTimerResponse) => {
+   386 |     if (!activity.activityId || startingIds.has(activity.activityId)) return;
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:403
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+>  403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+   407 |   };
+   408 | 
+   409 |   const liveDailyIncrement = Math.max(0, Math.floor((now - dailyMeasuredAt) / 1000));
+   410 |   const liveDailyTotal = dailyTime
+   411 |     ? dailyTime.totalSeconds
+   412 |       + dailyTime.activities.filter((activity) => activity.running).length * liveDailyIncrement
+   413 |     : 0;
+   414 | 
+   415 |   const header = (
+
+### src\screens\TodayScreen.tsx:379
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+>  379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+   383 |   };
+   384 | 
+   385 |   const startRecentActivity = async (activity: ActivityTimerResponse) => {
+   386 |     if (!activity.activityId || startingIds.has(activity.activityId)) return;
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+
+### src\screens\TodayScreen.tsx:403
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+>  403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+   407 |   };
+   408 | 
+   409 |   const liveDailyIncrement = Math.max(0, Math.floor((now - dailyMeasuredAt) / 1000));
+   410 |   const liveDailyTotal = dailyTime
+   411 |     ? dailyTime.totalSeconds
+   412 |       + dailyTime.activities.filter((activity) => activity.running).length * liveDailyIncrement
+   413 |     : 0;
+   414 | 
+   415 |   const header = (
+
+### src\screens\TopicDetailsScreen.tsx:163
+   156 |     } catch (caught) {
+   157 |       setActionError(
+   158 |         caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.',
+   159 |       );
+   160 |     } finally {
+   161 |       setBusyIds((current) => {
+   162 |         const next = new Set(current);
+>  163 |         next.delete(activity.activityId);
+   164 |         return next;
+   165 |       });
+   166 |     }
+   167 |   };
+   168 | 
+   169 |   if (loading && !topic) {
+   170 |     return (
+   171 |       <SafeAreaView style={styles.safeArea}>
+   172 |         <View style={styles.loadingState}>
+   173 |           <ActivityIndicator size="large" color={colors.black} />
+   174 |           <Text style={styles.loadingText}>Povezujemo aktivnosti i vrijeme…</Text>
+   175 |         </View>
+
+### src\games\screens\GameDetailsScreen.tsx:104
+    97 |     }
+    98 |   };
+    99 | 
+   100 |   const deleteGame = async () => {
+   101 |     setDeleting(true);
+   102 |     setDeleteError(null);
+   103 |     try {
+>  104 |       await gameApi.remove(gameId);
+   105 |       await deleteCatalogueCoverOverride('GAME', gameId).catch(() => undefined);
+   106 |       setConfirmVisible(false);
+   107 |       navigation.popToTop();
+   108 |     } catch (caught) {
+   109 |       setDeleteError(caught instanceof Error ? caught.message : 'Brisanje nije uspjelo.');
+   110 |     } finally {
+   111 |       setDeleting(false);
+   112 |     }
+   113 |   };
+   114 | 
+   115 |   const confirmDelete = () => {
+   116 |     setDeleteError(null);
+
+### src\games\screens\GameDetailsScreen.tsx:105
+    98 |   };
+    99 | 
+   100 |   const deleteGame = async () => {
+   101 |     setDeleting(true);
+   102 |     setDeleteError(null);
+   103 |     try {
+   104 |       await gameApi.remove(gameId);
+>  105 |       await deleteCatalogueCoverOverride('GAME', gameId).catch(() => undefined);
+   106 |       setConfirmVisible(false);
+   107 |       navigation.popToTop();
+   108 |     } catch (caught) {
+   109 |       setDeleteError(caught instanceof Error ? caught.message : 'Brisanje nije uspjelo.');
+   110 |     } finally {
+   111 |       setDeleting(false);
+   112 |     }
+   113 |   };
+   114 | 
+   115 |   const confirmDelete = () => {
+   116 |     setDeleteError(null);
+   117 |     setConfirmVisible(true);
+
+### src\games\screens\GameDetailsScreen.tsx:278
+   271 |         visible={confirmVisible}
+   272 |         itemTitle={game.title}
+   273 |         title="Obrisati igru?"
+   274 |         message={`Igra „${game.title}” bit će uklonjena iz kataloga. Spremljena povijest igranja ostaje sačuvana.`}
+   275 |         loading={deleting}
+   276 |         errorMessage={deleteError}
+   277 |         onCancel={cancelDelete}
+>  278 |         onConfirm={() => void deleteGame()}
+   279 |       />
+   280 |     </SafeAreaView>
+   281 |   );
+   282 | }
+   283 | 
+   284 | const styles = StyleSheet.create({
+   285 |   safeArea: { flex: 1, backgroundColor: colors.background },
+   286 |   content: { padding: 20, paddingBottom: 42 },
+   287 |   hero: {
+   288 |     flexDirection: 'row',
+   289 |     gap: 20,
+   290 |     alignItems: 'flex-end',
+
+### src\components\ApproximateDateCard.tsx:264
+   257 |       return;
+   258 |     }
+   259 | 
+   260 |     setSaving(true);
+   261 |     setError(null);
+   262 | 
+   263 |     try {
+>  264 |       await deleteApproximateDate(
+   265 |         entityType,
+   266 |         entityId,
+   267 |       );
+   268 | 
+   269 |       setCurrent(null);
+   270 |       setEditing(false);
+   271 |     } catch (caught) {
+   272 |       setError(
+   273 |         caught instanceof Error
+   274 |           ? caught.message
+   275 |           : 'Datum nije uklonjen.',
+   276 |       );
+
+### src\components\ApproximateDateCard.tsx:561
+   554 |             </Pressable>
+   555 | 
+   556 |             {current ? (
+   557 |               <Pressable
+   558 |                 accessibilityRole="button"
+   559 |                 disabled={saving}
+   560 |                 onPress={() =>
+>  561 |                   void remove()
+   562 |                 }
+   563 |                 style={styles.remove}
+   564 |               >
+   565 |                 <Text style={styles.removeText}>
+   566 |                   UKLONI
+   567 |                 </Text>
+   568 |               </Pressable>
+   569 |             ) : null}
+   570 |           </View>
+   571 |         </View>
+   572 |       ) : null}
+   573 |     </View>
+
+### src\components\CatalogueCoverOverride.tsx:192
+   185 |   const restore = async () => {
+   186 |     if (!customUri || restoring) return;
+   187 | 
+   188 |     setRestoring(true);
+   189 |     setError(null);
+   190 | 
+   191 |     try {
+>  192 |       await deleteCatalogueCoverOverride(
+   193 |         entityType,
+   194 |         entityId,
+   195 |       );
+   196 | 
+   197 |       setPending(null);
+   198 |     } catch (caught) {
+   199 |       setError(
+   200 |         caught instanceof Error
+   201 |           ? caught.message
+   202 |           : 'Originalna naslovnica nije se mogla vratiti.',
+   203 |       );
+   204 |     } finally {
+
+### src\components\CatalogueSnapshotsSection.tsx:446
+   439 | 
+   440 |   const remove = async (
+   441 |     snapshotId: string,
+   442 |   ) => {
+   443 |     setError(null);
+   444 | 
+   445 |     try {
+>  446 |       await deleteCatalogueSnapshot(
+   447 |         snapshotId,
+   448 |       );
+   449 | 
+   450 |       setSnapshots((current) =>
+   451 |         current.filter(
+   452 |           (snapshot) =>
+   453 |             snapshot.snapshotId !== snapshotId,
+   454 |         ),
+   455 |       );
+   456 | 
+   457 |       setDeleteId(null);
+   458 |     } catch (caught) {
+
+### src\components\CatalogueSnapshotsSection.tsx:558
+   551 |                   deleteId === snapshot.snapshotId
+   552 |                 }
+   553 |                 key={snapshot.snapshotId}
+   554 |                 onDeleteCancel={() =>
+   555 |                   setDeleteId(null)
+   556 |                 }
+   557 |                 onDeleteConfirm={() =>
+>  558 |                   void remove(snapshot.snapshotId)
+   559 |                 }
+   560 |                 onDeleteRequest={() =>
+   561 |                   setDeleteId(snapshot.snapshotId)
+   562 |                 }
+   563 |                 onOpen={() =>
+   564 |                   void open(snapshot.snapshotId)
+   565 |                 }
+   566 |                 opening={
+   567 |                   openingId === snapshot.snapshotId
+   568 |                 }
+   569 |                 snapshot={snapshot}
+   570 |               />
+
+### src\components\ClipEditor.tsx:58
+    51 |     element.preload = 'metadata';
+    52 |     const loaded = () => {
+    53 |       if (Number.isFinite(element.duration)) setWebDuration(element.duration);
+    54 |     };
+    55 |     element.addEventListener('loadedmetadata', loaded);
+    56 |     element.load();
+    57 |     return () => {
+>   58 |       element.removeEventListener('loadedmetadata', loaded);
+    59 |       element.src = '';
+    60 |     };
+    61 |   }, [uri]);
+    62 | 
+    63 |   useEffect(() => listenForAudioFocus((owner) => {
+    64 |     if (owner !== 'clip-preview') player.pause();
+    65 |   }), [player]);
+    66 | 
+    67 |   useEffect(() => {
+    68 |     if (!initialized.current && duration > 0) {
+    69 |       initialized.current = true;
+    70 |       onChange(Math.min(start, duration), end ?? duration);
+
+### src\components\EntityRelationsPanel.tsx:82
+    75 |     if (busyCollection) return;
+    76 |     setBusyCollection(collection.collectionId);
+    77 |     setError(null);
+    78 |     try {
+    79 |       if (membershipIds.has(collection.collectionId)) {
+    80 |         const detail = await collectionApi.getById(collection.collectionId);
+    81 |         const item = detail.items.find((candidate) => candidate.entityType === entityType && candidate.entityId === entityId);
+>   82 |         if (item) await collectionApi.removeItem(collection.collectionId, item.itemId);
+    83 |       } else {
+    84 |         await collectionApi.addItem(collection.collectionId, entityType, entityId);
+    85 |       }
+    86 |       const [collections, entityCollections] = await Promise.all([
+    87 |         collectionApi.getAll(),
+    88 |         collectionApi.getForEntity(entityType, entityId),
+    89 |       ]);
+    90 |       setAllCollections(collections);
+    91 |       setMemberships(entityCollections);
+    92 |     } catch (caught) {
+    93 |       setError(caught instanceof Error ? caught.message : 'Kolekcija nije promijenjena.');
+    94 |     } finally {
+
+### src\components\EntityRelationsPanel.tsx:155
+   148 |     }
+   149 |   };
+   150 | 
+   151 |   const removeLink = async (linkId: string) => {
+   152 |     if (deletingLink) return;
+   153 |     setDeletingLink(linkId);
+   154 |     try {
+>  155 |       await collectionApi.removeLink(linkId);
+   156 |       setLinks((current) => current.filter((link) => link.linkId !== linkId));
+   157 |     } catch (caught) {
+   158 |       setError(caught instanceof Error ? caught.message : 'Poveznica nije uklonjena.');
+   159 |     } finally {
+   160 |       setDeletingLink(null);
+   161 |     }
+   162 |   };
+   163 | 
+   164 |   const otherSide = (link: EntityLink) =>
+   165 |     link.sourceType === entityType && link.sourceId === entityId ? link.target : link.source;
+   166 | 
+   167 |   return (
+
+### src\components\EntityRelationsPanel.tsx:210
+   203 |           return (
+   204 |             <View key={link.linkId} style={styles.linkRow}>
+   205 |               <View style={styles.linkType}><Text style={styles.linkTypeText}>{entityTypeLabels[other.entityType]}</Text></View>
+   206 |               <View style={styles.linkCopy}>
+   207 |                 <Text numberOfLines={1} style={styles.linkTitle}>{other.title}</Text>
+   208 |                 <Text style={styles.linkRelation}>{relationTypeLabels[link.relationType]}{link.note ? ` · ${link.note}` : ''}</Text>
+   209 |               </View>
+>  210 |               <Pressable disabled={deletingLink === link.linkId} onPress={() => void removeLink(link.linkId)} style={styles.unlinkButton}>
+   211 |                 {deletingLink === link.linkId ? <ActivityIndicator size="small" color={colors.textMuted} /> : <Text style={styles.unlinkText}>×</Text>}
+   212 |               </Pressable>
+   213 |             </View>
+   214 |           );
+   215 |         }) : <Text style={styles.emptyText}>Još nema ručnih veza s drugim stvarima.</Text>}
+   216 |       </View>
+   217 | 
+   218 |       {error ? <Text style={styles.error}>{error}</Text> : null}
+   219 | 
+   220 |       <Modal animationType="slide" presentationStyle="fullScreen" statusBarTranslucent={false} visible={collectionModal} onRequestClose={() => setCollectionModal(false)}>
+   221 |         <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalSafe}>
+   222 |           <View style={styles.modalHeader}>
+
+### src\components\FrequencyLinksPanel.tsx:161
+   154 |   const remove = async (linkId: string) => {
+   155 |     if (busy) return;
+   156 | 
+   157 |     setBusy(true);
+   158 |     setError(null);
+   159 | 
+   160 |     try {
+>  161 |       await entityLinksApi.remove(linkId);
+   162 |       await load();
+   163 |     } catch (caught) {
+   164 |       setError(
+   165 |         caught instanceof Error
+   166 |           ? caught.message
+   167 |           : 'Poveznica nije uklonjena.',
+   168 |       );
+   169 |     } finally {
+   170 |       setBusy(false);
+   171 |     }
+   172 |   };
+   173 | 
+
+### src\components\FrequencyLinksPanel.tsx:224
+   217 |                   {relationTypeLabels[link.relationType]}
+   218 |                 </Text>
+   219 |               </View>
+   220 | 
+   221 |               <Pressable
+   222 |                 disabled={busy}
+   223 |                 onPress={() =>
+>  224 |                   void remove(link.linkId)
+   225 |                 }
+   226 |                 style={styles.unlink}
+   227 |               >
+   228 |                 <Text style={styles.unlinkText}>
+   229 |                   ×
+   230 |                 </Text>
+   231 |               </Pressable>
+   232 |             </View>
+   233 |           ))}
+   234 |         </View>
+   235 |       )}
+   236 | 
+
+
+TIMER CANDIDATES
+----------------
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:360
+   353 |     if (timers.length === 0) return undefined;
+   354 | 
+   355 |     setNow(Date.now());
+   356 |     const interval = setInterval(() => setNow(Date.now()), 1000);
+   357 |     return () => clearInterval(interval);
+   358 |   }, [timers.length]);
+   359 | 
+>  360 |   const stopTimer = async (timer: ActivityTimerResponse) => {
+   361 |     if (!timer.activityId || stoppingIds.has(timer.activityId)) return;
+   362 | 
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+   370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:370
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+>  370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+   379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:394
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+   392 |     try {
+   393 |       await activityApi.start(activityId);
+>  394 |       void semanticFeedback.timerStart();
+   395 |       await loadActiveTimers(true);
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+   403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+
+### src\screens\TodayScreen.before-final-polish-v3.tsx:966
+   959 |             onOpen={
+   960 |               item.bookId
+   961 |                 ? () => navigation.navigate('BookDetails', { bookId: item.bookId as string })
+   962 |                 : item.topicId
+   963 |                   ? () => navigation.navigate('TopicDetails', { topicId: item.topicId as string })
+   964 |                   : undefined
+   965 |             }
+>  966 |             onStop={() => void stopTimer(item)}
+   967 |           />
+   968 |         )}
+   969 |         ListHeaderComponent={header}
+   970 |         ListEmptyComponent={
+   971 |           <View style={styles.emptyCard}>
+   972 |             {aeroMode ? (
+   973 |               <AeroReflection variant="soft" />
+   974 |             ) : null}
+   975 |             <View style={styles.emptyIcon}>
+   976 |               <Text style={styles.emptyIconText}>{'\uFF0B'}</Text>
+   977 |             </View>
+   978 |             <Text style={styles.emptyTitle}>Nema aktivnih timera</Text>
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:360
+   353 |     if (timers.length === 0) return undefined;
+   354 | 
+   355 |     setNow(Date.now());
+   356 |     const interval = setInterval(() => setNow(Date.now()), 1000);
+   357 |     return () => clearInterval(interval);
+   358 |   }, [timers.length]);
+   359 | 
+>  360 |   const stopTimer = async (timer: ActivityTimerResponse) => {
+   361 |     if (!timer.activityId || stoppingIds.has(timer.activityId)) return;
+   362 | 
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+   370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:370
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+>  370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+   379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:394
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+   392 |     try {
+   393 |       await activityApi.start(activityId);
+>  394 |       void semanticFeedback.timerStart();
+   395 |       await loadActiveTimers(true);
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+   403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+
+### src\screens\TodayScreen.before-meadow-polish.tsx:951
+   944 |             onOpen={
+   945 |               item.bookId
+   946 |                 ? () => navigation.navigate('BookDetails', { bookId: item.bookId as string })
+   947 |                 : item.topicId
+   948 |                   ? () => navigation.navigate('TopicDetails', { topicId: item.topicId as string })
+   949 |                   : undefined
+   950 |             }
+>  951 |             onStop={() => void stopTimer(item)}
+   952 |           />
+   953 |         )}
+   954 |         ListHeaderComponent={header}
+   955 |         ListEmptyComponent={
+   956 |           <View style={styles.emptyCard}>
+   957 |             {aeroMode ? (
+   958 |               <AeroReflection variant="soft" />
+   959 |             ) : null}
+   960 |             <View style={styles.emptyIcon}>
+   961 |               <Text style={styles.emptyIconText}>{'\uFF0B'}</Text>
+   962 |             </View>
+   963 |             <Text style={styles.emptyTitle}>Nema aktivnih timera</Text>
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:360
+   353 |     if (timers.length === 0) return undefined;
+   354 | 
+   355 |     setNow(Date.now());
+   356 |     const interval = setInterval(() => setNow(Date.now()), 1000);
+   357 |     return () => clearInterval(interval);
+   358 |   }, [timers.length]);
+   359 | 
+>  360 |   const stopTimer = async (timer: ActivityTimerResponse) => {
+   361 |     if (!timer.activityId || stoppingIds.has(timer.activityId)) return;
+   362 | 
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+   370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:370
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+>  370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+   379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:394
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+   392 |     try {
+   393 |       await activityApi.start(activityId);
+>  394 |       void semanticFeedback.timerStart();
+   395 |       await loadActiveTimers(true);
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+   403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+
+### src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:987
+   980 |             onOpen={
+   981 |               item.bookId
+   982 |                 ? () => navigation.navigate('BookDetails', { bookId: item.bookId as string })
+   983 |                 : item.topicId
+   984 |                   ? () => navigation.navigate('TopicDetails', { topicId: item.topicId as string })
+   985 |                   : undefined
+   986 |             }
+>  987 |             onStop={() => void stopTimer(item)}
+   988 |           />
+   989 |         )}
+   990 |         ListHeaderComponent={header}
+   991 |         ListEmptyComponent={
+   992 |           <View style={styles.emptyCard}>
+   993 |             {aeroMode ? (
+   994 |               <AeroReflection variant="soft" />
+   995 |             ) : null}
+   996 |             <View style={styles.emptyIcon}>
+   997 |               <Text style={styles.emptyIconText}>{'\uFF0B'}</Text>
+   998 |             </View>
+   999 |             <Text style={styles.emptyTitle}>Nema aktivnih timera</Text>
+
+### src\screens\TodayScreen.tsx:360
+   353 |     if (timers.length === 0) return undefined;
+   354 | 
+   355 |     setNow(Date.now());
+   356 |     const interval = setInterval(() => setNow(Date.now()), 1000);
+   357 |     return () => clearInterval(interval);
+   358 |   }, [timers.length]);
+   359 | 
+>  360 |   const stopTimer = async (timer: ActivityTimerResponse) => {
+   361 |     if (!timer.activityId || stoppingIds.has(timer.activityId)) return;
+   362 | 
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+   370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+
+### src\screens\TodayScreen.tsx:370
+   363 |     const activityId = timer.activityId;
+   364 |     setError(null);
+   365 |     setStoppingIds((current) => new Set(current).add(activityId));
+   366 | 
+   367 |     try {
+   368 |       await activityApi.stop(activityId);
+   369 |       // semanticTimerFeedbackV1
+>  370 |       void semanticFeedback.timerStop();
+   371 |       await loadActiveTimers(true);
+   372 |     } catch (caught) {
+   373 |       setError(
+   374 |         caught instanceof Error ? caught.message : 'Zaustavljanje aktivnosti nije uspjelo.',
+   375 |       );
+   376 |     } finally {
+   377 |       setStoppingIds((current) => {
+   378 |         const updated = new Set(current);
+   379 |         updated.delete(activityId);
+   380 |         return updated;
+   381 |       });
+   382 |     }
+
+### src\screens\TodayScreen.tsx:394
+   387 | 
+   388 |     const activityId = activity.activityId;
+   389 |     setError(null);
+   390 |     setStartingIds((current) => new Set(current).add(activityId));
+   391 | 
+   392 |     try {
+   393 |       await activityApi.start(activityId);
+>  394 |       void semanticFeedback.timerStart();
+   395 |       await loadActiveTimers(true);
+   396 |     } catch (caught) {
+   397 |       setError(
+   398 |         caught instanceof Error ? caught.message : 'Nastavljanje aktivnosti nije uspjelo.',
+   399 |       );
+   400 |     } finally {
+   401 |       setStartingIds((current) => {
+   402 |         const updated = new Set(current);
+   403 |         updated.delete(activityId);
+   404 |         return updated;
+   405 |       });
+   406 |     }
+
+### src\screens\TodayScreen.tsx:990
+   983 |             onOpen={
+   984 |               item.bookId
+   985 |                 ? () => navigation.navigate('BookDetails', { bookId: item.bookId as string })
+   986 |                 : item.topicId
+   987 |                   ? () => navigation.navigate('TopicDetails', { topicId: item.topicId as string })
+   988 |                   : undefined
+   989 |             }
+>  990 |             onStop={() => void stopTimer(item)}
+   991 |           />
+   992 |         )}
+   993 |         ListHeaderComponent={header}
+   994 |         ListEmptyComponent={
+   995 |           <View style={[styles.emptyCard, aeroMeadow ? styles.meadowGlassCardV3 : null]}>
+   996 |             {aeroMode ? (
+   997 |               <AeroReflection variant="soft" />
+   998 |             ) : null}
+   999 |             <View style={styles.emptyIcon}>
+  1000 |               <Text style={styles.emptyIconText}>{'\uFF0B'}</Text>
+  1001 |             </View>
+  1002 |             <Text style={styles.emptyTitle}>Nema aktivnih timera</Text>
+
+### src\games\screens\GameDetailsScreen.tsx:91
+    84 | 
+    85 |   const toggleTimer = async () => {
+    86 |     if (!timer || timerLoading) return;
+    87 |     setTimerLoading(true);
+    88 |     setTimerError(null);
+    89 |     try {
+    90 |       setTimer(timer.running
+>   91 |         ? await gameApi.stopTimer(gameId)
+    92 |         : await gameApi.startTimer(gameId));
+    93 |     } catch (caught) {
+    94 |       setTimerError(caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.');
+    95 |     } finally {
+    96 |       setTimerLoading(false);
+    97 |     }
+    98 |   };
+    99 | 
+   100 |   const deleteGame = async () => {
+   101 |     setDeleting(true);
+   102 |     setDeleteError(null);
+   103 |     try {
+
+### src\games\screens\GameDetailsScreen.tsx:92
+    85 |   const toggleTimer = async () => {
+    86 |     if (!timer || timerLoading) return;
+    87 |     setTimerLoading(true);
+    88 |     setTimerError(null);
+    89 |     try {
+    90 |       setTimer(timer.running
+    91 |         ? await gameApi.stopTimer(gameId)
+>   92 |         : await gameApi.startTimer(gameId));
+    93 |     } catch (caught) {
+    94 |       setTimerError(caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.');
+    95 |     } finally {
+    96 |       setTimerLoading(false);
+    97 |     }
+    98 |   };
+    99 | 
+   100 |   const deleteGame = async () => {
+   101 |     setDeleting(true);
+   102 |     setDeleteError(null);
+   103 |     try {
+   104 |       await gameApi.remove(gameId);
+

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { playUiCue, playUiSound } from '../audio/uiFeedback';
 
 // semanticFeedbackV1
 //
@@ -57,7 +58,7 @@ function canPlay() {
 export async function playSemanticFeedback(
   event: SemanticFeedbackEvent,
 ) {
-  if (!canPlay()) return;
+if (!canPlay()) return;
 
   try {
     switch (event) {
@@ -115,8 +116,22 @@ export async function playSemanticFeedback(
 }
 
 export const semanticFeedback = {
-  jingle: () =>
-    playSemanticFeedback('JINGLE'),
+  // semanticCrudSoundFinalV1
+  create: () => playUiCue('create'),
+  delete: () => playUiCue('delete'),
+  // jingleActivationSoundV2
+
+  jingle: (active = true) => {
+
+    if (active) {
+
+      void playUiSound('jingle');
+
+    }
+
+    return playSemanticFeedback('JINGLE');
+
+  },
 
   complete: () =>
     playSemanticFeedback('COMPLETE'),

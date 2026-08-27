@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -33,6 +32,12 @@ import {
   type WatchStatus,
 } from '../types/media';
 import type { MediaStackParamList } from '../types/mediaNavigation';
+import { createdFeedback } from '../utils/crudFeedback';
+
+import {
+  seriesApi,
+  type ManualSeriesEpisodeInput,
+} from '../services/seriesApi';
 
 type Props = NativeStackScreenProps<MediaStackParamList, 'MediaForm'>;
 
@@ -41,6 +46,121 @@ const validDate = (value: string) => {
   const parsed = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
+
+// // catalogueJingleProgressSemanticsV1:EpisodeDraft
+function formatEpisodeDraft(
+  episodes: Array<{
+    seasonNumber: number;
+    episodeNumber: number;
+    name: string;
+  }>,
+) {
+  return episodes
+    .map(
+      (episode) =>
+        `S${String(episode.seasonNumber).padStart(2, '0')}E${String(episode.episodeNumber).padStart(2, '0')} | ${episode.name}`,
+    )
+    .join('\n');
+}
+
+function parseManualEpisodes(
+  value: string,
+): {
+  episodes: ManualSeriesEpisodeInput[];
+  error: string | null;
+} {
+  const lines =
+    value
+      .split(/\r?\n/)
+      .map(
+        (line) =>
+          line.trim(),
+      )
+      .filter(Boolean);
+
+  const episodes:
+    ManualSeriesEpisodeInput[] = [];
+
+  const seen =
+    new Set<string>();
+
+  for (
+    let index = 0;
+    index < lines.length;
+    index += 1
+  ) {
+    const line =
+      lines[index]!;
+
+    const coded =
+      line.match(
+        /^S?(\d{1,3})\s*E(\d{1,4})\s*(?:[|—–-]\s*)?(.*)$/i,
+      );
+
+    const xStyle =
+      line.match(
+        /^(\d{1,3})\s*[xX]\s*(\d{1,4})\s*(?:[|—–-]\s*)?(.*)$/,
+      );
+
+    const match =
+      coded ??
+      xStyle;
+
+    const seasonNumber =
+      match
+        ? Number(match[1])
+        : 1;
+
+    const episodeNumber =
+      match
+        ? Number(match[2])
+        : index + 1;
+
+    const rawName =
+      match
+        ? String(match[3] ?? '').trim()
+        : line;
+
+    if (
+      !Number.isInteger(seasonNumber) ||
+      seasonNumber <= 0 ||
+      !Number.isInteger(episodeNumber) ||
+      episodeNumber <= 0
+    ) {
+      return {
+        episodes: [],
+        error:
+          `Ne mogu pročitati red ${index + 1}. Koristi npr. S01E01 | Naziv epizode.`,
+      };
+    }
+
+    const key =
+      `${seasonNumber}:${episodeNumber}`;
+
+    if (seen.has(key)) {
+      return {
+        episodes: [],
+        error:
+          `Epizoda S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')} je unesena dvaput.`,
+      };
+    }
+
+    seen.add(key);
+
+    episodes.push({
+      seasonNumber,
+      episodeNumber,
+      name:
+        rawName ||
+        `Epizoda ${episodeNumber}`,
+    });
+  }
+
+  return {
+    episodes,
+    error: null,
+  };
+}
 
 export function MediaFormScreen({ route, navigation }: Props) {
   const mediaId = route.params?.mediaId;
@@ -56,7 +176,10 @@ export function MediaFormScreen({ route, navigation }: Props) {
   const [backdropPath, setBackdropPath] = useState<string | null>(draft?.backdropPath ?? null);
   const [releaseYear, setReleaseYear] = useState(draft?.releaseYear ? String(draft.releaseYear) : '');
   const [watchStatus, setWatchStatus] = useState<WatchStatus>('WATCHLIST');
+  // // catalogueJingleProgressSemanticsV1:MediaProgress
+  // Hidden legacy/derived value only. Movies use status; series use episodes.
   const [progress, setProgress] = useState('0');
+  const [episodeDraft, setEpisodeDraft] = useState('');
   const [enjoyment, setEnjoyment] = useState<MediaEnjoyment | null>(null);
   const [favourite, setFavourite] = useState(false);
   const [startedOn, setStartedOn] = useState('');
@@ -71,7 +194,7 @@ export function MediaFormScreen({ route, navigation }: Props) {
     setLoading(true);
     setLoadError(null);
     void mediaApi.getById(mediaId)
-      .then((item) => {
+      .then(async (item) => {
         setMediaType(item.mediaType);
         setTmdbId(item.tmdbId);
         setTitle(item.title);
@@ -86,6 +209,19 @@ export function MediaFormScreen({ route, navigation }: Props) {
         setFavourite(item.favourite);
         setStartedOn(item.startedOn ?? '');
         setCompletedOn(item.completedOn ?? '');
+
+        if (item.mediaType === 'SERIES') {
+          const seriesProgress =
+            await seriesApi.getProgress(
+              item.mediaId,
+            );
+
+          setEpisodeDraft(
+            formatEpisodeDraft(
+              seriesProgress.episodes,
+            ),
+          );
+        }
       })
       .catch((caught: unknown) => {
         setLoadError(caught instanceof Error ? caught.message : 'Dohvat naslova nije uspio.');
@@ -96,16 +232,12 @@ export function MediaFormScreen({ route, navigation }: Props) {
   const validate = (): MediaRequest | null => {
     const next: Record<string, string> = {};
     const numericYear = releaseYear ? Number(releaseYear) : null;
-    const numericProgress = Number(progress);
+    const storedProgress =
+      Number(progress);
+
     if (!title.trim()) next.title = 'Naslov je obvezan.';
     if (numericYear !== null && (!Number.isInteger(numericYear) || numericYear < 1800 || numericYear > 3000)) {
       next.releaseYear = 'Godina mora biti između 1800 i 3000.';
-    }
-    if (!Number.isInteger(numericProgress) || numericProgress < 0 || numericProgress > 100) {
-      next.progress = 'Napredak mora biti cijeli broj između 0 i 100.';
-    }
-    if (watchStatus === 'COMPLETED' && numericProgress !== 100) {
-      next.progress = 'Pogledani naslov mora imati 100% napretka.';
     }
     if (startedOn && !validDate(startedOn)) next.startedOn = 'Koristite datum GGGG-MM-DD.';
     if (completedOn && !validDate(completedOn)) next.completedOn = 'Koristite datum GGGG-MM-DD.';
@@ -125,7 +257,14 @@ export function MediaFormScreen({ route, navigation }: Props) {
       backdropPath,
       releaseYear: numericYear,
       watchStatus,
-      progress: numericProgress,
+      progress:
+        mediaType === 'MOVIE'
+          ? watchStatus === 'COMPLETED'
+            ? 100
+            : 0
+          : Number.isFinite(storedProgress)
+            ? storedProgress
+            : 0,
       enjoyment,
       favourite,
       startedOn: startedOn || null,
@@ -136,13 +275,56 @@ export function MediaFormScreen({ route, navigation }: Props) {
   const save = async () => {
     const payload = validate();
     if (!payload) return;
+
+    const parsedEpisodes =
+      mediaType === 'SERIES'
+        ? parseManualEpisodes(
+            episodeDraft,
+          )
+        : {
+            episodes: [],
+            error: null,
+          };
+
+    if (parsedEpisodes.error) {
+      setErrors((current) => ({
+        ...current,
+        episodes:
+          parsedEpisodes.error!,
+      }));
+      return;
+    }
+
     setSaving(true);
     try {
       if (mediaId) {
         await mediaApi.update(mediaId, payload);
+
+        if (
+          mediaType === 'SERIES' &&
+          parsedEpisodes.episodes.length
+        ) {
+          await seriesApi.upsertManualEpisodes(
+            mediaId,
+            parsedEpisodes.episodes,
+          );
+        }
+
         navigation.goBack();
       } else {
         const created = await mediaApi.create(payload);
+
+        if (
+          mediaType === 'SERIES' &&
+          parsedEpisodes.episodes.length
+        ) {
+          await seriesApi.upsertManualEpisodes(
+            created.mediaId,
+            parsedEpisodes.episodes,
+          );
+        }
+
+        createdFeedback();
         navigation.replace('MediaDetails', { mediaId: created.mediaId });
       }
     } catch (caught) {
@@ -188,23 +370,52 @@ export function MediaFormScreen({ route, navigation }: Props) {
                     void semanticFeedback.complete();
                   }
                   setWatchStatus(value);
-                  if (value === 'COMPLETED') setProgress('100');
                 }} />
               ))}
             </ChipRow>
           </Section>
 
           <View style={styles.card}>
-            <FormField label="Napredak (%)" value={progress} onChangeText={(value) => setProgress(value.replace(/[^0-9]/g, ''))} placeholder="0–100" keyboardType="number-pad" error={errors.progress} />
+            {mediaType === 'SERIES' ? (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>
+                  Epizode (ručno)
+                </Text>
+
+                <TextInput
+                  value={episodeDraft}
+                  onChangeText={(value) => {
+                    setEpisodeDraft(value);
+                    setErrors((current) => ({
+                      ...current,
+                      episodes: '',
+                    }));
+                  }}
+                  placeholder={'S01E01 | Naziv epizode\nS01E02 | Naziv epizode'}
+                  placeholderTextColor="#98989D"
+                  multiline
+                  autoCapitalize="sentences"
+                  style={[
+                    styles.input,
+                    styles.episodeInput,
+                    errors.episodes && styles.inputError,
+                  ]}
+                />
+
+                {errors.episodes ? (
+                  <Text style={styles.error}>
+                    {errors.episodes}
+                  </Text>
+                ) : null}
+
+                <Text style={styles.episodeHint}>
+                  Jedan red = jedna epizoda. Broj i postotak računaju se iz popisa i oznaka gledano.
+                </Text>
+              </View>
+            ) : null}
+
             <FormField label="Datum početka" value={startedOn} onChangeText={setStartedOn} placeholder="GGGG-MM-DD" error={errors.startedOn} />
             <FormField label="Datum završetka" value={completedOn} onChangeText={setCompletedOn} placeholder="GGGG-MM-DD" error={errors.completedOn} />
-            <View style={styles.switchRow}>
-              <View>
-                <Text style={styles.switchTitle}>Favorit</Text>
-                <Text style={styles.switchSubtitle}>Istakni naslov u katalogu</Text>
-              </View>
-              <Switch value={favourite} onValueChange={setFavourite} trackColor={{ false: colors.fillStrong, true: '#7D7D82' }} thumbColor={colors.white} />
-            </View>
           </View>
 
           <Section label="Dojam">
@@ -271,6 +482,18 @@ const styles = StyleSheet.create({
   fieldLabel: { color: colors.text, fontSize: 13, fontWeight: '800', marginBottom: 7 },
   input: { minHeight: 49, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 15 },
   multiline: { minHeight: 110, paddingTop: 13, textAlignVertical: 'top' },
+  // // catalogueJingleProgressSemanticsV1:EpisodeEditor
+  episodeInput: {
+    minHeight: 180,
+    paddingTop: 13,
+    textAlignVertical: 'top',
+  },
+  episodeHint: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 7,
+  },
   inputError: { borderColor: colors.danger },
   error: { color: colors.danger, fontSize: 12, marginTop: 6 },
   tmdbNote: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 12 },
@@ -287,3 +510,5 @@ const styles = StyleSheet.create({
   switchSubtitle: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
   saveButton: { marginTop: 8 },
 });
+
+// catalogueJingleProgressSemanticsV1

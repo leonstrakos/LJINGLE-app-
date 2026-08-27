@@ -1,4 +1,4 @@
-export type EntityReferenceType = 'BOOK' | 'MEDIA' | 'GAME' | 'TOPIC' | 'ENTRY';
+export type EntityReferenceType = 'BOOK' | 'MEDIA' | 'GAME' | 'TOPIC' | 'ENTRY' | 'FREQUENCY';
 
 export type RelationType =
   | 'RELATED'
@@ -21,6 +21,8 @@ export type CollectionSummary = {
   description: string | null;
   symbol: string | null;
   itemCount: number;
+  // forkLCollectionsMemoryBoxV2
+  position: number;
 };
 
 export type CollectionItem = {
@@ -38,6 +40,7 @@ export type CollectionDetail = {
   name: string;
   description: string | null;
   symbol: string | null;
+  position: number;
   items: CollectionItem[];
 };
 
@@ -66,6 +69,7 @@ export const entityTypeLabels: Record<EntityReferenceType, string> = {
   GAME: 'Igra',
   TOPIC: 'Tema',
   ENTRY: 'Zapis',
+  FREQUENCY: 'Frekvencija',
 };
 
 export const relationTypeLabels: Record<RelationType, string> = {

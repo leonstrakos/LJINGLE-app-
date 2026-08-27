@@ -3,22 +3,37 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ActivityCreateForm } from '../components/ActivityCreateForm';
+import { TopicActivityCreateSheet } from '../components/TopicActivityCreateSheet';
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { EntityRelationsPanel } from '../components/EntityRelationsPanel';
 import { FeedbackView } from '../components/FeedbackView';
 import { TopicActivityCard } from '../components/TopicActivityCard';
+import { TopicActivityLinkPicker } from '../components/TopicActivityLinkPicker';
 import { topicApi } from '../services/topicApi';
+import { topicTimeApi } from '../services/topicTimeApi';
+import { sharePortableTopic } from '../services/portableExport';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { TimerMotionView } from '../components/TimerMotionView';
+import { semanticFeedback } from '../utils/semanticFeedback';
+import { formatDuration } from '../utils/activityTime';
+import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
+import { deletedFeedback } from '../utils/crudFeedback';
+import { ShareGlyph } from '../components/ShareGlyph';
+import type { TopicTimeSummary } from '../types/topicTime';
+// forkDTopicsV1
 import type {
   ActivityType,
   TopicActivityResponse,
@@ -27,8 +42,16 @@ import type {
   TopicResponse,
 } from '../types/topic';
 
+import { celestial, celestialAlpha } from '../theme/celestial';
+// forkN2CelestialCollectionsTopicsV2
+const celestialMode = activeVisualSkinId === 'classic';
+const CELESTIAL_GOLD = celestial.gold;
+
 export type TopicDetailsScreenProps = {
   route: { params: TopicDetailsParams };
+  navigation: {
+    goBack: () => void;
+  };
 };
 
 function timersByActivityId(timers: TopicActivityTimerResponse[]) {
@@ -39,10 +62,13 @@ function timersByActivityId(timers: TopicActivityTimerResponse[]) {
   return byId;
 }
 
-export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
+export function TopicDetailsScreen({ route, navigation }: TopicDetailsScreenProps) {
   const { topicId } = route.params;
   const [topic, setTopic] = useState<TopicResponse | null>(null);
+  const [sharingTopic, setSharingTopic] = useState(false);
   const [activities, setActivities] = useState<TopicActivityResponse[]>([]);
+  const [timeSummary, setTimeSummary] =
+    useState<TopicTimeSummary | null>(null);
   const [timers, setTimers] = useState<Map<string, TopicActivityTimerResponse>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,6 +81,33 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
   const [activityType, setActivityType] = useState<ActivityType>('STUDYING');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [linkPickerVisible, setLinkPickerVisible] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // topicEditHotfixV1
+  const [editVisible, setEditVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const orderedActivities = useMemo(() => {
+    const totals = new Map(
+      (timeSummary?.activities ?? []).map(
+        (item) => [
+          item.activityId,
+          item.totalSeconds,
+        ],
+      ),
+    );
+
+    return [...activities].sort(
+      (left, right) =>
+        (totals.get(right.activityId) ?? 0) -
+        (totals.get(left.activityId) ?? 0),
+    );
+  }, [activities, timeSummary]);
 
   const runningCount = useMemo(
     () => Array.from(timers.values()).filter((timer) => timer.running).length,
@@ -65,14 +118,21 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
     asRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
     try {
-      const [loadedTopic, loadedActivities, activeTimers] = await Promise.all([
+      const [
+        loadedTopic,
+        loadedActivities,
+        activeTimers,
+        loadedTimeSummary,
+      ] = await Promise.all([
         topicApi.getById(topicId),
         topicApi.getActivities(topicId),
         topicApi.getActiveActivities(),
+        topicTimeApi.getSummary(topicId),
       ]);
       const activityIds = new Set(loadedActivities.map((activity) => activity.activityId));
       setTopic(loadedTopic);
       setActivities(loadedActivities);
+      setTimeSummary(loadedTimeSummary);
       setTimers(
         timersByActivityId(
           activeTimers.filter(
@@ -81,6 +141,11 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
         ),
       );
       setNow(Date.now());
+      // architectureBatchA_refreshTopicTime
+      void topicTimeApi
+        .getSummary(topicId)
+        .then(setTimeSummary)
+        .catch(() => {});
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Dohvat teme nije uspio.');
     } finally {
@@ -117,23 +182,130 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
     setSaving(true);
     setFormError(null);
     try {
-      const created = await topicApi.createActivity(topicId, {
+      // topicActivityCreateAsLinkV1
+      await topicApi.createActivity(topicId, {
         label,
         activityType,
       });
-      setActivities((current) => [...current, created]);
-      setTopic((current) =>
-        current ? { ...current, activityCount: current.activityCount + 1 } : current,
-      );
       setFormVisible(false);
       setActivityLabel('');
       setActivityType('STUDYING');
+      await loadTopic(true);
     } catch (caught) {
       setFormError(
         caught instanceof Error ? caught.message : 'Stvaranje aktivnosti nije uspjelo.',
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEditTopic = () => {
+    // topicEditNullGuardV1
+    if (!topic) return;
+    setEditName(topic.name);
+    setEditDescription(topic.description ?? '');
+    setEditError(null);
+    setEditVisible(true);
+  };
+
+  const closeEditTopic = () => {
+    if (editSaving) return;
+    setEditVisible(false);
+    setEditError(null);
+  };
+
+  const saveEditTopic = async () => {
+    const name = editName.trim();
+
+    if (!name || editSaving) return;
+
+    setEditSaving(true);
+    setEditError(null);
+
+    try {
+      const updated = await topicApi.update(
+        topicId,
+        {
+          name,
+          description:
+            editDescription.trim() || null,
+        },
+      );
+
+      setTopic(updated);
+      setEditVisible(false);
+    } catch (caught) {
+      setEditError(
+        caught instanceof Error
+          ? caught.message
+          : 'Uređivanje teme nije uspjelo.',
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const unlinkActivity = async (
+    activity: TopicActivityResponse,
+  ) => {
+    if (busyIds.has(activity.activityId)) return;
+
+    setActionError(null);
+    setBusyIds((current) =>
+      new Set(current).add(activity.activityId),
+    );
+
+    try {
+      await topicApi.unlinkActivity(
+        topicId,
+        activity.activityId,
+      );
+      await loadTopic(true);
+    } catch (caught) {
+      setActionError(
+        caught instanceof Error
+          ? caught.message
+          : 'Aktivnost nije odvezana.',
+      );
+    } finally {
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(activity.activityId);
+        return next;
+      });
+    }
+  };
+
+  const confirmDeleteTopic = () => {
+    if (deleting) return;
+    setDeleteError(null);
+    setDeleteVisible(true);
+  };
+
+  const closeDeleteTopic = () => {
+    if (deleting) return;
+    setDeleteVisible(false);
+    setDeleteError(null);
+  };
+
+  const deleteTopic = async () => {
+    if (deleting) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await topicApi.remove(topicId);
+      deletedFeedback();
+      setDeleteVisible(false);
+      navigation.goBack();
+    } catch (caught) {
+      setDeleteError(
+        caught instanceof Error ? caught.message : 'Brisanje teme nije uspjelo.',
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -152,6 +324,9 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
         next.set(activity.activityId, updated);
         return next;
       });
+            void (updated.running
+        ? semanticFeedback.timerStart()
+        : semanticFeedback.timerStop());
       setNow(Date.now());
     } catch (caught) {
       setActionError(
@@ -187,65 +362,176 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
     );
   }
 
+  const shareTopic = async () => {
+    if (sharingTopic) return;
+
+    setSharingTopic(true);
+    setError(null);
+
+    try {
+      await sharePortableTopic(topicId);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Share nije uspio.',
+      );
+    } finally {
+      setSharingTopic(false);
+    }
+  };
+
   const header = (
     <>
-      <View style={styles.hero}>
-        <View style={styles.heroMark}>
-          <Text style={styles.heroMarkText}>{topic.name.trim().charAt(0).toUpperCase()}</Text>
+      <View style={[styles.hero, celestialMode && styles.heroCelestial]}>
+        {celestialMode ? <CelestialAtmosphere variant="topics" /> : null}
+        {celestialMode ? <Text style={styles.topicDossierSeal}> </Text> : null}
+        <Text style={[styles.eyebrow, celestialMode && styles.eyebrowCelestial]}>Tema</Text>
+        <View style={styles.portableTitleRow}>
+          <Text
+            numberOfLines={2}
+            style={[styles.heading, styles.portableTitleText, celestialMode && styles.headingCelestial]}
+          >
+            {topic.name}
+          </Text>
+
+          <Pressable
+            accessibilityLabel="Share tema"
+            accessibilityRole="button"
+            disabled={sharingTopic}
+            onPress={() => void shareTopic()}
+            style={({ pressed }) => [
+              styles.portableShare,
+              pressed && { opacity: 0.72 },
+              sharingTopic && { opacity: 0.5 },
+            ]}
+          >
+            <ShareGlyph />
+          </Pressable>
         </View>
-        <Text style={styles.eyebrow}>Tema</Text>
-        <Text style={styles.heading}>{topic.name}</Text>
-        <Text style={styles.description}>
+        {/* portableVisualPolishV1 */}
+        <Text style={[styles.description, celestialMode && styles.descriptionCelestial]}>
           {topic.description || 'Aktivnosti i vrijeme povezani s ovom temom.'}
         </Text>
 
-        <View style={styles.metrics}>
-          <View style={styles.metric}>
-            <Text style={styles.metricValue}>{activities.length}</Text>
-            <Text style={styles.metricLabel}>aktivnosti</Text>
-          </View>
-          <View style={styles.metricDivider} />
-          <View style={styles.metric}>
-            <Text style={styles.metricValue}>{runningCount}</Text>
-            <Text style={styles.metricLabel}>aktivno sada</Text>
-          </View>
+        {/* forkDTopicsV1: top object management */}
+        <View style={styles.topicManageRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Uredi temu"
+            onPress={openEditTopic}
+            style={({ pressed }) => [
+              styles.editTopicButton,
+              celestialMode && styles.editTopicButtonCelestial,
+              pressed && styles.editTopicButtonPressed,
+            ]}
+          >
+            <Text style={styles.editTopicText}>Uredi temu</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Obriši temu"
+            disabled={deleting}
+            onPress={confirmDeleteTopic}
+            style={({ pressed }) => [
+              styles.deleteTopicButton,
+              celestialMode && styles.deleteTopicButtonCelestial,
+              pressed && !deleting && styles.deleteTopicButtonPressed,
+              deleting && styles.deleteTopicButtonDisabled,
+            ]}
+          >
+            <Text style={styles.deleteTopicText}>Obriši temu</Text>
+          </Pressable>
         </View>
+
+        {/* topicSingleTotalV1 */}
+        <View style={[styles.topicTotalCard, celestialMode && styles.topicTotalCardCelestial]}>
+          {celestialMode ? <Text pointerEvents="none" style={styles.topicTotalStar}>✦</Text> : null}
+          <View>
+            <Text style={[styles.topicTotalLabel, celestialMode && styles.topicTotalLabelCelestial]}>
+              UKUPNO VRIJEME
+            </Text>
+            <Text style={[styles.topicTotalValue, celestialMode && styles.topicTotalValueCelestial]}>
+              {formatDuration(
+                timeSummary?.totalSeconds ?? 0,
+              )}
+            </Text>
+          </View>
+
+          <Text style={styles.topicTotalMeta}>
+            {activities.length === 1
+              ? '1 povezana aktivnost'
+              : activities.length +
+                ' povezanih aktivnosti'}
+          </Text>
+        </View>
+
       </View>
 
-      <EntityRelationsPanel entityType="TOPIC" entityId={topicId} title={topic.name} />
-
-      {formVisible ? (
-        <ActivityCreateForm
-          label={activityLabel}
-          activityType={activityType}
-          saving={saving}
-          errorMessage={formError}
-          onLabelChange={setActivityLabel}
-          onTypeChange={setActivityType}
-          onCancel={closeForm}
-          onSubmit={() => void createActivity()}
-        />
-      ) : (
+      {/* topicActivityActionsV1 */}
+      <View style={styles.activityActions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Dodaj novu aktivnost"
+          accessibilityLabel="Poveži aktivnost aktivnost"
+          onPress={() => setLinkPickerVisible(true)}
+          style={({ pressed }) => [
+            styles.activityAction,
+            styles.activityActionPrimary,
+            celestialMode && styles.activityActionPrimaryCelestial,
+            pressed && styles.activityActionPressed,
+          ]}
+        >
+          <Text style={styles.activityActionMark}>↗</Text>
+          <View style={styles.activityActionCopy}>
+            <Text
+              style={[
+                styles.activityActionTitle,
+                styles.activityActionTitlePrimary,
+              ]}
+            >
+              Poveži aktivnost
+            </Text>
+            <Text
+              style={[
+                styles.activityActionSubtitle,
+                styles.activityActionSubtitlePrimary,
+              ]}
+            >
+              Odaberi postojeću aktivnost
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Napravi novu aktivnost"
           onPress={() => {
             setFormError(null);
             setFormVisible(true);
           }}
-          style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+          style={({ pressed }) => [
+            styles.activityAction,
+            celestialMode && styles.activityActionCelestial,
+            pressed && styles.activityActionPressed,
+          ]}
         >
-          <Text style={styles.addPlus}>+</Text>
-          <View style={styles.addCopy}>
-            <Text style={styles.addTitle}>Dodaj aktivnost</Text>
-            <Text style={styles.addSubtitle}>Učenje, igranje, istraživanje ili nešto tvoje</Text>
+          <Text style={styles.activityActionMark}>+</Text>
+          <View style={styles.activityActionCopy}>
+            <Text style={styles.activityActionTitle}>
+              Nova aktivnost
+            </Text>
+            <Text style={styles.activityActionSubtitle}>
+              Napravi novu i poveži je
+            </Text>
           </View>
-          <Text style={styles.addArrow}>›</Text>
         </Pressable>
-      )}
+      </View>
 
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>Aktivnosti</Text>
+      <View style={[styles.sectionHeading, celestialMode && styles.sectionHeadingCelestial]}>
+        <Text style={[styles.sectionTitle, celestialMode && styles.sectionTitleCelestial]}>
+          {celestialMode ? '✦  ' : ''}Aktivnosti
+        </Text>
         {runningCount > 0 ? (
           <View style={styles.runningBadge}>
             <View style={styles.liveDot} />
@@ -286,22 +572,67 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
         style={styles.flex}
       >
         <FlatList
-          data={activities}
+          data={orderedActivities}
           keyExtractor={(item) => item.activityId}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <TopicActivityCard
-              activity={item}
-              timer={timers.get(item.activityId)}
-              now={now}
-              busy={busyIds.has(item.activityId)}
-              onToggle={() => void toggleTimer(item)}
-            />
-          )}
+          renderItem={({ item }) => {
+            const timer = timers.get(item.activityId);
+
+            const trackedSeconds =
+              timeSummary?.activities.find(
+                (summary) =>
+                  summary.activityId ===
+                  item.activityId,
+              )?.totalSeconds ?? 0;
+
+            return (
+              <View style={styles.linkedActivity}>
+                <TimerMotionView active={Boolean(timer?.running)}>
+                  <TopicActivityCard
+                    activity={item}
+                    timer={timer}
+                    now={now}
+                    busy={busyIds.has(item.activityId)}
+                    onToggle={() => void toggleTimer(item)}
+                  />
+                </TimerMotionView>
+
+                {/* topicLinkedActivityMetaV1 */}
+                <View style={[styles.linkedActivityMeta, celestialMode && styles.linkedActivityMetaCelestial]}>
+                  <Text style={styles.linkedActivityTime}>
+                    {formatDuration(trackedSeconds)} ukupno
+                  </Text>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={busyIds.has(item.activityId)}
+                    onPress={() =>
+                      void unlinkActivity(item)
+                    }
+                    style={({ pressed }) => [
+                      styles.unlinkButton,
+                      pressed && styles.unlinkPressed,
+                    ]}
+                  >
+                    <Text style={styles.unlinkText}>
+                      Odveži
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          }}
           ListHeaderComponent={header}
+          ListFooterComponent={
+            <EntityRelationsPanel
+              entityType="TOPIC"
+              entityId={topicId}
+              title={topic.name}
+            />
+          }
           ListEmptyComponent={
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyMark}>◇</Text>
+            <View style={[styles.emptyCard, celestialMode && styles.emptyCardCelestial]}>
+              <Text style={[styles.emptyMark, celestialMode && styles.emptyMarkCelestial]}>✦</Text>
               <Text style={styles.emptyTitle}>Dodaj prvi način sudjelovanja</Text>
               <Text style={styles.emptyMessage}>
                 Jedna tema može imati više različitih aktivnosti. Primjerice, Šah može
@@ -320,12 +651,261 @@ export function TopicDetailsScreen({ route }: TopicDetailsScreenProps) {
           }
           showsVerticalScrollIndicator={false}
         />
+
+        <TopicActivityLinkPicker
+          linkedActivityIds={activities.map(
+            (activity) => activity.activityId,
+          )}
+          onClose={() => setLinkPickerVisible(false)}
+          onLinked={() => loadTopic(true)}
+          topicId={topicId}
+          visible={linkPickerVisible}
+        />
+
+        <TopicActivityCreateSheet
+          activityType={activityType}
+          errorMessage={formError}
+          label={activityLabel}
+          onClose={closeForm}
+          onLabelChange={setActivityLabel}
+          onSubmit={() => void createActivity()}
+          onTypeChange={setActivityType}
+          saving={saving}
+          visible={formVisible}
+        />
+
+        <Modal
+          animationType="fade"
+          onRequestClose={closeEditTopic}
+          transparent
+          visible={editVisible}
+        >
+          <View style={styles.editBackdrop}>
+            <View style={styles.editCard}>
+              <Text style={styles.editEyebrow}>
+                TEMA
+              </Text>
+
+              <Text style={styles.editTitle}>
+                Uredi temu
+              </Text>
+
+              <Text style={styles.editLabel}>
+                Naziv
+              </Text>
+
+              <TextInput
+                autoFocus
+                onChangeText={setEditName}
+                placeholder="Naziv teme"
+                placeholderTextColor={colors.textMuted}
+                style={styles.editInput}
+                value={editName}
+              />
+
+              <Text style={styles.editLabel}>
+                Opis
+              </Text>
+
+              <TextInput
+                multiline
+                onChangeText={setEditDescription}
+                placeholder="Opis · neobavezno"
+                placeholderTextColor={colors.textMuted}
+                style={[
+                  styles.editInput,
+                  styles.editDescription,
+                ]}
+                textAlignVertical="top"
+                value={editDescription}
+              />
+
+              {editError ? (
+                <Text style={styles.editError}>
+                  {editError}
+                </Text>
+              ) : null}
+
+              <View style={styles.editActions}>
+                <Pressable
+                  disabled={editSaving}
+                  onPress={closeEditTopic}
+                  style={styles.editCancel}
+                >
+                  <Text style={styles.editCancelText}>
+                    Odustani
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  disabled={
+                    editSaving ||
+                    !editName.trim()
+                  }
+                  onPress={() => void saveEditTopic()}
+                  style={[
+                    styles.editSave,
+                    (editSaving ||
+                      !editName.trim()) &&
+                      styles.editSaveDisabled,
+                  ]}
+                >
+                  {editSaving ? (
+                    <ActivityIndicator
+                      color={colors.white}
+                      size="small"
+                    />
+                  ) : (
+                    <Text style={styles.editSaveText}>
+                      Spremi
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <DeleteConfirmationModal
+          visible={deleteVisible}
+          itemTitle={topic.name}
+          title="Obrisati temu?"
+          message={`Tema „${topic.name}” bit će obrisana. Poveznice s aktivnostima se uklanjaju, ali aktivnosti ostaju.`}
+          accessibilityLabel={`Potvrda brisanja teme ${topic.name}`}
+          loading={deleting}
+          errorMessage={deleteError}
+          onCancel={closeDeleteTopic}
+          onConfirm={() => void deleteTopic()}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  topicTotalCard: {
+    marginTop: 18,
+    minHeight: 84,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+  },
+  topicTotalLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+  },
+  topicTotalValue: {
+    marginTop: 4,
+    color: colors.text,
+    fontSize: 27,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  topicTotalMeta: {
+    maxWidth: 180,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'right',
+  },
+  activityActions: {
+    marginTop: 18,
+    marginBottom: 16,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  activityAction: {
+    flex: 1,
+    minHeight: 68,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+  },
+  activityActionPrimary: {
+    backgroundColor: colors.black,
+    borderColor: colors.black,
+  },
+  activityActionPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.99 }],
+  },
+  activityActionMark: {
+    color: colors.textMuted,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  activityActionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  activityActionTitle: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  activityActionTitlePrimary: {
+    color: colors.white,
+  },
+  activityActionSubtitle: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 9.5,
+    lineHeight: 13,
+  },
+  activityActionSubtitlePrimary: {
+    color: colors.white,
+    opacity: 0.72,
+  },
+  linkedActivity: {
+    marginBottom: 10,
+  },
+  linkedActivityMeta: {
+    marginTop: -1,
+    marginHorizontal: 14,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomLeftRadius: 13,
+    borderBottomRightRadius: 13,
+    backgroundColor: colors.fill,
+  },
+  linkedActivityTime: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  unlinkButton: {
+    minHeight: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  unlinkPressed: {
+    opacity: 0.55,
+  },
+  unlinkText: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -367,6 +947,139 @@ const styles = StyleSheet.create({
     fontSize: 29,
     fontWeight: '800',
   },
+  topicManageRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    gap: 9,
+  },
+  editTopicButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.fillStrong,
+    paddingHorizontal: 14,
+  },
+  editTopicButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.985 }],
+  },
+  editTopicText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  editBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 22,
+    backgroundColor: celestialAlpha(celestial.shadow, 0.38),
+  },
+  editCard: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    padding: 20,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.separator,
+  },
+  editEyebrow: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  editTitle: {
+    marginTop: 5,
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  editLabel: {
+    marginTop: 17,
+    marginBottom: 7,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  editInput: {
+    minHeight: 50,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    color: colors.text,
+    fontSize: 15,
+  },
+  editDescription: {
+    minHeight: 100,
+    paddingTop: 13,
+  },
+  editError: {
+    marginTop: 10,
+    color: colors.danger,
+    fontSize: 12,
+  },
+  editActions: {
+    marginTop: 18,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  editCancel: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 13,
+  },
+  editCancelText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  editSave: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.black,
+  },
+  editSaveDisabled: {
+    opacity: 0.45,
+  },
+  editSaveText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  deleteTopicButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+  },
+  deleteTopicButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.985 }],
+  },
+  deleteTopicButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteTopicText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   eyebrow: {
     color: colors.textMuted,
     fontSize: 11,
@@ -381,6 +1094,32 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontWeight: '900',
     letterSpacing: -1,
+  },
+  portableTitleRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+  },
+  portableTitleText: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  portableShare: {
+    width: 30,
+    height: 30,
+    padding: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+  },
+  portableShareText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
   },
   description: {
     maxWidth: 360,
@@ -551,5 +1290,96 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  heroCelestial: {
+    position: 'relative',
+    marginTop: 10,
+    marginBottom: 16,
+    paddingTop: 20,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.34),
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  topicDossierSeal: {
+    marginBottom: 11,
+    color: CELESTIAL_GOLD,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 2.1,
+    textAlign: 'right',
+    opacity: 0.8,
+  },
+  eyebrowCelestial: {
+    color: CELESTIAL_GOLD,
+    letterSpacing: 1.7,
+  },
+  headingCelestial: {
+    letterSpacing: -0.35,
+  },
+  descriptionCelestial: {
+    maxWidth: 520,
+  },
+  editTopicButtonCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.40),
+    backgroundColor: celestialAlpha(celestial.gold, 0.08),
+  },
+  deleteTopicButtonCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.22),
+  },
+  topicTotalCardCelestial: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderColor: celestialAlpha(celestial.gold, 0.46),
+    shadowColor: celestial.night,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  topicTotalStar: {
+    position: 'absolute',
+    right: 12,
+    top: 9,
+    color: CELESTIAL_GOLD,
+    fontSize: 9,
+    opacity: 0.64,
+  },
+  topicTotalLabelCelestial: {
+    color: CELESTIAL_GOLD,
+    letterSpacing: 1.25,
+  },
+  topicTotalValueCelestial: {
+    letterSpacing: -0.35,
+  },
+  activityActionPrimaryCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.70),
+  },
+  activityActionCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.38),
+  },
+  sectionHeadingCelestial: {
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  sectionTitleCelestial: {
+    letterSpacing: 0.15,
+  },
+  linkedActivityMetaCelestial: {
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.20),
+  },
+  emptyCardCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.38),
+    backgroundColor: colors.surface,
+  },
+  emptyMarkCelestial: {
+    color: CELESTIAL_GOLD,
   },
 });

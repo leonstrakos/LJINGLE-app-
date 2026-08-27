@@ -1,7 +1,7 @@
 // jingleReasonV1
 import { JingleReasonCard } from '../components/JingleReasonCard';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,17 +16,28 @@ import { BackdatedSessionCard } from '../components/BackdatedSessionCard';
 import { ApproximateDateCard } from '../components/ApproximateDateCard';
 
 import { FeedbackView } from '../components/FeedbackView';
+import { BookCover } from '../components/BookCover';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ReadingTimerCard } from '../components/ReadingTimerCard';
 import { activityApi } from '../services/activityApi';
 import { bookApi } from '../services/bookApi';
 import { deleteCatalogueCoverOverride } from '../services/catalogueCoverOverrides';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import type { ActivityTimerResponse } from '../types/activity';
 import { enjoymentLabels, readingStatusLabels, type BookResponse } from '../types/book';
 import type { RootStackParamList } from '../types/navigation';
+import { deletedFeedback } from '../utils/crudFeedback';
+import { TimerMotionView } from '../components/TimerMotionView';
+import { semanticFeedback } from '../utils/semanticFeedback';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+import { JingleBellIcon } from '../components/JingleBellIcon';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookDetails'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 type DetailRowProps = {
   label: string;
@@ -53,6 +64,7 @@ export function BookDetailsScreen({ route, navigation }: Props) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jingleBusy, setJingleBusy] = useState(false);
 
   const loadBook = useCallback(async () => {
     setLoading(true);
@@ -78,6 +90,39 @@ export function BookDetailsScreen({ route, navigation }: Props) {
     });
   }, [loadBook, navigation]);
 
+  const toggleJingle = async () => {
+    if (
+      !book ||
+      jingleBusy
+    ) {
+      return;
+    }
+
+    setJingleBusy(true);
+
+    try {
+      const updated =
+        await bookApi.setFavourite(
+          book.bookId,
+          !book.favourite,
+        );
+
+      setBook(updated);
+
+      void semanticFeedback.jingle(
+        updated.favourite,
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Jingle promjena nije spremljena.',
+      );
+    } finally {
+      setJingleBusy(false);
+    }
+  };
+
   const confirmDelete = () => {
     if (!book) return;
     setDeleteError(null);
@@ -93,6 +138,12 @@ export function BookDetailsScreen({ route, navigation }: Props) {
         ? await activityApi.stopReading(bookId)
         : await activityApi.startReading(bookId);
       setReadingTimer(updated);
+
+      void (updated.running
+
+        ? semanticFeedback.timerStart()
+
+        : semanticFeedback.timerStop());
     } catch (caught) {
       setTimerError(
         caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.',
@@ -110,6 +161,8 @@ export function BookDetailsScreen({ route, navigation }: Props) {
         await activityApi.stop(readingTimer.activityId);
       }
       await bookApi.remove(bookId);
+
+      deletedFeedback();
       await deleteCatalogueCoverOverride('BOOK', bookId).catch(() => undefined);
       setConfirmVisible(false);
       navigation.goBack();
@@ -145,32 +198,74 @@ export function BookDetailsScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <CatalogueCoverDisplay
-          entityType="BOOK"
-          entityId={bookId}
-          imageStyle={styles.cover}
-        >
-          <View style={styles.cover}>
-            <Text style={styles.coverMark}>L</Text>
-            <View style={styles.coverLine} />
-            <Text style={styles.coverTitle} numberOfLines={4}>
+        {/* bookDetailCoverParityV1 */}
+        <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+          <CelestialAtmosphere variant="detail" />
+          {celestialMode ? <CelestialAtmosphere variant="books" /> : null}
+          <CatalogueCoverDisplay
+            entityType="BOOK"
+            entityId={bookId}
+            imageStyle={styles.cover}
+          >
+            <BookCover
+              author={book.author}
+              isbn={book.isbn}
+              title={book.title}
+              size="L"
+              style={styles.cover}
+            />
+          </CatalogueCoverDisplay>
+
+          <View style={styles.heroText}>
+            <Text style={[styles.type, celestialMode && styles.celestialType]}>KNJIGA</Text>
+            <Text numberOfLines={4} style={styles.title}>
               {book.title}
             </Text>
-            <Text style={styles.coverAuthor}>{book.author}</Text>
-          </View>
-        </CatalogueCoverDisplay>
 
-        <CatalogueCoverOverrideControls
+            {book.author.trim() ? (
+              <Text numberOfLines={2} style={styles.subtitle}>
+                {book.author}
+              </Text>
+            ) : null}
+
+            {book.publishedYear > 0 ? (
+              <Text style={styles.year}>{book.publishedYear}</Text>
+            ) : null}
+
+            <View style={styles.heroStatusRow}>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>
+                  {readingStatusLabels[book.readingStatus]}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  book.favourite
+                    ? 'Makni iz Jingle'
+                    : 'Dodaj u Jingle'
+                }
+                disabled={jingleBusy}
+                hitSlop={10}
+                onPress={() =>
+                  void toggleJingle()
+                }
+                style={styles.heroJingleButton}
+              >
+                <JingleBellIcon
+                  active={book.favourite}
+                  inactiveOpacity={0.28}
+                  style={styles.heroJingle}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+<CatalogueCoverOverrideControls
           entityType="BOOK"
           entityId={bookId}
         />
 
-        <View style={styles.statusRow}>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>●  {readingStatusLabels[book.readingStatus]}</Text>
-          </View>
-          {book.favourite ? <Text accessibilityLabel="Favorit" style={styles.favourite}>★ Favorit</Text> : null}
-        </View>
 
         {book.favourite ? (
           <JingleReasonCard
@@ -179,23 +274,32 @@ export function BookDetailsScreen({ route, navigation }: Props) {
           />
         ) : null}
 
-        <View style={styles.progressCard}>
+        <View style={[styles.progressCard, celestialMode && styles.celestialCard]}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Napredak</Text>
+            <View>
+              <Text style={styles.progressLabel}>Napredak</Text>
+              {book.totalPages ? (
+                <Text style={styles.pageProgress}>
+                  {book.currentPage ?? 0} / {book.totalPages} str.
+                </Text>
+              ) : null}
+            </View>
             <Text style={styles.progressValue}>{book.progress}%</Text>
           </View>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${book.progress}%` }]} />
+            <View style={[styles.progressFill, celestialMode && styles.celestialProgressFill, { width: `${book.progress}%` }]} />
           </View>
         </View>
 
         {readingTimer ? (
-          <ReadingTimerCard
+          <TimerMotionView active={readingTimer.running}>
+            <ReadingTimerCard
             timer={readingTimer}
             loading={timerLoading}
             errorMessage={timerError}
             onToggle={() => void toggleReadingTimer()}
           />
+          </TimerMotionView>
         ) : null}
 
         {/* backdatedSessionsV1 */}
@@ -218,10 +322,16 @@ export function BookDetailsScreen({ route, navigation }: Props) {
           entityId={bookId}
         />
 
-        <View style={styles.detailsCard}>
-          <DetailRow label="Autor" value={book.author} />
-          <DetailRow label="ISBN" value={book.isbn} />
-          <DetailRow label="Godina izdanja" value={String(book.publishedYear)} />
+        <View style={[styles.detailsCard, celestialMode && styles.celestialCard]}>
+          {book.author.trim() ? (
+            <DetailRow label="Autor" value={book.author} />
+          ) : null}
+          {book.isbn.trim() ? (
+            <DetailRow label="ISBN" value={book.isbn} />
+          ) : null}
+          {book.publishedYear > 0 ? (
+            <DetailRow label="Godina izdanja" value={String(book.publishedYear)} />
+          ) : null}
           <DetailRow label="Dojam" value={book.enjoyment ? enjoymentLabels[book.enjoyment] : 'Nije ocijenjeno'} />
           <DetailRow label="Početak čitanja" value={book.startedOn ?? 'Nije zabilježeno'} />
           <DetailRow label="Završetak čitanja" value={book.finishedOn ?? 'Nije zabilježeno'} />
@@ -265,18 +375,54 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
+  hero: {
+    flexDirection: 'row',
+    gap: 20,
+    alignItems: 'flex-end',
+  },
+  heroText: {
+    flex: 1,
+    minWidth: 0,
+    paddingBottom: 4,
+  },
+  type: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 29,
+    lineHeight: 35,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  subtitle: {
+    color: colors.textMuted,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 6,
+  },
+  year: {
+    color: colors.textMuted,
+    fontSize: 14,
+    marginTop: 5,
+  },
+  heroStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
   cover: {
-    minHeight: 270,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.navy,
-    borderRadius: 20,
-    padding: 24,
+    width: 156,
+    height: 234,
+    backgroundColor: colors.fillStrong,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: colors.navy,
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    elevation: 6,
   },
   coverMark: {
     position: 'absolute',
@@ -320,10 +466,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  favourite: {
+  // // catalogueJingleProgressSemanticsV1:BookJingle
+  heroJingleButton: {
+    marginLeft: 4,
+  },
+  heroJingle: {
+    width: 29,
+    height: 35,
+  },
+  pageProgress: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
+    marginTop: 3,
   },
   progressCard: {
     marginTop: 14,
@@ -393,4 +548,26 @@ const styles = StyleSheet.create({
   actionGap: {
     height: 12,
   },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingTop: 6,
+  },
+  celestialCard: {
+    borderColor: celestialAlpha(celestial.gold, 0.36),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+  },
+  celestialType: {
+    color: celestial.gold,
+    letterSpacing: 1.2,
+  },
+  celestialProgressFill: {
+    backgroundColor: celestial.gold,
+  },
+
 });
+
+// catalogueJingleProgressSemanticsV1

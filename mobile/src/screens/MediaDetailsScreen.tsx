@@ -1,7 +1,7 @@
 // jingleReasonV1
 import { JingleReasonCard } from '../components/JingleReasonCard';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,6 +24,8 @@ import { deleteCatalogueCoverOverride } from '../services/catalogueCoverOverride
 import { mediaApi } from '../services/mediaApi';
 import { hydrateMovieMetadata } from '../services/movieMetadataHydrator';
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
+import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import {
   mediaEnjoymentLabels,
   mediaTypeLabels,
@@ -33,8 +35,16 @@ import {
 } from '../types/media';
 import type { MediaStackParamList } from '../types/mediaNavigation';
 import type { SeriesProgress } from '../types/series';
+import { deletedFeedback } from '../utils/crudFeedback';
+import { TimerMotionView } from '../components/TimerMotionView';
+import { semanticFeedback } from '../utils/semanticFeedback';
+
+import { celestial, celestialAlpha } from '../theme/celestial';
+import { JingleBellIcon } from '../components/JingleBellIcon';
 
 type Props = NativeStackScreenProps<MediaStackParamList, 'MediaDetails'>;
+
+const celestialMode = activeVisualSkinId === 'classic';
 
 export function MediaDetailsScreen({ route, navigation }: Props) {
   const { mediaId } = route.params;
@@ -47,6 +57,7 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jingleBusy, setJingleBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,13 +97,50 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
     setTimerLoading(true);
     setTimerError(null);
     try {
-      setTimer(timer.running
+      const updated = timer.running
         ? await mediaApi.stopWatching(mediaId)
-        : await mediaApi.startWatching(mediaId));
+        : await mediaApi.startWatching(mediaId);
+      setTimer(updated);
+      void (updated.running
+        ? semanticFeedback.timerStart()
+        : semanticFeedback.timerStop());
     } catch (caught) {
       setTimerError(caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.');
     } finally {
       setTimerLoading(false);
+    }
+  };
+
+  const toggleJingle = async () => {
+    if (
+      !item ||
+      jingleBusy
+    ) {
+      return;
+    }
+
+    setJingleBusy(true);
+
+    try {
+      const updated =
+        await mediaApi.setFavourite(
+          item.mediaId,
+          !item.favourite,
+        );
+
+      setItem(updated);
+
+      void semanticFeedback.jingle(
+        updated.favourite,
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Jingle promjena nije spremljena.',
+      );
+    } finally {
+      setJingleBusy(false);
     }
   };
 
@@ -107,6 +155,8 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
     setDeleteError(null);
     try {
       await mediaApi.remove(mediaId);
+
+      deletedFeedback();
       // mediaDetailsCoverNullGuardV1
       if (item) {
         await deleteCatalogueCoverOverride(
@@ -137,7 +187,8 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
+        <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+          {celestialMode ? <CelestialAtmosphere variant="media" /> : null}
           <CatalogueCoverDisplay
             entityType={item.mediaType}
             entityId={item.mediaId}
@@ -162,11 +213,29 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{watchStatusLabels[item.watchStatus]}</Text>
             </View>
-            {item.favourite ? <Text style={styles.favourite}>★ Favorit</Text> : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                item.favourite
+                  ? 'Makni iz Jingle'
+                  : 'Dodaj u Jingle'
+              }
+              disabled={jingleBusy}
+              hitSlop={10}
+              onPress={() =>
+                void toggleJingle()
+              }
+              style={styles.heroJingleButton}
+            >
+              <JingleBellIcon
+                active={item.favourite}
+                inactiveOpacity={0.28}
+                style={styles.heroJingle}
+              />
+            </Pressable>
           </View>
         </View>
-
-        <CatalogueCoverOverrideControls
+<CatalogueCoverOverrideControls
           entityType={item.mediaType}
           entityId={item.mediaId}
         />
@@ -178,29 +247,23 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
           />
         ) : null}
 
-        {item.mediaType === 'MOVIE' ? <View style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.sectionLabel}>Napredak</Text>
-            <Text style={styles.progressValue}>{item.progress}%</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
-          </View>
-        </View> : (
+        {item.mediaType === 'SERIES' ? (
           <SeriesTracker
             mediaId={item.mediaId}
             title={item.title}
             onProgressChange={updateSeriesProgress}
           />
-        )}
+        ) : null}
 
         {timer ? (
-          <WatchTimerCard
+          <TimerMotionView active={timer.running}>
+            <WatchTimerCard
             timer={timer}
             loading={timerLoading}
             errorMessage={timerError}
             onToggle={() => void toggleTimer()}
           />
+          </TimerMotionView>
         ) : null}
 
         {/* backdatedSessionsV1 */}
@@ -224,13 +287,13 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
         />
 
         {item.overview ? (
-          <View style={styles.card}>
+          <View style={[styles.card, celestialMode && styles.celestialCard]}>
             <Text style={styles.sectionLabel}>Opis</Text>
             <Text style={styles.overview}>{item.overview}</Text>
           </View>
         ) : null}
 
-        <View style={styles.card}>
+        <View style={[styles.card, celestialMode && styles.celestialCard]}>
           <DetailRow label="Dojam" value={item.enjoyment ? mediaEnjoymentLabels[item.enjoyment] : 'Nije ocijenjeno'} />
           <DetailRow label="Početak gledanja" value={item.startedOn ?? 'Nije zabilježeno'} />
           <DetailRow label="Završetak gledanja" value={item.completedOn ?? 'Nije zabilježeno'} />
@@ -291,7 +354,15 @@ const styles = StyleSheet.create({
   year: { color: colors.textMuted, fontSize: 14, marginTop: 8 },
   badge: { alignSelf: 'flex-start', marginTop: 14, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.fillStrong },
   badgeText: { color: colors.text, fontSize: 12, fontWeight: '800' },
-  favourite: { color: colors.text, fontSize: 13, fontWeight: '700', marginTop: 12 },
+  // // catalogueJingleProgressSemanticsV1:MediaJingle
+  heroJingleButton: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  heroJingle: {
+    width: 32,
+    height: 39,
+  },
   progressCard: { marginTop: 20, padding: 17, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   sectionLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
@@ -305,4 +376,22 @@ const styles = StyleSheet.create({
   detailValue: { color: colors.text, fontSize: 15, fontWeight: '600', marginTop: 5 },
   actions: { marginTop: 24 },
   gap: { height: 12 },
+  celestialHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingTop: 6,
+  },
+  celestialCard: {
+    borderColor: celestialAlpha(celestial.gold, 0.36),
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+  },
+  celestialProgressFill: {
+    backgroundColor: celestial.gold,
+  },
+
 });
+
+// catalogueJingleProgressSemanticsV1

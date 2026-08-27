@@ -1,0 +1,1033 @@
+LJINGLE — Card/List Motion Targets
+==================================
+
+### src/components/BookCard.tsx
+
+-- lines 1-93 --
+   1 | import { Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { BookCover } from './BookCover';
+   4 | import { CatalogueCoverDisplay } from './CatalogueCoverOverride';
+   5 | import { colors } from '../theme/colors';
+   6 | // catalogueQuietModeV1
+   7 | import { useCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
+   8 | import { readingStatusLabels, type BookResponse } from '../types/book';
+   9 | 
+  10 | type Props = {
+  11 |   book: BookResponse;
+  12 |   onPress: () => void;
+  13 | };
+  14 | 
+  15 | export function BookCard({ book, onPress }: Props) {
+  16 |   const compactMode = useCatalogueDisplayMode() === 'compact';
+  17 | 
+  18 |   return (
+  19 |     <Pressable
+  20 |       accessibilityRole="button"
+  21 |       accessibilityLabel={`Otvori detalje knjige ${book.title}`}
+  22 |       onPress={onPress}
+  23 |       style={({ pressed }) => [
+  24 |         styles.card,
+  25 |         compactMode && styles.cardCompact,
+  26 |         pressed && styles.pressed,
+  27 |       ]}
+  28 |     >
+  29 |       {!compactMode ? (
+  30 |       <CatalogueCoverDisplay
+  31 |         entityType="BOOK"
+  32 |         entityId={book.bookId}
+  33 |         imageStyle={styles.thumbnail}
+  34 |       >
+  35 |         <BookCover
+  36 |           author={book.author}
+  37 |           isbn={book.isbn}
+  38 |           title={book.title}
+  39 |           size="S"
+  40 |           style={styles.thumbnail}
+  41 |         />
+  42 |       </CatalogueCoverDisplay>
+  43 |       ) : null}
+  44 | 
+  45 |       <View style={[styles.content, compactMode && styles.contentCompact]}>
+  46 |         <View style={styles.topRow}>
+  47 |           <Text style={styles.title} numberOfLines={compactMode ? 1 : 2}>
+  48 |             {book.title}
+  49 |           </Text>
+  50 |         </View>
+  51 | 
+  52 |         <Text style={styles.author}>
+  53 |           {book.author}
+  54 |         </Text>
+  55 | 
+  56 |         <View style={styles.bottomRow}>
+  57 |           <Text style={styles.year}>
+  58 |             {book.publishedYear}
+  59 |           </Text>
+  60 | 
+  61 |           <View
+  62 |             style={[
+  63 |               styles.badge,
+  64 |               book.readingStatus === 'IN_PROGRESS' && styles.inProgressBadge,
+  65 |               book.readingStatus === 'COMPLETED' && styles.completedBadge,
+  66 |             ]}
+  67 |           >
+  68 |             <Text style={styles.badgeText}>
+  69 |               {readingStatusLabels[book.readingStatus]}
+  70 |               {book.progress > 0 ? ` · ${book.progress}%` : ''}
+  71 |             </Text>
+  72 |           </View>
+  73 |         </View>
+  74 |       </View>
+  75 | 
+  76 |       <Text style={styles.arrow}>›</Text>
+  77 |     </Pressable>
+  78 |   );
+  79 | }
+  80 | 
+  81 | const styles = StyleSheet.create({
+  82 |   cardCompact: { minHeight: 76, paddingVertical: 11 },
+  83 |   contentCompact: { paddingLeft: 0 },
+  84 |   card: {
+  85 |     flexDirection: 'row',
+  86 |     alignItems: 'center',
+  87 |     backgroundColor: colors.surface,
+  88 |     borderRadius: 20,
+  89 |     marginBottom: 10,
+  90 |     borderWidth: 1,
+  91 |     borderColor: colors.separator,
+  92 |     padding: 14,
+  93 |   },
+
+### src/components/MediaCard.tsx
+
+-- lines 1-82 --
+   1 | import { Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | // catalogueQuietModeV1
+   5 | import { useCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
+   6 | import {
+   7 |   mediaTypeLabels,
+   8 |   watchStatusLabels,
+   9 |   type MediaResponse,
+  10 | } from '../types/media';
+  11 | import { CatalogueCoverDisplay } from './CatalogueCoverOverride';
+  12 | import { MediaPoster } from './MediaPoster';
+  13 | 
+  14 | type Props = {
+  15 |   item: MediaResponse;
+  16 |   onPress: () => void;
+  17 | };
+  18 | 
+  19 | export function MediaCard({ item, onPress }: Props) {
+  20 |   const compactMode = useCatalogueDisplayMode() === 'compact';
+  21 | 
+  22 |   return (
+  23 |     <Pressable
+  24 |       accessibilityRole="button"
+  25 |       onPress={onPress}
+  26 |       style={({ pressed }) => [
+  27 |         styles.card,
+  28 |         compactMode && styles.cardCompact,
+  29 |         pressed && styles.pressed,
+  30 |       ]}
+  31 |     >
+  32 |       {!compactMode ? (
+  33 |         <CatalogueCoverDisplay
+  34 |           entityType={item.mediaType}
+  35 |           entityId={item.mediaId}
+  36 |           imageStyle={{
+  37 |             width: 86,
+  38 |             height: 128,
+  39 |             borderRadius: 12,
+  40 |             backgroundColor: colors.fillStrong,
+  41 |           }}
+  42 |         >
+  43 |           <MediaPoster
+  44 |             title={item.title}
+  45 |             posterPath={item.posterPath}
+  46 |           />
+  47 |         </CatalogueCoverDisplay>
+  48 |       ) : null}
+  49 |       <View style={styles.content}>
+  50 |         <View style={styles.metaRow}>
+  51 |           <Text style={styles.type}>{mediaTypeLabels[item.mediaType]}</Text>
+  52 |         </View>
+  53 |         <Text numberOfLines={compactMode ? 1 : 2} style={styles.title}>{item.title}</Text>
+  54 |         <Text style={styles.subtitle}>
+  55 |           {[item.releaseYear, watchStatusLabels[item.watchStatus]].filter(Boolean).join(' · ')}
+  56 |         </Text>
+  57 |         {!compactMode ? (
+  58 |           <>
+  59 |             <View style={styles.progressTrack}>
+  60 |               <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
+  61 |             </View>
+  62 |             <Text style={styles.progressLabel}>{item.progress}%</Text>
+  63 |           </>
+  64 |         ) : null}
+  65 |       </View>
+  66 |     </Pressable>
+  67 |   );
+  68 | }
+  69 | 
+  70 | const styles = StyleSheet.create({
+  71 |   cardCompact: { minHeight: 82, paddingVertical: 11 },
+  72 |   card: {
+  73 |     flexDirection: 'row',
+  74 |     gap: 14,
+  75 |     padding: 14,
+  76 |     marginBottom: 12,
+  77 |     borderRadius: 18,
+  78 |     backgroundColor: colors.surface,
+  79 |     borderWidth: 1,
+  80 |     borderColor: colors.separator,
+  81 |   },
+  82 |   pressed: {
+
+### src/games/components/GameCard.tsx
+
+-- lines 1-91 --
+   1 | import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { CatalogueCoverDisplay } from '../../components/CatalogueCoverOverride';
+   4 | import { colors } from '../../theme/colors';
+   5 | // catalogueQuietModeV1
+   6 | import { useCatalogueDisplayMode } from '../../theme/catalogueDisplayMode';
+   7 | import { gameStatusLabels, type GameResponse } from '../types/game';
+   8 | 
+   9 | type Props = {
+  10 |   game: GameResponse;
+  11 |   onPress: () => void;
+  12 | };
+  13 | 
+  14 | export function GameCard({ game, onPress }: Props) {
+  15 |   const compactMode = useCatalogueDisplayMode() === 'compact';
+  16 | 
+  17 |   return (
+  18 |     <Pressable
+  19 |       accessibilityRole="button"
+  20 |       accessibilityLabel={`Otvori igru ${game.title}`}
+  21 |       onPress={onPress}
+  22 |       style={({ pressed }) => [
+  23 |         styles.card,
+  24 |         compactMode && styles.cardCompact,
+  25 |         pressed && styles.pressed,
+  26 |       ]}
+  27 |     >
+  28 |       {!compactMode ? (
+  29 |         <CatalogueCoverDisplay
+  30 |           entityType="GAME"
+  31 |           entityId={game.gameId}
+  32 |           imageStyle={styles.cover}
+  33 |         >
+  34 |           {game.coverUrl ? (
+  35 |             <Image
+  36 |               source={{ uri: game.coverUrl }}
+  37 |               resizeMode="cover"
+  38 |               style={styles.cover}
+  39 |             />
+  40 |           ) : (
+  41 |             <View style={styles.placeholder}>
+  42 |               <Text style={styles.placeholderMark}>G</Text>
+  43 |             </View>
+  44 |           )}
+  45 |         </CatalogueCoverDisplay>
+  46 |       ) : null}
+  47 | 
+  48 |       <View style={[styles.copy, compactMode && styles.copyCompact]}>
+  49 |         <View style={styles.titleRow}>
+  50 |           <Text numberOfLines={compactMode ? 1 : 2} style={styles.title}>
+  51 |             {game.title}{game.dnf ? ' *' : ''}
+  52 |           </Text>
+  53 |         </View>
+  54 |         <Text numberOfLines={1} style={styles.meta}>
+  55 |           {[game.developer, game.releaseYear].filter(Boolean).join(' · ') || 'Podaci nisu uneseni'}
+  56 |         </Text>
+  57 |         <View style={styles.badgeRow}>
+  58 |           <View style={styles.badge}>
+  59 |             <Text style={styles.badgeText}>
+  60 |               {gameStatusLabels[game.gameStatus]}{game.dnf ? ' *' : ''}
+  61 |             </Text>
+  62 |           </View>
+  63 |           <Text numberOfLines={1} style={styles.platform}>{game.platform}</Text>
+  64 |         </View>
+  65 |         {!compactMode ? (
+  66 |           <>
+  67 | 
+  68 |           <View style={styles.progressTrack}>
+  69 |             <View style={[styles.progressFill, { width: `${game.progress}%` }]} />
+  70 |           </View>
+  71 |           <Text style={styles.progressText}>{game.progress}%</Text>
+  72 |           </>
+  73 |         ) : null}
+  74 |       </View>
+  75 |     </Pressable>
+  76 |   );
+  77 | }
+  78 | 
+  79 | const styles = StyleSheet.create({
+  80 |   cardCompact: { minHeight: 0 },
+  81 |   copyCompact: { paddingVertical: 12, paddingHorizontal: 14 },
+  82 |   card: {
+  83 |     minHeight: 160,
+  84 |     flexDirection: 'row',
+  85 |     overflow: 'hidden',
+  86 |     backgroundColor: colors.surface,
+  87 |     borderWidth: 1,
+  88 |     borderColor: colors.separator,
+  89 |     borderRadius: 18,
+  90 |     marginBottom: 12,
+  91 |   },
+
+### src/components/RecentActivityCard.tsx
+
+-- lines 1-27 --
+   1 | import {
+   2 |   useMemo,
+   3 |   useRef } from 'react';
+   4 | import {
+   5 |   Image,
+   6 |   Platform,
+   7 |   ActivityIndicator,
+   8 |   Pressable,
+   9 |   StyleSheet,
+  10 |   Text,
+  11 |   View,
+  12 |   Animated,
+  13 |   PanResponder,
+  14 | } from 'react-native';
+  15 | 
+  16 | import { activityAccents, colors } from '../theme/colors';
+  17 | import { activeVisualSkinId } from '../theme/visualSkins';
+  18 | import type { ActivityTimerResponse } from '../types/activity';
+  19 | import { formatDuration } from '../utils/activityTime';
+  20 | 
+  21 | const pixelMode = activeVisualSkinId === 'pixel';
+  22 | const aeroMode = activeVisualSkinId === 'aero';
+  23 | 
+  24 | type Props = {
+  25 |   activity: ActivityTimerResponse;
+  26 |   starting: boolean;
+  27 |   onStart: () => void;
+
+-- lines 34-58 --
+  34 |   STUDYING: 'Učenje',
+  35 |   PLAYING: 'Igranje',
+  36 |   RESEARCH: 'Istraživanje',
+  37 |   WORK: 'Rad',
+  38 |   EXERCISE: 'Vježbanje',
+  39 |   CUSTOM: 'Aktivnost',
+  40 | };
+  41 | 
+  42 | export function RecentActivityCard({ activity, starting, onStart, onDismiss }: Props) {
+  43 |   const accent = activityAccents[activity.activityType];
+  44 | 
+  45 | 
+  46 |   // recentSwipeDismissV1 — either horizontal direction dismisses Continue only; history stays intact.
+  47 |   const translateX = useRef(new Animated.Value(0)).current;
+  48 |   const panResponder = useMemo(
+  49 |     () =>
+  50 |       PanResponder.create({
+  51 |         onMoveShouldSetPanResponder: (_, gesture) =>
+  52 |           !starting && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+  53 |         onPanResponderMove: (_, gesture) => translateX.setValue(gesture.dx),
+  54 |         onPanResponderRelease: (_, gesture) => {
+  55 |           if (Math.abs(gesture.dx) >= 72) {
+  56 |             Animated.timing(translateX, {
+  57 |               toValue: gesture.dx < 0 ? -520 : 520,
+  58 |               duration: 170,
+
+-- lines 71-144 --
+  71 |           }).start();
+  72 |         },
+  73 |         onPanResponderTerminate: () => {
+  74 |           Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+  75 |         },
+  76 |       }),
+  77 |     [onDismiss, starting, translateX],
+  78 |   );
+  79 |   return (
+  80 |     <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+  81 |     <View style={[styles.card, aeroMode && styles.aeroCard]}>
+  82 |       <View style={[styles.symbol, { backgroundColor: accent.background }]}>
+  83 |         <View style={[styles.symbolDot, { backgroundColor: accent.foreground }]} />
+  84 |       </View>
+  85 | 
+  86 |       <View style={styles.copy}>
+  87 |         <Text style={[styles.type, { color: accent.foreground }]}>
+  88 |           {activityLabels[activity.activityType]}
+  89 |         </Text>
+  90 |         <Text style={styles.label} numberOfLines={1}>
+  91 |           {activity.label}
+  92 |         </Text>
+  93 |         <Text style={styles.total}>{formatDuration(activity.totalSeconds)} ukupno</Text>
+  94 |       </View>
+  95 | 
+  96 |       <Pressable
+  97 |         accessibilityRole="button"
+  98 |         accessibilityLabel={`Nastavi ${activity.label}`}
+  99 |         disabled={starting || !activity.activityId}
+ 100 |         onPress={onStart}
+ 101 |         style={({ pressed }) => [
+ 102 | 
+ 103 |           styles.continueButton,
+ 104 |           { backgroundColor: accent.foreground },
+ 105 |           pressed && styles.continuePressed,
+ 106 |           starting && styles.continueDisabled,
+ 107 |         aeroMode && styles.aeroPlayButtonOverride,
+ 108 |       ]}
+ 109 |       >
+ 110 |       {aeroMode ? (
+ 111 |         <Image
+ 112 |           
+ 113 |           source={require('../assets/aero/play.png')}
+ 114 |           resizeMode="contain"
+ 115 |           style={styles.aeroPlayOrbImage}
+ 116 |         />
+ 117 |       ) : null}
+ 118 |         {starting ? (
+ 119 |           <ActivityIndicator color={colors.white} size="small" />
+ 120 |         ) : (
+ 121 |           <Text style={[
+ 122 |           styles.continueIcon,
+ 123 |           aeroMode && styles.aeroPlayGlyphHidden,
+ 124 |         ]}>▶</Text>
+ 125 |         )}
+ 126 |       </Pressable>
+ 127 |     </View>
+ 128 |     </Animated.View>
+ 129 |   );
+ 130 | }
+ 131 | 
+ 132 | // aeroRecentPlayV3Applied
+ 133 | // aeroPlayScaleV1Applied
+ 134 | // aeroPlayRepairV2Applied
+ 135 | // aeroPlayContainLOCKV1
+ 136 | const styles = StyleSheet.create({
+ 137 | 
+ 138 |   aeroPlayButtonOverride: {
+ 139 |     position: 'relative',
+ 140 | 
+ 141 |     width:
+ 142 |       Platform.OS === 'web'
+ 143 |         ? 44
+ 144 |         : 42,
+
+### src/components/ActiveTimerCard.tsx
+
+-- lines 1-95 --
+   1 | import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | import type { ActivityTimerResponse } from '../types/activity';
+   5 | import {
+   6 |   formatDuration,
+   7 |   getActiveSessionSeconds,
+   8 |   getLiveTotalSeconds,
+   9 | } from '../utils/activityTime';
+  10 | 
+  11 | type Props = {
+  12 |   timer: ActivityTimerResponse;
+  13 |   now: number;
+  14 |   stopping: boolean;
+  15 |   onOpen?: () => void;
+  16 |   onStop: () => void;
+  17 | };
+  18 | 
+  19 | export function ActiveTimerCard({ timer, now, stopping, onOpen, onStop }: Props) {
+  20 |   const sessionSeconds = getActiveSessionSeconds(timer, now);
+  21 |   const totalSeconds = getLiveTotalSeconds(timer, now);
+  22 | 
+  23 |   return (
+  24 |     <View style={styles.card}>
+  25 |       <Pressable
+  26 |         accessibilityRole={onOpen ? 'button' : undefined}
+  27 |         accessibilityLabel={onOpen ? `Otvori ${timer.label}` : undefined}
+  28 |         disabled={!onOpen}
+  29 |         onPress={onOpen}
+  30 |         style={({ pressed }) => [styles.cardBody, pressed && onOpen && styles.pressed]}
+  31 |       >
+  32 |         <View style={styles.headingRow}>
+  33 |           <View style={styles.statusRow}>
+  34 |             <View style={styles.liveDot} />
+  35 |             <Text style={styles.eyebrow}>Aktivno sada</Text>
+  36 |           </View>
+  37 |           {onOpen ? <Text style={styles.openHint}>Otvori  ›</Text> : null}
+  38 |         </View>
+  39 | 
+  40 |         <Text style={styles.label} numberOfLines={2}>
+  41 |           {timer.label}
+  42 |         </Text>
+  43 | 
+  44 |         <Text
+  45 |           accessibilityLabel={`Trajanje aktivne sesije ${formatDuration(sessionSeconds)}`}
+  46 |           style={styles.time}
+  47 |         >
+  48 |           {formatDuration(sessionSeconds)}
+  49 |         </Text>
+  50 | 
+  51 |         <View style={styles.totalRow}>
+  52 |           <Text style={styles.totalLabel}>Ukupno praćeno</Text>
+  53 |           <Text style={styles.totalValue}>{formatDuration(totalSeconds)}</Text>
+  54 |         </View>
+  55 |       </Pressable>
+  56 | 
+  57 |       <View style={styles.divider} />
+  58 | 
+  59 |       <Pressable
+  60 |         accessibilityRole="button"
+  61 |         accessibilityLabel={`Zaustavi ${timer.label}`}
+  62 |         disabled={stopping}
+  63 |         onPress={onStop}
+  64 |         style={({ pressed }) => [
+  65 |           styles.stopButton,
+  66 |           pressed && !stopping && styles.stopPressed,
+  67 |           stopping && styles.stopDisabled,
+  68 |         ]}
+  69 |       >
+  70 |         {stopping ? (
+  71 |           <ActivityIndicator color={colors.white} />
+  72 |         ) : (
+  73 |           <>
+  74 |             <View style={styles.stopIcon} />
+  75 |             <Text style={styles.stopLabel}>Zaustavi i spremi sesiju</Text>
+  76 |           </>
+  77 |         )}
+  78 |       </Pressable>
+  79 |     </View>
+  80 |   );
+  81 | }
+  82 | 
+  83 | const styles = StyleSheet.create({
+  84 |   card: {
+  85 |     marginBottom: 14,
+  86 |     borderRadius: 22,
+  87 |     backgroundColor: colors.black,
+  88 |     overflow: 'hidden',
+  89 |     shadowColor: colors.black,
+  90 |     shadowOffset: { width: 0, height: 7 },
+  91 |     shadowOpacity: 0.16,
+  92 |     shadowRadius: 14,
+  93 |     elevation: 5,
+  94 |   },
+  95 |   cardBody: {
+
+### src/components/TopicActivityCard.tsx
+
+-- lines 1-111 --
+   1 | import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | import {
+   5 |   activityTypeLabels,
+   6 |   activityTypeMarks,
+   7 |   type TopicActivityResponse,
+   8 |   type TopicActivityTimerResponse,
+   9 | } from '../types/topic';
+  10 | import {
+  11 |   formatTopicDuration,
+  12 |   getTopicSessionSeconds,
+  13 |   getTopicTotalSeconds,
+  14 | } from '../utils/topicActivityTime';
+  15 | 
+  16 | type Props = {
+  17 |   activity: TopicActivityResponse;
+  18 |   timer?: TopicActivityTimerResponse;
+  19 |   now: number;
+  20 |   busy: boolean;
+  21 |   onToggle: () => void;
+  22 | };
+  23 | 
+  24 | export function TopicActivityCard({ activity, timer, now, busy, onToggle }: Props) {
+  25 |   const running = timer?.running === true;
+  26 |   const sessionSeconds = timer ? getTopicSessionSeconds(timer, now) : 0;
+  27 |   const totalSeconds = timer ? getTopicTotalSeconds(timer, now) : 0;
+  28 | 
+  29 |   return (
+  30 |     <View style={[styles.card, running && styles.cardRunning]}>
+  31 |       <View style={styles.topRow}>
+  32 |         <View style={[styles.mark, running && styles.markRunning]}>
+  33 |           <Text style={[styles.markText, running && styles.markTextRunning]}>
+  34 |             {activityTypeMarks[activity.activityType]}
+  35 |           </Text>
+  36 |         </View>
+  37 | 
+  38 |         <View style={styles.headingCopy}>
+  39 |           <Text style={[styles.type, running && styles.typeRunning]}>
+  40 |             {activityTypeLabels[activity.activityType]}
+  41 |           </Text>
+  42 |           <Text numberOfLines={2} style={[styles.label, running && styles.labelRunning]}>
+  43 |             {activity.label}
+  44 |           </Text>
+  45 |         </View>
+  46 | 
+  47 |         <View style={[styles.stateBadge, running && styles.stateBadgeRunning]}>
+  48 |           {running ? <View style={styles.liveDot} /> : null}
+  49 |           <Text style={[styles.stateText, running && styles.stateTextRunning]}>
+  50 |             {running ? 'Aktivno' : 'Spremno'}
+  51 |           </Text>
+  52 |         </View>
+  53 |       </View>
+  54 | 
+  55 |       {running ? (
+  56 |         <View style={styles.timerBlock}>
+  57 |           <Text style={styles.timerLabel}>Ova sesija</Text>
+  58 |           <Text
+  59 |             accessibilityLabel={`Trajanje sesije ${formatTopicDuration(sessionSeconds)}`}
+  60 |             style={styles.timer}
+  61 |           >
+  62 |             {formatTopicDuration(sessionSeconds)}
+  63 |           </Text>
+  64 |           <Text style={styles.total}>Ukupno {formatTopicDuration(totalSeconds)}</Text>
+  65 |         </View>
+  66 |       ) : timer && totalSeconds > 0 ? (
+  67 |         <Text style={styles.idleTotal}>Ukupno praćeno {formatTopicDuration(totalSeconds)}</Text>
+  68 |       ) : (
+  69 |         <Text style={styles.idleHint}>Pokreni kada započneš ovu aktivnost.</Text>
+  70 |       )}
+  71 | 
+  72 |       <Pressable
+  73 |         accessibilityRole="button"
+  74 |         accessibilityLabel={`${running ? 'Zaustavi' : 'Pokreni'} ${activity.label}`}
+  75 |         disabled={busy}
+  76 |         onPress={onToggle}
+  77 |         style={({ pressed }) => [
+  78 |           styles.button,
+  79 |           running && styles.stopButton,
+  80 |           pressed && !busy && styles.buttonPressed,
+  81 |           busy && styles.buttonDisabled,
+  82 |         ]}
+  83 |       >
+  84 |         {busy ? (
+  85 |           <ActivityIndicator color={running ? colors.black : colors.white} />
+  86 |         ) : (
+  87 |           <>
+  88 |             <View style={[styles.buttonIcon, running && styles.stopIcon]} />
+  89 |             <Text style={[styles.buttonText, running && styles.stopButtonText]}>
+  90 |               {running ? 'Zaustavi i spremi' : 'Pokreni aktivnost'}
+  91 |             </Text>
+  92 |           </>
+  93 |         )}
+  94 |       </Pressable>
+  95 |     </View>
+  96 |   );
+  97 | }
+  98 | 
+  99 | const styles = StyleSheet.create({
+ 100 |   card: {
+ 101 |     marginBottom: 13,
+ 102 |     padding: 17,
+ 103 |     borderRadius: 22,
+ 104 |     borderWidth: 1,
+ 105 |     borderColor: colors.separator,
+ 106 |     backgroundColor: colors.surface,
+ 107 |   },
+ 108 |   cardRunning: {
+ 109 |     borderColor: colors.black,
+ 110 |     backgroundColor: colors.black,
+ 111 |     shadowColor: colors.black,
+
+-- lines 232-256 --
+ 232 |     alignItems: 'center',
+ 233 |     justifyContent: 'center',
+ 234 |     borderRadius: 14,
+ 235 |     backgroundColor: colors.black,
+ 236 |   },
+ 237 |   stopButton: {
+ 238 |     backgroundColor: colors.white,
+ 239 |   },
+ 240 |   buttonPressed: {
+ 241 |     opacity: 0.78,
+ 242 |     transform: [{ scale: 0.99 }],
+ 243 |   },
+ 244 |   buttonDisabled: {
+ 245 |     opacity: 0.55,
+ 246 |   },
+ 247 |   buttonIcon: {
+ 248 |     width: 0,
+ 249 |     height: 0,
+ 250 |     marginRight: 9,
+ 251 |     borderTopWidth: 6,
+ 252 |     borderBottomWidth: 6,
+ 253 |     borderLeftWidth: 10,
+ 254 |     borderTopColor: 'transparent',
+ 255 |     borderBottomColor: 'transparent',
+ 256 |     borderLeftColor: colors.white,
+
+### src/components/FeedbackView.tsx
+
+-- lines 1-54 --
+   1 | import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | 
+   5 | type Props = {
+   6 |   type: 'loading' | 'error' | 'empty';
+   7 |   message?: string;
+   8 |   onRetry?: () => void;
+   9 | };
+  10 | 
+  11 | export function FeedbackView({ type, message, onRetry }: Props) {
+  12 |   if (type === 'loading') {
+  13 |     return (
+  14 |       <View style={styles.container}>
+  15 |         <ActivityIndicator size="large" color={colors.black} />
+  16 |         <Text style={styles.message}>Učitavanje knjiga…</Text>
+  17 |       </View>
+  18 |     );
+  19 |   }
+  20 | 
+  21 |   return (
+  22 |     <View style={styles.container}>
+  23 |       <Text style={styles.symbol}>{type === 'error' ? '!' : '⌁'}</Text>
+  24 |       <Text style={styles.title}>
+  25 |         {type === 'error' ? 'Nešto nije u redu' : 'Polica je još prazna'}
+  26 |       </Text>
+  27 |       <Text style={styles.message}>
+  28 |         {message ??
+  29 |           (type === 'empty'
+  30 |             ? 'Dodajte prvu knjigu i započnite svoju zbirku.'
+  31 |             : 'Pokušajte ponovno.')}
+  32 |       </Text>
+  33 |       {onRetry ? (
+  34 |         <Pressable onPress={onRetry} style={styles.retryButton}>
+  35 |           <Text style={styles.retryText}>Pokušaj ponovno</Text>
+  36 |         </Pressable>
+  37 |       ) : null}
+  38 |     </View>
+  39 |   );
+  40 | }
+  41 | 
+  42 | const styles = StyleSheet.create({
+  43 |   container: {
+  44 |     flex: 1,
+  45 |     minHeight: 320,
+  46 |     justifyContent: 'center',
+  47 |     alignItems: 'center',
+  48 |     padding: 32,
+  49 |   },
+  50 |   symbol: {
+  51 |     width: 54,
+  52 |     height: 54,
+  53 |     borderRadius: 27,
+  54 |     textAlign: 'center',
+
+### src/components/MediaFeedbackView.tsx
+
+-- lines 1-53 --
+   1 | import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | 
+   5 | type Props = {
+   6 |   type: 'loading' | 'error' | 'empty';
+   7 |   message?: string;
+   8 |   onRetry?: () => void;
+   9 | };
+  10 | 
+  11 | export function MediaFeedbackView({ type, message, onRetry }: Props) {
+  12 |   if (type === 'loading') {
+  13 |     return (
+  14 |       <View style={styles.container}>
+  15 |         <ActivityIndicator size="large" color={colors.black} />
+  16 |         <Text style={styles.message}>{message ?? 'Učitavanje filmova i serija…'}</Text>
+  17 |       </View>
+  18 |     );
+  19 |   }
+  20 | 
+  21 |   return (
+  22 |     <View style={styles.container}>
+  23 |       <Text style={styles.symbol}>{type === 'error' ? '!' : '▶'}</Text>
+  24 |       <Text style={styles.title}>
+  25 |         {type === 'error' ? 'Dohvat nije uspio' : 'Katalog je još prazan'}
+  26 |       </Text>
+  27 |       <Text style={styles.message}>
+  28 |         {message ?? (type === 'empty'
+  29 |           ? 'Dodajte prvi film ili seriju iz online pretrage.'
+  30 |           : 'Pokušajte ponovno.')}
+  31 |       </Text>
+  32 |       {onRetry ? (
+  33 |         <Pressable onPress={onRetry} style={styles.retry}>
+  34 |           <Text style={styles.retryLabel}>Pokušaj ponovno</Text>
+  35 |         </Pressable>
+  36 |       ) : null}
+  37 |     </View>
+  38 |   );
+  39 | }
+  40 | 
+  41 | const styles = StyleSheet.create({
+  42 |   container: {
+  43 |     flex: 1,
+  44 |     minHeight: 300,
+  45 |     alignItems: 'center',
+  46 |     justifyContent: 'center',
+  47 |     padding: 32,
+  48 |   },
+  49 |   symbol: {
+  50 |     width: 54,
+  51 |     height: 54,
+  52 |     borderRadius: 27,
+  53 |     color: colors.text,
+
+### src/components/DeleteConfirmationModal.tsx
+
+   1 | import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | 
+   5 | type Props = {
+   6 |   visible: boolean;
+   7 |   bookTitle?: string;
+   8 |   itemTitle?: string;
+   9 |   title?: string;
+  10 |   message?: string;
+  11 |   accessibilityLabel?: string;
+  12 |   loading: boolean;
+  13 |   errorMessage?: string | null;
+  14 |   onCancel: () => void;
+  15 |   onConfirm: () => void;
+  16 | };
+  17 | 
+  18 | export function DeleteConfirmationModal({
+  19 |   visible, bookTitle, itemTitle, title, message, accessibilityLabel,
+  20 |   loading, errorMessage, onCancel, onConfirm,
+  21 | }: Props) {
+  22 |   const resolvedTitle = itemTitle ?? bookTitle ?? '';
+  23 |   const dialogTitle = title ?? 'Obrisati knjigu?';
+  24 |   const dialogMessage = message ?? `Knjiga „${resolvedTitle}” bit će trajno uklonjena.`;
+  25 | 
+  26 |   return (
+  27 |     <Modal animationType="fade" onRequestClose={loading ? undefined : onCancel} transparent visible={visible}>
+  28 |       <View style={styles.backdrop}>
+  29 |         <View accessibilityLabel={accessibilityLabel ?? dialogTitle} accessibilityRole="alert" style={styles.dialog}>
+  30 |           <View style={styles.iconCircle}><Text style={styles.icon}>!</Text></View>
+  31 |           <Text style={styles.title}>{dialogTitle}</Text>
+  32 |           <Text style={styles.message}>{dialogMessage}</Text>
+  33 |           {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+  34 |           <View style={styles.actions}>
+  35 |             <Pressable accessibilityRole="button" disabled={loading} onPress={onCancel}
+  36 |               style={({ pressed }) => [styles.button, styles.cancelButton, pressed && !loading && styles.pressed, loading && styles.disabled]}>
+  37 |               <Text style={styles.cancelLabel}>Odustani</Text>
+  38 |             </Pressable>
+  39 |             <Pressable accessibilityRole="button" disabled={loading} onPress={onConfirm}
+  40 |               style={({ pressed }) => [styles.button, styles.deleteButton, pressed && !loading && styles.pressed, loading && styles.disabled]}>
+  41 |               {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.deleteLabel}>Obriši</Text>}
+  42 |             </Pressable>
+  43 |           </View>
+  44 |         </View>
+  45 |       </View>
+  46 |     </Modal>
+  47 |   );
+  48 | }
+  49 | 
+  50 | const styles = StyleSheet.create({
+  51 |   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.42)', padding: 24 },
+  52 |   dialog: { width: '100%', maxWidth: 430, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, padding: 24, shadowColor: colors.black, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 18, elevation: 12 },
+  53 |   iconCircle: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', borderRadius: 23, backgroundColor: colors.dangerSoft },
+  54 |   icon: { color: colors.danger, fontSize: 24, fontWeight: '700' },
+  55 |   title: { marginTop: 16, color: colors.text, fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  56 |   message: { marginTop: 10, color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  57 |   error: { marginTop: 14, borderRadius: 12, backgroundColor: colors.dangerSoft, padding: 10, color: colors.danger, fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  58 |   actions: { flexDirection: 'row', marginTop: 22 },
+  59 |   button: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 13, paddingHorizontal: 14 },
+  60 |   cancelButton: { marginRight: 10, backgroundColor: colors.fillStrong },
+  61 |   deleteButton: { backgroundColor: colors.danger },
+  62 |   cancelLabel: { color: colors.black, fontSize: 15, fontWeight: '600' },
+  63 |   deleteLabel: { color: colors.white, fontSize: 15, fontWeight: '600' },
+  64 |   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
+  65 |   disabled: { opacity: 0.6 },
+  66 | });
+  67 | 
+
+### src/components/PrimaryButton.tsx
+
+   1 | import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+   2 | 
+   3 | import { colors } from '../theme/colors';
+   4 | import { AnimatedPressable } from './AnimatedPressable';
+   5 | 
+   6 | type Props = {
+   7 |   label: string;
+   8 |   onPress: () => void;
+   9 |   loading?: boolean;
+  10 |   disabled?: boolean;
+  11 |   variant?: 'primary' | 'secondary' | 'danger';
+  12 | };
+  13 | 
+  14 | export function PrimaryButton({
+  15 |   label,
+  16 |   onPress,
+  17 |   loading = false,
+  18 |   disabled = false,
+  19 |   variant = 'primary',
+  20 | }: Props) {
+  21 |   const isDisabled = disabled || loading;
+  22 | 
+  23 |   return (
+  24 |     <AnimatedPressable
+  25 |       accessibilityRole="button"
+  26 |       cue={false}
+  27 |       disabled={isDisabled}
+  28 |       onPress={onPress}
+  29 |       style={[
+  30 |         styles.button,
+  31 |         styles[variant],
+  32 |         isDisabled && styles.disabled,
+  33 |       ]}
+  34 |       pressedStyle={!isDisabled ? styles.pressed : undefined}
+  35 |     >
+  36 |       {loading ? (
+  37 |         <ActivityIndicator
+  38 |           color={variant === 'primary' ? colors.white : variant === 'danger' ? colors.danger : colors.black}
+  39 |         />
+  40 |       ) : (
+  41 |         <Text
+  42 |           style={[
+  43 |             styles.label,
+  44 |             variant === 'secondary' && styles.secondaryLabel,
+  45 |             variant === 'danger' && styles.dangerLabel,
+  46 |           ]}
+  47 |         >
+  48 |           {label}
+  49 |         </Text>
+  50 |       )}
+  51 |     </AnimatedPressable>
+  52 |   );
+  53 | }
+  54 | 
+  55 | const styles = StyleSheet.create({
+  56 |   button: {
+  57 |     minHeight: 52,
+  58 |     borderRadius: 14,
+  59 |     justifyContent: 'center',
+  60 |     alignItems: 'center',
+  61 |     paddingHorizontal: 18,
+  62 |   },
+  63 |   primary: {
+  64 |     backgroundColor: colors.black,
+  65 |   },
+  66 |   secondary: {
+  67 |     backgroundColor: colors.fillStrong,
+  68 |   },
+  69 |   danger: {
+  70 |     backgroundColor: colors.surface,
+  71 |     borderWidth: 1,
+  72 |     borderColor: colors.separator,
+  73 |   },
+  74 |   label: {
+  75 |     color: colors.white,
+  76 |     fontSize: 16,
+  77 |     fontWeight: '700',
+  78 |   },
+  79 |   secondaryLabel: {
+  80 |     color: colors.black,
+  81 |   },
+  82 |   dangerLabel: {
+  83 |     color: colors.danger,
+  84 |   },
+  85 |   pressed: {
+  86 |     opacity: 0.86,
+  87 |   },
+  88 |   disabled: {
+  89 |     opacity: 0.55,
+  90 |   },
+  91 | });
+
+### src/components/AnimatedPressable.tsx
+
+   1 | import {
+   2 |   Animated,
+   3 |   Pressable,
+   4 |   type PressableProps,
+   5 |   type StyleProp,
+   6 |   type ViewStyle,
+   7 | } from 'react-native';
+   8 | import { useRef } from 'react';
+   9 | 
+  10 | import {
+  11 |   pressIn,
+  12 |   pressOut,
+  13 | } from '../motion/uiMotion';
+  14 | import {
+  15 |   playUiCue,
+  16 |   type UiCue,
+  17 | } from '../audio/uiFeedback';
+  18 | 
+  19 | type AnimatedPressableProps = Omit<
+  20 |   PressableProps,
+  21 |   'style' | 'onPressIn' | 'onPressOut'
+  22 | > & {
+  23 |   style?: PressableProps['style'];
+  24 |   pressedStyle?: StyleProp<ViewStyle>;
+  25 |   cue?: UiCue | false;
+  26 |   scaleTo?: number;
+  27 | };
+  28 | 
+  29 | // animatedPressableV1
+  30 | // Reusable physical-button feedback without changing screen layout.
+  31 | export function AnimatedPressable({
+  32 |   children,
+  33 |   style,
+  34 |   pressedStyle,
+  35 |   cue = 'tap',
+  36 |   scaleTo = 0.975,
+  37 |   onPress,
+  38 |   disabled,
+  39 |   ...props
+  40 | }: AnimatedPressableProps) {
+  41 |   const scale = useRef(
+  42 |     new Animated.Value(1),
+  43 |   ).current;
+  44 | 
+  45 |   const handlePressIn = () => {
+  46 |     // Keep the shared motion helper as the default physical feel.
+  47 |     if (scaleTo === 0.975) {
+  48 |       pressIn(scale).start();
+  49 |       return;
+  50 |     }
+  51 | 
+  52 |     Animated.spring(scale, {
+  53 |       toValue: scaleTo,
+  54 |       damping: 18,
+  55 |       stiffness: 320,
+  56 |       mass: 0.45,
+  57 |       useNativeDriver: true,
+  58 |     }).start();
+  59 |   };
+  60 | 
+  61 |   const handlePressOut = () => {
+  62 |     pressOut(scale).start();
+  63 |   };
+  64 | 
+  65 |   return (
+  66 |     <Animated.View
+  67 |       style={{
+  68 |         transform: [{ scale }],
+  69 |       }}
+  70 |     >
+  71 |       <Pressable
+  72 |         {...props}
+  73 |         disabled={disabled}
+  74 |         onPressIn={handlePressIn}
+  75 |         onPressOut={handlePressOut}
+  76 |         onPress={(event) => {
+  77 |           if (cue) {
+  78 |             void playUiCue(cue);
+  79 |           }
+  80 | 
+  81 |           onPress?.(event);
+  82 |         }}
+  83 |         style={(state) => [
+  84 |           typeof style === 'function'
+  85 |             ? style(state)
+  86 |             : style,
+  87 |           state.pressed ? pressedStyle : null,
+  88 |         ]}
+  89 |       >
+  90 |         {children}
+  91 |       </Pressable>
+  92 |     </Animated.View>
+  93 |   );
+  94 | }
+  95 | 
+

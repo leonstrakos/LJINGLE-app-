@@ -5,6 +5,11 @@ import { Platform } from 'react-native';
 import { getDatabase } from '../storage/database';
 import { hydrateWebAudio, persistWebAudio } from '../audio/webAudioStore';
 import type { AttachMemoryTrackRequest, ImportedAudio, MemoryTrack } from '../types/memoryRadio';
+import {
+  cleanupFrequencyCoverAfterDelete,
+  getFrequencyCover,
+} from './frequencyCovers';
+// forkBCoverCleanupV1
 
 type Row = Record<string, string | number | null>;
 
@@ -119,6 +124,42 @@ export const memoryRadioApi = {
     })));
   },
 
+  // jingleRadioDirectAudioV1
+  async createStandalone(
+    request: ImportedAudio,
+  ): Promise<string> {
+    const database = await getDatabase();
+    const trackId = id();
+    const now = new Date().toISOString();
+
+    await writeAtomically(
+      database,
+      async (transaction) => {
+        await transaction.runAsync(
+          `INSERT INTO audio_tracks
+           (track_id, title, artist, file_uri, original_name, mime_type,
+            waveform_seed, created_at, modified_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          trackId,
+          request.title.trim() ||
+            titleFromFilename(
+              request.originalName,
+            ),
+          request.artist.trim() || null,
+          request.storedFileUri ??
+            request.fileUri,
+          request.originalName,
+          request.mimeType,
+          trackId,
+          now,
+          now,
+        );
+      },
+    );
+
+    return trackId;
+  },
+
   async attach(request: AttachMemoryTrackRequest) {
     const database = await getDatabase();
     const trackId = id();
@@ -216,6 +257,9 @@ export const memoryRadioApi = {
   },
 
   async deleteTrack(trackId: string) {
+    const cover =
+      await getFrequencyCover(trackId).catch(() => null);
+
     const database = await getDatabase();
     const row = await database.getFirstAsync<Row>(
       'SELECT file_uri FROM audio_tracks WHERE track_id = ?',
@@ -238,6 +282,11 @@ export const memoryRadioApi = {
         // DB deletion already succeeded; a stale local file must not resurrect the frequency.
       }
     }
+
+    await cleanupFrequencyCoverAfterDelete(
+      trackId,
+      cover?.uri ?? null,
+    ).catch(() => undefined);
   },
 
   // Backward-compatible old name: removing a link now means unlink, not data loss.
