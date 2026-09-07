@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import {
   reconstructPeriod,
@@ -209,6 +210,7 @@ export function ReconstructionScreen({
   if (!data && !error) {
     return (
       <SafeAreaView style={styles.safe}>
+      <AeroAtmosphere variant="history" />
         <View style={styles.center}>
           <ActivityIndicator />
           <Text style={styles.muted}>
@@ -222,6 +224,7 @@ export function ReconstructionScreen({
   if (error || !data) {
     return (
       <SafeAreaView style={styles.safe}>
+      <AeroAtmosphere variant="history" />
         <View style={styles.center}>
           <Text style={styles.heading}>
             Rekonstrukcija nije dostupna
@@ -237,6 +240,7 @@ export function ReconstructionScreen({
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AeroAtmosphere variant="history" />
       <ScrollView
         contentContainerStyle={styles.content}
       >

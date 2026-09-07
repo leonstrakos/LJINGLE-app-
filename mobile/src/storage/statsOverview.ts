@@ -3,6 +3,8 @@ import type { ReadingStatus } from '../types/book';
 
 // forkEBookStatsUnifiedV1
 // forkNProfileNetTrackingV1
+// statsClosedItemsV1
+// statsGamesQuitNeutralDroppedNegativeV1
 
 export type StatsTopItem = {
   id: string;
@@ -218,15 +220,32 @@ export async function loadStatsOverview(): Promise<StatsOverview> {
        )`
     : '';
 
-  const visibleMediaNetClause = hasFlags
-    ? `AND NOT EXISTS (
-         SELECT 1
-           FROM external_media_flags f
-          WHERE f.media_id = m.media_id
-            AND f.source = 'TV_TIME'
-            AND f.flag = 'NEBITNO'
-       )`
+  // Neto uses "closed" semantics rather than only literal COMPLETED.
+  // NEBITNO closes Film/TV; DROPPED and DNF close games; QUIT is neutral.
+  const ignoredMediaFinishedClause = hasFlags
+    ? `OR (
+           m.watch_status <> 'COMPLETED'
+           AND EXISTS (
+             SELECT 1
+               FROM external_media_flags f
+              WHERE f.media_id = m.media_id
+                AND f.flag = 'NEBITNO'
+                AND (
+                  p.since IS NULL
+                  OR julianday(COALESCE(f.flagged_at, f.modified_at, f.created_at)) >= julianday(p.since)
+                )
+           )
+         )`
     : '';
+
+  // Games Neto semantics: QUIT is completely neutral. DROPPED/Odustao
+  // is a real close event and therefore belongs on the negative side.
+  // Legacy DNF remains closed unless the current status is explicitly QUIT.
+  const gameColumns = await database.getAllAsync<{ name: string }>('PRAGMA table_info(games)');
+  const hasGameDnf = gameColumns.some((column) => column.name === 'dnf');
+  const closedGamePredicate = hasGameDnf
+    ? `(g.game_status <> 'QUIT' AND (g.game_status IN ('COMPLETED', 'DROPPED') OR COALESCE(g.dnf, 0) = 1))`
+    : `g.game_status IN ('COMPLETED', 'DROPPED')`;
 
   const loadNetPeriod = (since: string | null) =>
     database.getFirstAsync<NetTrackingRow>(
@@ -248,21 +267,21 @@ export async function loadStatsOverview(): Promise<StatsOverview> {
          ) AS books_finished,
          (SELECT COUNT(*)
             FROM media_items m, params p
-           WHERE (
-             p.since IS NULL
-             OR julianday(m.created_at) >= julianday(p.since)
-           )
-           ${visibleMediaNetClause}
+           WHERE p.since IS NULL
+              OR julianday(m.created_at) >= julianday(p.since)
          ) AS media_added,
          (SELECT COUNT(*)
             FROM media_items m, params p
-           WHERE m.watch_status = 'COMPLETED'
-             AND m.completed_on IS NOT NULL
-             AND (
-               p.since IS NULL
-               OR julianday(m.completed_on) >= julianday(p.since)
+           WHERE (
+             (
+               m.watch_status = 'COMPLETED'
+               AND (
+                 p.since IS NULL
+                 OR julianday(COALESCE(m.completed_on, m.modified_at, m.created_at)) >= julianday(p.since)
+               )
              )
-           ${visibleMediaNetClause}
+             ${ignoredMediaFinishedClause}
+           )
          ) AS media_finished,
          (SELECT COUNT(*)
             FROM games g, params p
@@ -274,11 +293,10 @@ export async function loadStatsOverview(): Promise<StatsOverview> {
          ) AS games_added,
          (SELECT COUNT(*)
             FROM games g, params p
-           WHERE g.game_status = 'COMPLETED'
-             AND g.finished_on IS NOT NULL
+           WHERE ${closedGamePredicate}
              AND (
                p.since IS NULL
-               OR julianday(g.finished_on) >= julianday(p.since)
+               OR julianday(COALESCE(g.finished_on, g.modified_at, g.created_at)) >= julianday(p.since)
              )
          ) AS games_finished`,
       since,

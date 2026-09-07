@@ -1,3 +1,4 @@
+// ljingleZodiacPlayR1
 import {
   useCallback,
   useEffect,
@@ -19,9 +20,12 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { ActiveTimerCard } from '../components/ActiveTimerCard';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
+import { HomeRiverMotion } from '../components/HomeRiverMotion';
+import { LivingTimerDisplay } from '../components/LivingTimerDisplay';
 import { RecentActivityCard } from '../components/RecentActivityCard';
 import { activityApi } from '../services/activityApi';
 import { entryApi } from '../services/entryApi';
@@ -41,35 +45,52 @@ import { semanticFeedback } from '../utils/semanticFeedback';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 import { ConstellationGridGlyph } from '../components/ConstellationGridGlyph';
+import { useAuth } from '../auth/AuthContext';
+import { ZodiacWatermark } from '../auth/BirthdayFeature';
+import { ReactiveAmbientField } from '../components/ReactiveAmbientField';
 
 // forkN5GlyphReorderV1
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Today'>;
 
 const pixelMode = activeVisualSkinId === 'pixel';
+// ljingleHomeConstellationWheelR11
+import { HomeConstellationWheel } from '../components/HomeConstellationWheel';
 const aeroMode = activeVisualSkinId === 'aero';
 
 // aeroSearchQuoteTimerHygieneV3
 // Aero is an authored visual skin, not a semantic accent variant.
 // Keep its Home accent fixed while Classic/Pixel keep the existing theme token.
-const AERO_HOME_ACCENT = '#505359';
-const AERO_METAL_MID = '#73777D';
-const AERO_GLASS_EDGE = 'rgba(104,108,114,0.42)';
-const AERO_GLASS_WHITE = 'rgba(255,255,255,0.72)';
-const AERO_GLASS_WHITE_STRONG = 'rgba(255,255,255,0.90)';
-const AERO_METAL_SOFT = 'rgba(80,83,89,0.58)';
+const AERO_HOME_ACCENT = '#087CB8'; // FRUTIGER_AERO_MAX_UI_V2
+const AERO_METAL_MID = '#63B5D5';
+const AERO_GLASS_EDGE = activeAeroBackgroundId === 'meadow'
+  ? 'rgba(255,255,255,0.90)'
+  : 'rgba(255,255,255,0.92)';
+const AERO_GLASS_WHITE = activeAeroBackgroundId === 'meadow'
+  ? 'rgba(238,241,241,0.46)'
+  : 'rgba(255,255,255,0.72)';
+const AERO_GLASS_WHITE_STRONG = activeAeroBackgroundId === 'meadow'
+  ? 'rgba(221,225,226,0.60)'
+  : 'rgba(255,255,255,0.90)';
+const AERO_METAL_SOFT = activeAeroBackgroundId === 'meadow'
+  ? 'rgba(84,90,96,0.24)'
+  : 'rgba(8,124,184,0.26)'; // MEADOW_SILVER_GLASS_FIX_V1
 
 // aeroVistaNeutralFinalV32
 // Final Aero UI palette: Vista white glass + neutral graphite/silver.
 // No semantic blue/cyan is used for UI chrome.
 const homeAccent =
   aeroMode
-    ? AERO_HOME_ACCENT
+    ? activeAeroBackgroundId === 'meadow'
+      ? '#50565C'
+      : AERO_HOME_ACCENT
     : colors.navy;
 
 // aeroVistaWhiteGlassV31
 // Vista Aero is neutral silver/graphite: no saturated semantic accent bleed.
 const celestialMode = activeVisualSkinId === 'classic';
+// ljingleCelestialContrastEngineR1
+const classicLjingleMode = activeVisualSkinId === 'classic-ljingle';
 // forkKDarkBackgroundContrastV1
 // forkN1CelestialHomeCommandBellV1
 const radioInverted = activeRadioThemeId === 'inverted';
@@ -108,6 +129,7 @@ function formatToday(date: Date) {
 }
 
 
+// todayCelestialLinesOrbitsRemovedR1
 function CelestialHomeField() {
   return (
     <View pointerEvents="none" style={styles.celestialFieldN1}>
@@ -119,11 +141,6 @@ function CelestialHomeField() {
       <Text style={[styles.celestialStarN1, styles.celestialStarA6N1]}>✧</Text>
       <Text style={[styles.celestialStarN1, styles.celestialStarA7N1]}>✦</Text>
       <Text style={[styles.celestialStarN1, styles.celestialStarA8N1]}>·</Text>
-      <View style={[styles.celestialLineN1, styles.celestialLineOneN1]} />
-      <View style={[styles.celestialLineN1, styles.celestialLineTwoN1]} />
-      <View style={styles.celestialOrbitN1}>
-        <View style={styles.celestialOrbitCoreN1} />
-      </View>
     </View>
   );
 }
@@ -352,6 +369,8 @@ const aeroWorldBackgroundSource =
     : require('../assets/aero/aero-meadow-ufo.jpeg');
 
 export function TodayScreen({ navigation }: Props) {
+  // finalPrebuildUiV1
+  const { user } = useAuth();
   const oceanAero = aeroMode && activeAeroBackgroundId === 'ocean';
   const [timers, setTimers] = useState<ActivityTimerResponse[]>([]);
   const [recentActivities, setRecentActivities] = useState<ActivityTimerResponse[]>([]);
@@ -371,11 +390,61 @@ export function TodayScreen({ navigation }: Props) {
   const [now, setNow] = useState(Date.now());
 
   const dateLabel = useMemo(() => formatToday(new Date(now)), [now]);
+  // ljingleHomeQuoteSwipeR1:logic
+  const dailyQuoteBaseIndex = useMemo(() => {
+    if (quotes.length === 0) return 0;
+    const dayNumber = Math.floor(
+      new Date(now).setHours(0, 0, 0, 0) / 86_400_000,
+    );
+    return dayNumber % quotes.length;
+  }, [now, quotes.length]);
+
+  const [quoteOffset, setQuoteOffset] = useState(0);
+  const quoteSwipeStart = useRef<{ x: number; y: number } | null>(null);
+
   const dailyQuote = useMemo(() => {
     if (quotes.length === 0) return null;
-    const dayNumber = Math.floor(new Date(now).setHours(0, 0, 0, 0) / 86_400_000);
-    return quotes[dayNumber % quotes.length];
-  }, [now, quotes]);
+    const index =
+      ((dailyQuoteBaseIndex + quoteOffset) % quotes.length + quotes.length) %
+      quotes.length;
+    return quotes[index] ?? null;
+  }, [dailyQuoteBaseIndex, quoteOffset, quotes]);
+
+  const moveDailyQuote = useCallback(
+    (direction: -1 | 1) => {
+      if (quotes.length < 2) return;
+
+      setQuoteOffset((current) => {
+        const next = current + direction;
+        return ((next % quotes.length) + quotes.length) % quotes.length;
+      });
+    },
+    [quotes.length],
+  );
+
+  const beginQuoteSwipe = useCallback((x: number, y: number) => {
+    quoteSwipeStart.current = { x, y };
+  }, []);
+
+  const finishQuoteSwipe = useCallback(
+    (x: number, y: number) => {
+      const start = quoteSwipeStart.current;
+      quoteSwipeStart.current = null;
+
+      if (!start || quotes.length < 2) return;
+
+      const deltaX = x - start.x;
+      const deltaY = y - start.y;
+      const horizontal = Math.abs(deltaX);
+      const vertical = Math.abs(deltaY);
+
+      // Ignore taps, small drags and ordinary vertical Home scrolling.
+      if (horizontal < 42 || horizontal <= vertical * 1.2) return;
+
+      moveDailyQuote(deltaX < 0 ? 1 : -1);
+    },
+    [moveDailyQuote, quotes.length],
+  );
 
   const loadActiveTimers = useCallback(async (asRefresh = false) => {
     asRefresh ? setRefreshing(true) : setLoading(true);
@@ -514,37 +583,103 @@ export function TodayScreen({ navigation }: Props) {
       + dailyTime.activities.filter((activity) => activity.running).length * liveDailyIncrement
     : 0;
 
+  // quickTimerNewSessionDisplayV1
+  // The daily archive total and the currently running Quick Timer session are
+  // deliberately separate values. Starting a session must always read 00:00:00.
+  const activeGlobalStartedAt = globalTimer?.activeStartedAt
+    ? Date.parse(globalTimer.activeStartedAt)
+    : Number.NaN;
+  const liveGlobalSessionSeconds =
+    globalTimer?.running && Number.isFinite(activeGlobalStartedAt)
+      ? Math.max(0, Math.floor((now - activeGlobalStartedAt) / 1000))
+      : 0;
+  const primaryTimerSeconds = globalTimer?.running
+    ? liveGlobalSessionSeconds
+    : liveDailyTotal;
+
   const header = (
     <>
       <View style={[styles.hero, aeroMode && styles.aeroHero, celestialMode && styles.celestialHeroN1]}>
-        <CelestialAtmosphere variant="home" />
+        
         {oceanAero ? <AeroAquarium /> : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Otvori postavke"
-          hitSlop={16}
-          onPress={() => navigation.navigate('ThemePicker')}
-          style={({ pressed }) => [styles.themeButton, pressed && styles.themeButtonPressed]}
+        <Text
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          style={[
+            styles.date,
+            pixelMode && styles.pixelText,
+            celestialMode && {
+              fontSize: 7,
+              lineHeight: 9,
+              fontWeight: '600',
+              letterSpacing: 1.15,
+              textAlign: 'center',
+              alignSelf: 'stretch',
+              width: '100%',
+              opacity: 1,
+              transform: [{ translateY: -14 }],
+            },
+          
+            // ljingleClassicInheritsCelestialR11:date
+            classicLjingleMode && {
+              fontSize: 7,
+              lineHeight: 9,
+              fontWeight: '600',
+              letterSpacing: 1.15,
+              textAlign: 'center',
+              alignSelf: 'stretch',
+              width: '100%',
+              opacity: 1,
+              transform: [{ translateY: -14 }],
+            },
+          ]}
         >
-          {/* settingsGearIconV1 */}
-          <Image
-            source={require('../assets/ui/settings-gear.png')}
-            resizeMode="cover"
-            style={[
-              styles.settingsGearIcon,
-              {
-                tintColor: aeroMode
-                  ? '#666A70'
-                  : celestialMode
-                    ? celestial.gold
-                    : pixelMode
-                      ? colors.text
-                      : homeAccent,
-              },
-            ]}
-          />
-        </Pressable>
-        <Text style={[styles.date, pixelMode && styles.pixelText, celestialMode && styles.celestialDateN1]}>{dateLabel}</Text>
+          {dateLabel}
+        </Text>
+        {/* ljingleCelestialQuoteBelowDateR11 */}
+        {celestialMode && dailyQuote?.content?.trim() ? (
+          <View
+            style={styles.celestialQuoteBelowDateR11}
+          onTouchStart={(event) =>
+            beginQuoteSwipe(
+              event.nativeEvent.pageX,
+              event.nativeEvent.pageY,
+            )
+          }
+          onTouchEnd={(event) =>
+            finishQuoteSwipe(
+              event.nativeEvent.pageX,
+              event.nativeEvent.pageY,
+            )
+          }
+          onTouchCancel={() => {
+            quoteSwipeStart.current = null;
+          }}
+          >
+            <Text
+              style={[
+                styles.quoteSource,
+                styles.celestialQuoteBelowDateTextR11,
+              ]}
+              numberOfLines={3}
+            >
+              {dailyQuote.content.trim()}
+            </Text>
+
+            {dailyQuote.title ? (
+              <Text
+                style={[
+                  styles.quoteSource,
+                  styles.celestialQuoteBelowDateSourceR11,
+                ]}
+                numberOfLines={1}
+              >
+                {dailyQuote.title}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
         {pixelMode ? (
           <>
             <Text style={styles.pixelBoot}>LJINGLE_OS / TODAY.LOG / READY</Text>
@@ -555,19 +690,63 @@ export function TodayScreen({ navigation }: Props) {
             </View>
           </>
         ) : null}
-        <View style={[styles.quoteHero, celestialMode && styles.celestialQuoteHeroN1]}>
+        <View
+          style={[
+            styles.quoteHero,
+            celestialMode && styles.celestialQuoteHeroN1,
+            styles.greetingPlainLeftR3,
+          
+            celestialMode &&
+              styles.celestialGreetingAfterMovedQuoteR11,
+]}
+        
+          // ljingleHomeQuoteSwipeR1:gesture
+          onTouchStart={(event) =>
+            beginQuoteSwipe(
+              event.nativeEvent.pageX,
+              event.nativeEvent.pageY,
+            )
+          }
+          onTouchEnd={(event) =>
+            finishQuoteSwipe(
+              event.nativeEvent.pageX,
+              event.nativeEvent.pageY,
+            )
+          }
+          onTouchCancel={() => {
+            quoteSwipeStart.current = null;
+          }}
+        >
           <Text
             style={[
               styles.quoteText,
               pixelMode && styles.pixelText,
-              !dailyQuote?.content && styles.aeroEmptyQuoteV31,
+              styles.greetingTextLeftR3,
             ]}
-            numberOfLines={4}
+            numberOfLines={1}
           >
-            {dailyQuote?.content ?? (pixelMode ? '"' : '\u201C')}
+            {user?.username?.trim() ? `Hey, ${user.username.trim().charAt(0).toUpperCase()}${user.username.trim().slice(1)}` : 'Hey'}
           </Text>
-          {dailyQuote?.title ? (
-            <Text style={styles.quoteSource}>{dailyQuote.title}</Text>
+          {celestialMode ? <ZodiacWatermark /> : null}
+          {!celestialMode && dailyQuote?.content?.trim() ? (
+            <>
+              <Text
+                style={[
+                  styles.quoteSource,
+                  styles.greetingSourceLeftR3,
+                  { fontSize: 14, lineHeight: 20, fontWeight: '600', marginTop: 8 },
+                ]}
+                numberOfLines={3}
+              >
+                {dailyQuote.content.trim()}
+              </Text>
+              {dailyQuote.title ? (
+                <Text style={[styles.quoteSource,
+                  styles.greetingSourceLeftR3, { marginTop: 5, opacity: 0.72 }]}>
+                  {dailyQuote.title}
+                </Text>
+              ) : null}
+            </>
           ) : null}
         </View>
       </View>
@@ -576,37 +755,20 @@ export function TodayScreen({ navigation }: Props) {
 
       {/* forkIHomeProfileV1: Home search removed — Bell Menu, Command Palette and Catalogue own search. */}
 
-      <Pressable
+      {/* ljingleHomeConstellationWheelR11:catalogue-hidden */}
+      {celestialMode ? null : (
+        <Pressable
         accessibilityRole="button"
         accessibilityLabel="Otvori katalog"
         onPress={() => navigation.navigate('Catalogue')}
         style={({ pressed }) => [
           styles.catalogueCard,
-          celestialMode && styles.jinglePolishCatalogueCard,
+          (celestialMode || classicLjingleMode) && styles.jinglePolishCatalogueCard,
           aeroMode && styles.aeroGlassCard,
           pressed && styles.cataloguePressed,
         ]}
       >
-        {celestialMode ? (
-          <>
-            <Text
-              pointerEvents="none"
-              style={styles.jinglePolishCatalogueStar}
-            >
-              ✦
-            </Text>
-            <Text
-              pointerEvents="none"
-              style={styles.jinglePolishCatalogueSpark}
-            >
-              ✧
-            </Text>
-            <View
-              pointerEvents="none"
-              style={styles.jinglePolishCatalogueOrbit}
-            />
-          </>
-        ) : null}
+        
         {aeroMode ? (
           <AeroReflection variant="catalogue" />
         ) : null}
@@ -640,9 +802,12 @@ export function TodayScreen({ navigation }: Props) {
               styles.catalogueIcon,
               celestialMode &&
                 styles.catalogueJingleIconV1,
+            ,
+              classicLjingleMode &&
+                styles.classicCatalogueGlyphHostFixR1,
             ]}
           >
-            {celestialMode ? (
+            {(celestialMode || classicLjingleMode) ? (
               <>
                 {/* forkN5GlyphReorderV1:today-catalogue */}
                 <ConstellationGridGlyph
@@ -659,23 +824,164 @@ export function TodayScreen({ navigation }: Props) {
             )}
           </View>
         )}
-        <View style={styles.catalogueCopy}>
+        <View
+          style={[
+            styles.catalogueCopy,
+            (celestialMode || classicLjingleMode) && styles.catalogueCopyHarmonyR2,
+          ]}
+        >
           <Text style={styles.catalogueEyebrow}></Text>
           <Text style={styles.catalogueTitle}>Katalog</Text>
           <Text style={styles.catalogueSubtitle}>Knjige, filmovi, serije i igre</Text>
         </View>
-        <Text style={styles.catalogueArrow}>{'\u203A'}</Text>
+        <Text
+          style={[
+            styles.catalogueArrow,
+            (celestialMode || classicLjingleMode) && styles.catalogueArrowHarmonyR2,
+          ]}
+        >
+          {'\u203A'}
+        </Text>
       </Pressable>
+      )}
 
 
       <View
         style={[
           styles.radioTimerRow,
-          celestialMode && styles.jinglePolishTimerRadioStack,
+          (celestialMode || classicLjingleMode) && styles.jinglePolishTimerRadioStack,
           aeroMeadow ? styles.meadowTopRowV3 : null,
-          aeroMode ? styles.aeroRestoreTopRowV3 : null,
+          aeroOcean ? styles.aeroRestoreTopRowV3 : null,
         ]}
       >
+        
+
+        {/* ljingleClassicInheritsCelestialR11:literal-radio */}
+        {classicLjingleMode ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Otvori Memory Radio"
+            onPress={() => navigation.navigate('MemoryRadio')}
+            style={({ pressed }) => [
+              styles.classicSrc7RadioCardR1,
+              Platform.OS !== 'web' &&
+                styles.classicSrc7RadioCompactR1,
+              radioInverted && {
+                backgroundColor: colors.surface,
+                borderColor: homeAccent,
+              },
+              pressed && styles.quickPressed,
+            ]}
+          >
+            <View style={styles.classicSrc7RadioAntennaR1} />
+
+            <View style={styles.classicSrc7RadioSpeakerR1}>
+              {Array.from({ length: 15 }, (_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.classicSrc7RadioSpeakerHoleR1,
+                    radioInverted && {
+                      backgroundColor: colors.white,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
+            <View
+              style={[
+                styles.classicSrc7RadioDisplayR1,
+                radioInverted && {
+                  backgroundColor: colors.navy,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.classicSrc7RadioBandR1,
+                  radioInverted && {
+                    color: colors.white,
+                  },
+                ]}
+              >
+                LJINGLE MEMORY BAND
+              </Text>
+
+              <Text
+                style={[
+                  styles.classicSrc7RadioFrequencyR1,
+                  radioInverted && {
+                    color: colors.white,
+                  },
+                ]}
+              >
+                15.9305
+              </Text>
+
+              <Text
+                style={[
+                  styles.classicSrc7RadioStationR1,
+                  radioInverted && {
+                    color: 'rgba(255,255,255,0.72)',
+                  },
+                ]}
+              >
+                MEMORY RADIO · FM
+              </Text>
+
+              <View
+                style={[
+                  styles.classicSrc7RadioSignalR1,
+                  radioInverted && {
+                    backgroundColor: 'rgba(255,255,255,0.24)',
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.classicSrc7RadioSignalActiveR1,
+                    radioInverted && {
+                      backgroundColor: colors.white,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.classicSrc7RadioKnobR1,
+                radioInverted && {
+                  backgroundColor: colors.navy,
+                  borderColor: colors.navy,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.classicSrc7RadioKnobMarkR1,
+                  radioInverted && {
+                    backgroundColor: colors.white,
+                  },
+                ]}
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.classicSrc7RadioHintR1,
+                radioInverted && {
+                  color: homeAccent,
+                },
+              ]}
+            >
+              TAP TO TUNE IN
+            </Text>
+          </Pressable>
+        ) : null}
+{!celestialMode && !classicLjingleMode ? (
+          <>
         {aeroMode ? (
         <Pressable
           accessibilityRole="button"
@@ -684,8 +990,52 @@ export function TodayScreen({ navigation }: Props) {
           style={(state) => [(({ pressed }) => [
             styles.aeroRadioImageButton,
             pressed && styles.quickPressed,
-          ])(state), aeroMeadow ? styles.meadowRadioSlotV3 : null, aeroMode ? styles.aeroRestoreRadioSlotV3 : null]}
+          ])(state), aeroMeadow ? styles.meadowRadioSlotV3 : null, aeroOcean ? styles.aeroRestoreRadioSlotV3 : null]}
         >
+
+        {/* ljingleClassicRestoreRadioStarsR12:radio */}
+        {classicLjingleMode ? (
+          <>
+            <View style={styles.classicLjingleRadioAntennaR1} />
+
+            <View style={styles.classicLjingleRadioSpeakerR1}>
+              {Array.from({ length: 15 }, (_, index) => (
+                <View
+                  key={index}
+                  style={styles.classicLjingleRadioSpeakerHoleR1}
+                />
+              ))}
+            </View>
+
+            <View style={styles.classicLjingleRadioDisplayR1}>
+              <Text style={styles.classicLjingleRadioBandR1}>
+                LJINGLE MEMORY BAND
+              </Text>
+
+              <Text style={styles.classicLjingleRadioFrequencyR1}>
+                15.9305
+              </Text>
+
+              <Text style={styles.classicLjingleRadioStationR1}>
+                MEMORY RADIO · FM
+              </Text>
+
+              <View style={styles.classicLjingleRadioSignalR1}>
+                <View style={styles.classicLjingleRadioSignalActiveR1} />
+              </View>
+            </View>
+
+            <View style={styles.classicLjingleRadioKnobR1}>
+              <View style={styles.classicLjingleRadioKnobMarkR1} />
+            </View>
+
+            <Text style={styles.classicLjingleRadioHintR1}>
+              TAP TO TUNE IN
+            </Text>
+          </>
+        ) : (
+          <>
+
           <Image
             
             source={
@@ -698,9 +1048,12 @@ export function TodayScreen({ navigation }: Props) {
               styles.aeroRadioImage,
               aeroMeadow && styles.aeroMeadowRadioImage,
               aeroMeadow && styles.aeroMeadowRadioImageFinal,
-            ], aeroMeadow ? styles.meadowRadioImageV3 : null, aeroMode ? styles.aeroRestoreRadioImageV3 : null]}
+            ], aeroMeadow ? styles.meadowRadioImageV3 : null, aeroOcean ? styles.aeroRestoreRadioImageV3 : null]}
           />
-        </Pressable>
+        
+          </>
+        )}
+</Pressable>
       ) : (
         <Pressable
         accessibilityRole="button"
@@ -710,39 +1063,42 @@ export function TodayScreen({ navigation }: Props) {
           styles.memoryRadioCard,
           celestialMode && styles.jinglePolishRadioCard,
           !pixelMode &&
+            !classicLjingleMode &&
             Platform.OS !== 'web' &&
             styles.classicMobileRadioCompact,
+          celestialMode &&
+            Platform.OS !== 'web' &&
+            styles.ljingleRadioTinyR1,
           radioInverted && {
             backgroundColor: colors.surface,
             borderColor: homeAccent,
           },
           pressed &&
             (celestialMode && Platform.OS !== 'web'
-              ? styles.classicRadioPressedN51
+              ? { opacity: 0.78 }
               : styles.quickPressed),
         ]}
       >
-        <View style={styles.radioAntenna} />
+        {/* ljingleCelestialRadioAntennaPressFixR11:antenna */}
         {celestialMode ? (
-          <>
-            <Text
-              pointerEvents="none"
-              style={styles.jinglePolishRadioStar}
-            >
-              ✦
-            </Text>
-            <Text
-              pointerEvents="none"
-              style={styles.jinglePolishRadioSpark}
-            >
-              ✧
-            </Text>
-            <View
-              pointerEvents="none"
-              style={styles.jinglePolishRadioOrbit}
-            />
-          </>
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: -12,
+              left: 28,
+              width: 88,
+              height: 2,
+              borderRadius: 2,
+              backgroundColor: colors.text,
+              opacity: 0.58,
+              transform: [{ rotate: '-8deg' }],
+            }}
+          />
         ) : null}
+
+        
+        
 
         <View style={styles.radioSpeaker}>
           {Array.from({ length: 15 }, (_, index) => (
@@ -773,13 +1129,13 @@ export function TodayScreen({ navigation }: Props) {
               styles.radioFrequency,
               radioInverted && { color: colors.white },
             ]}
-          >15.9MHz</Text>
+          >15.9Hz</Text>
           <Text
             style={[
               styles.radioStation,
               radioInverted && { color: celestialAlpha(celestial.ivory, 0.72) },
             ]}
-          >MEMORY RADIO ? FM</Text>
+          >MEMORY RADIO ✧ FM</Text>
 
           <View
             style={[
@@ -824,11 +1180,14 @@ export function TodayScreen({ navigation }: Props) {
       </Pressable>
       )}
 
-        <View
+        
+          </>
+        ) : null}
+<View
           style={[
             styles.timerColumn,
             aeroMeadow ? styles.meadowTimerSlotV3 : null,
-            aeroMode ? styles.aeroRestoreTimerSlotV3 : null,
+            aeroOcean ? styles.aeroRestoreTimerSlotV3 : null,
           ]}
         >
           <Pressable
@@ -840,6 +1199,7 @@ export function TodayScreen({ navigation }: Props) {
               [
                 styles.dailyCard,
                 styles.dailyCardInRow,
+                celestialMode && styles.livingTimerCardClassic,
                 aeroMode && styles.aeroTimerGlass,
                 aeroMeadow && styles.meadowTimerCleanGlass,
               ],
@@ -867,12 +1227,30 @@ export function TodayScreen({ navigation }: Props) {
           />
         ) : null}
 
-        <View style={styles.dailyHeader}>
+        {celestialMode ? (
+            <LivingTimerDisplay
+              accentColor={homeAccent}
+              busy={globalTimerBusy}
+              running={Boolean(globalTimer?.running)}
+              seconds={liveGlobalSessionSeconds}
+              onToggle={() => void toggleGlobalTimer()}
+            />
+          ) : (
+            <View style={styles.dailyHeader}>
           <View>
-            <Text style={styles.dailyEyebrow}>Zabilježeno danas</Text>
+            {!globalTimer?.running ? (
+              <Text style={styles.dailyEyebrow}>
+                Zabilježeno danas
+              </Text>
+            ) : null}
             <Text style={styles.dailyTotal}>
-              {formatDuration(liveDailyTotal)}
+              {formatDuration(primaryTimerSeconds)}
             </Text>
+            {globalTimer?.running ? (
+              <Text style={styles.dailySessionTotal}>
+                Danas ukupno: {formatDuration(liveDailyTotal)}
+              </Text>
+            ) : null}
 
             {!celestialMode ? (
 <Pressable
@@ -915,6 +1293,8 @@ export function TodayScreen({ navigation }: Props) {
           <Pressable
             style={[
               styles.dailyMark,
+              celestialMode &&
+                styles.livingTimerLegacyControlHidden,
               celestialMode &&
                 styles.jingleTimerStartSlotV2,
               celestialMode &&
@@ -1004,10 +1384,30 @@ export function TodayScreen({ navigation }: Props) {
           </Pressable>
           {/* finalJingleHomeCatalogueControlsV2:timer-slot */}
         </View>
+          )}
 
         {dailyTime && dailyTime.activities.length > 0 ? (
-          <View style={styles.dailyBreakdown}>
-            {dailyTime.activities.slice(0, 3).map((activity) => (
+          <View
+            style={[
+              styles.dailyBreakdown,
+              celestialMode && {
+                marginTop: 0,
+                paddingTop: 0,
+                borderTopWidth: 0,
+              },
+            ]}
+          >
+            {dailyTime.activities
+              .filter(
+                (activity) =>
+                  !celestialMode ||
+                  (
+                    String(activity.activityId ?? '') !== '00000000-0000-4000-8000-000000000001' &&
+                    String(activity.label ?? '').trim().toLowerCase() !== 'quick timer'
+                  ),
+              )
+              .slice(0, 3)
+              .map((activity) => (
               <View key={activity.activityId} style={styles.dailyLine}>
                 <Text style={styles.dailyLabel} numberOfLines={1}>
                   {activity.label}
@@ -1027,7 +1427,27 @@ export function TodayScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={[styles.quickGrid, aeroMeadow && styles.meadowQuickGridV4]}>
+      {celestialMode ? (
+        <HomeConstellationWheel
+          accentColor={homeAccent}
+          onOpenCatalogue={() =>
+            navigation.navigate('Catalogue')
+          }
+          onOpenTopics={() =>
+            navigation.navigate('Topics')
+          }
+          onOpenEntries={() =>
+            navigation.navigate('Entries')
+          }
+          onOpenArchive={() =>
+            navigation.navigate('Stats')
+          }
+                  onOpenRadio={() =>
+            navigation.navigate('MemoryRadio')
+          }
+        />
+      ) : (
+        <View style={[styles.quickGrid, aeroMeadow && styles.meadowQuickGridV4]}>
         <Pressable
           accessibilityRole="button"
           onPress={() => navigation.navigate('Topics')}
@@ -1088,9 +1508,11 @@ export function TodayScreen({ navigation }: Props) {
           <Text style={styles.quickSubtitle}>Bilješke, citati i zapisi</Text>
         </Pressable>
       </View>
+      )}
 
       {/* forkIHomeProfileV1: History moved onto the timer card; Stats becomes full-width Profile. */}
-      <Pressable
+      {celestialMode ? null : (
+        <Pressable
         accessibilityRole="button"
         accessibilityLabel="Otvori profil"
         onPress={() => navigation.navigate('Stats')}
@@ -1148,10 +1570,16 @@ export function TodayScreen({ navigation }: Props) {
           Vrijeme, katalog, čitanje i trendovi na jednom mjestu.
         </Text>
       </Pressable>
+      )}
 
       {/* Katalog sadržava knjige, filmove/serije i igre; Teme i Zapisi ostaju
           zasebni jer se mogu povezati sa svim vrstama sadržaja. */}
-<View style={styles.sectionHeading}>
+<View
+        style={[
+          styles.sectionHeading,
+          timers.length === 0 && styles.todayCleanHiddenR1,
+        ]}
+      >
         <Text style={styles.sectionTitle}>Aktivno sada</Text>
         {timers.length > 0 ? (
           <View style={styles.countBadge}>
@@ -1189,7 +1617,165 @@ export function TodayScreen({ navigation }: Props) {
 
   const recentSection = (
     <View style={styles.recentSection}>
-      <View style={styles.recentHeadingRow}>
+            {/* ljingleHomeRadioBelowConstellationR1:below-constellation-above-recent */}
+      {celestialMode && false ? (
+        <>
+        {aeroMode ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Otvori Memory Radio"
+          onPress={() => navigation.navigate('MemoryRadio')}
+          style={(state) => [(({ pressed }) => [
+            styles.aeroRadioImageButton,
+            pressed && styles.quickPressed,
+          ])(state), aeroMeadow ? styles.meadowRadioSlotV3 : null, aeroOcean ? styles.aeroRestoreRadioSlotV3 : null]}
+        >
+          <Image
+            
+            source={
+              aeroMeadow
+                ? require('../assets/aero/radio-meadow.png')
+                : require('../assets/aero/radio.png')
+            }
+            resizeMode={aeroMeadow ? 'contain' : 'stretch'}
+            style={[[
+              styles.aeroRadioImage,
+              aeroMeadow && styles.aeroMeadowRadioImage,
+              aeroMeadow && styles.aeroMeadowRadioImageFinal,
+            ], aeroMeadow ? styles.meadowRadioImageV3 : null, aeroOcean ? styles.aeroRestoreRadioImageV3 : null]}
+          />
+        </Pressable>
+      ) : (
+        <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Otvori Memory Radio"
+        onPress={() => navigation.navigate('MemoryRadio')}
+        style={({ pressed }) => [
+          styles.memoryRadioCard,
+          celestialMode && styles.jinglePolishRadioCard,
+          !pixelMode &&
+            !classicLjingleMode &&
+            Platform.OS !== 'web' &&
+            styles.classicMobileRadioCompact,
+          celestialMode &&
+            Platform.OS !== 'web' &&
+            styles.ljingleRadioTinyR1,
+          radioInverted && {
+            backgroundColor: colors.surface,
+            borderColor: homeAccent,
+          },
+          pressed &&
+            (celestialMode && Platform.OS !== 'web'
+              ? { opacity: 0.78 }
+              : styles.quickPressed),
+        ]}
+      >
+        {/* ljingleCelestialRadioAntennaPressFixR11:antenna */}
+        {celestialMode ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: -12,
+              left: 28,
+              width: 88,
+              height: 2,
+              borderRadius: 2,
+              backgroundColor: colors.text,
+              opacity: 0.58,
+              transform: [{ rotate: '-8deg' }],
+            }}
+          />
+        ) : null}
+
+        
+        
+
+        <View style={styles.radioSpeaker}>
+          {Array.from({ length: 15 }, (_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.radioSpeakerHole,
+                radioInverted && { backgroundColor: colors.white },
+              ]}
+            />
+          ))}
+        </View>
+
+        <View
+          style={[
+            styles.radioDisplay,
+            radioInverted && { backgroundColor: homeAccent },
+          ]}
+        >
+          <Text
+            style={[
+              styles.radioBand,
+              radioInverted && { color: colors.white },
+            ]}
+          >LJINGLE MEMORY BAND</Text>
+          <Text
+            style={[
+              styles.radioFrequency,
+              radioInverted && { color: colors.white },
+            ]}
+          >15.9Hz</Text>
+          <Text
+            style={[
+              styles.radioStation,
+              radioInverted && { color: celestialAlpha(celestial.ivory, 0.72) },
+            ]}
+          >MEMORY RADIO ✧ FM</Text>
+
+          <View
+            style={[
+              styles.radioSignal,
+              radioInverted && {
+                backgroundColor: celestialAlpha(celestial.ivory, 0.24),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.radioSignalActive,
+                radioInverted && { backgroundColor: colors.white },
+              ]}
+            />
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.radioKnob,
+            radioInverted && {
+              backgroundColor: homeAccent,
+              borderColor: homeAccent,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.radioKnobMark,
+              radioInverted && { backgroundColor: colors.white },
+            ]}
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.radioHint,
+            radioInverted && { color: homeAccent },
+          ]}
+        >TAP TO TUNE IN</Text>
+      </Pressable>
+      )}
+
+        
+        </>
+      ) : null}
+
+<View style={styles.recentHeadingRow}>
         <View style={styles.recentHeadingCopy}>
           <Text style={styles.recentKicker}></Text>
           <Text style={styles.recentTitle}>Nedavno</Text>
@@ -1205,7 +1791,15 @@ export function TodayScreen({ navigation }: Props) {
       </View>
 
       {recentActivities.length > 0 ? (
-        recentActivities.map((activity) => (
+        recentActivities.map((activity) =>
+          // ljingleCelestialHomeCompositionR15:recent-card
+          celestialMode &&
+          (
+            String(activity.activityId ?? '') === '00000000-0000-4000-8000-000000000001' ||
+            String(activity.label ?? '').trim().toLowerCase() === 'quick timer'
+          )
+            ? null
+            : (
           <RecentActivityCard
             key={activity.activityId ?? activity.label}
             activity={activity}
@@ -1216,7 +1810,7 @@ export function TodayScreen({ navigation }: Props) {
             onDismiss={() => void dismissRecentActivity(activity)}
           />
         ))
-      ) : (
+      ) : celestialMode ? null : (
         <View style={[styles.recentEmpty, aeroMeadow ? styles.meadowRecentCardV3 : null]}>
           <Text style={styles.recentEmptyText}>
             Zaustavljena aktivnost pojavit će se ovdje...
@@ -1229,6 +1823,7 @@ export function TodayScreen({ navigation }: Props) {
   if (loading && timers.length === 0 && recentActivities.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="home" />
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={colors.black} />
           <Text style={styles.loadingText}>Slažem tvoj današnji pregled.</Text>
@@ -1240,6 +1835,7 @@ export function TodayScreen({ navigation }: Props) {
   if (error && timers.length === 0 && recentActivities.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="home" />
         <View style={styles.errorState}>
           <Text style={styles.errorMark}>!</Text>
           <Text style={styles.errorTitle}>Danas se nije učitao</Text>
@@ -1272,7 +1868,9 @@ export function TodayScreen({ navigation }: Props) {
       ]}
       edges={['top', 'left', 'right']}
     >
-      {aeroMode ? (
+      <AeroAtmosphere variant="home" />
+      {/* ljingleMorningFixesV1:aeroHome — Meadow keeps scenery; Frutiger uses a clean aqua field. */}
+      {aeroMeadow ? (
         <>
           <Image
             source={aeroWorldBackgroundSource}
@@ -1290,11 +1888,40 @@ export function TodayScreen({ navigation }: Props) {
       ) : null}
 
       {oceanAero ? <AeroScreenBubbles /> : null}
-      {celestialMode ? <CelestialHomeField /> : null}
+      {(celestialMode || classicLjingleMode) ? <CelestialHomeField /> : null}
+      
+      {(celestialMode || classicLjingleMode) ? (
+        <CelestialAtmosphere variant="home" hideBottomRule hideTopRule />
+      ) : null}
+      {/* ljingleHomeFixedCelestialBackdropR2 */}
+      {/* ljingleHomeRiverMotionR2 */}
+      {(celestialMode || classicLjingleMode) ? <HomeRiverMotion /> : null}
+      {/* ljingleSemanticAliveR1:timer */}
+      {(celestialMode || classicLjingleMode) ? (
+        <ReactiveAmbientField
+          mode="timer"
+          active={Boolean(globalTimer?.running || timers.length > 0)}
+        />
+      ) : null}
       <FlatList
-        data={timers}
+        data={
+          celestialMode
+            ? timers.filter(
+                (item) =>
+                  item.activityType !== 'GLOBAL',
+              )
+            : timers
+        }
         keyExtractor={(item) => item.activityId ?? item.activeSessionId ?? item.label}
-        renderItem={({ item }) => (
+        renderItem={({ item }) =>
+          // ljingleCelestialHomeCompositionR15:active
+          celestialMode &&
+          (
+            String(item.activityId ?? '') === '00000000-0000-4000-8000-000000000001' ||
+            String(item.label ?? '').trim().toLowerCase() === 'quick timer'
+          )
+            ? null
+            : (
           <ActiveTimerCard
             timer={item}
             now={now}
@@ -1310,69 +1937,7 @@ export function TodayScreen({ navigation }: Props) {
           />
         )}
         ListHeaderComponent={header}
-        ListEmptyComponent={
-          <View
-            style={[
-              styles.emptyCard,
-              aeroMeadow ? styles.meadowGlassCardV3 : null,
-              aeroMode && styles.aeroEmptyCardV33,
-            ]}
-          >
-            {aeroMode ? (
-              <AeroReflection variant="soft" />
-            ) : null}
-            <View
-              style={[
-                styles.emptyIcon,
-                aeroMode && styles.aeroEmptyIconV33,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.emptyIconText,
-                  aeroMode && styles.aeroEmptyIconTextV33,
-                ]}
-              >
-                {'\uFF0B'}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.emptyTitle,
-                aeroMode && styles.aeroEmptyTitleV33,
-              ]}
-            >
-              Nema aktivnih timera
-            </Text>
-            <Text
-              style={[
-                styles.emptyMessage,
-                aeroMode && styles.aeroEmptyMessageV33,
-              ]}
-            >
-              Ništa trenutačno ne bilježi vrijeme. Nastavi nešto nedavno ispod ili
-              započni novu aktivnost iz kataloga.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('Catalogue')}
-              style={({ pressed }) => [
-                styles.emptyButton,
-                aeroMode && styles.aeroEmptyButtonV33,
-                pressed && styles.emptyButtonPressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.emptyButtonText,
-                  aeroMode && styles.aeroEmptyButtonTextV33,
-                ]}
-              >
-                Otvori katalog
-              </Text>
-            </Pressable>
-          </View>
-        }
+        ListEmptyComponent={null}
         ListFooterComponent={recentSection}
         contentContainerStyle={[styles.content, aeroMode && styles.aeroContent]}
         showsVerticalScrollIndicator={false}
@@ -1416,7 +1981,28 @@ export function TodayScreen({ navigation }: Props) {
 // aeroReflectionPolishV3Applied
 // aeroIconAssetSweepV1
 // aeroMobileFinalFitV1
+// ljingleQuietUiR1
+// ljingleHomeHierarchyMicroR1
+// ljingleBorderlessRiverR1
+
 const styles = StyleSheet.create({
+  // ljingleLivingConstellationTimerR1:card-shell
+  // Classic timer becomes a piece of the constellation field, not a widget panel.
+  // ljingleLivingTimerLegacyStartCleanR11:today-style
+  livingTimerLegacyControlHidden: {
+    display: 'none',
+  },
+
+  livingTimerCardClassic: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    overflow: 'visible',
+  },
+
   // forkN1CelestialHomeCommandBellV1 — Classic-only celestial archive ornaments.
   celestialFieldN1: {
     ...StyleSheet.absoluteFillObject,
@@ -1425,7 +2011,7 @@ const styles = StyleSheet.create({
   },
   celestialStarN1: {
     position: 'absolute',
-    color: celestial.gold,
+    color: celestial.accentText,
     opacity: 0.34,
     fontSize: 15,
   },
@@ -1437,42 +2023,16 @@ const styles = StyleSheet.create({
   celestialStarA6N1: { right: '7%', top: '58%', fontSize: 15, opacity: 0.26 },
   celestialStarA7N1: { left: '27%', top: '74%', fontSize: 11, opacity: 0.28 },
   celestialStarA8N1: { right: '30%', top: '88%', fontSize: 24, opacity: 0.14 },
-  celestialLineN1: {
-    position: 'absolute',
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: celestialAlpha(celestial.gold, 0.17),
-  },
-  celestialLineOneN1: { width: 110, right: -18, top: 190, transform: [{ rotate: '-24deg' }] },
-  celestialLineTwoN1: { width: 86, left: -16, top: 520, transform: [{ rotate: '18deg' }] },
-  celestialOrbitN1: {
-    position: 'absolute',
-    right: -92,
-    top: 360,
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    borderWidth: 1,
-    borderColor: celestialAlpha(celestial.gold, 0.08),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  celestialOrbitCoreN1: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 1,
-    borderColor: celestialAlpha(celestial.gold, 0.08),
-  },
   celestialHeroN1: {
     marginTop: 8,
     paddingTop: 22,
     paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
     borderBottomColor: celestialAlpha(celestial.gold, 0.22),
   },
   celestialKickerN1: {
     alignSelf: 'center',
-    color: celestial.gold,
+    color: celestial.accentText,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 2.2,
@@ -1481,7 +2041,7 @@ const styles = StyleSheet.create({
   },
   celestialDateN1: {
     alignSelf: 'center',
-    color: celestial.gold,
+    color: celestial.accentText,
     textAlign: 'center',
     fontFamily: Platform.select({ web: 'Georgia, Times New Roman, serif', ios: 'Georgia', android: 'serif' }),
     fontSize: Platform.OS === 'web' ? 18 : 15,
@@ -1493,8 +2053,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   celestialQuoteHeroN1: {
-    minHeight: 142,
-    marginTop: 6,
+    minHeight: 116,
+    marginTop: 4,
     marginHorizontal: 2,
     borderRadius: 22,
     borderWidth: 1,
@@ -1511,8 +2071,8 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'web' ? 10 : 8,
     backgroundColor:
       Platform.OS === 'web'
-        ? 'rgba(248,250,247,0.44)'
-        : 'rgba(248,250,247,0.52)',
+        ? 'rgba(240,242,242,0.38)'
+        : 'rgba(218,222,223,0.52)',
     borderWidth: 1.25,
     borderColor: celestialAlpha(celestial.ivory, 0.92),
     shadowColor: '#FFFFFF',
@@ -1536,8 +2096,8 @@ const styles = StyleSheet.create({
   meadowQuickGlassV4: {
     backgroundColor:
       Platform.OS === 'web'
-        ? 'rgba(255,255,255,0.62)'
-        : 'rgba(255,255,255,0.78)',
+        ? 'rgba(241,243,243,0.42)'
+        : 'rgba(216,220,221,0.54)',
     borderColor: AERO_GLASS_EDGE,
     borderWidth: 1.25,
     shadowColor: '#FFFFFF',
@@ -2816,8 +3376,17 @@ const styles = StyleSheet.create({
         : {}),
     } : {}),
   },
-  aeroScreenBubbleLayer: { ...StyleSheet.absoluteFillObject, zIndex: 40, overflow: 'hidden', pointerEvents: 'none' },
-  screenBubble: { position: 'absolute', borderRadius: 999, borderWidth: 2, shadowColor: '#693CC5', shadowOffset: { width: 4, height: 8 }, shadowOpacity: 0.19, shadowRadius: 12, elevation: 8 },
+  aeroScreenBubbleLayer: { ...StyleSheet.absoluteFillObject, zIndex: 0, overflow: 'hidden', pointerEvents: 'none' },
+  screenBubble: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderWidth: 2,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
   screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: celestialAlpha(celestial.ivory, 0.9), borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
   screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadius: 999, backgroundColor: celestialAlpha(celestial.ivory, 0.82), transform: [{ rotate: '-28deg' }] },
   screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderColor: 'rgba(255,166,224,0.72)' },
@@ -2857,7 +3426,7 @@ const styles = StyleSheet.create({
     opacity: 0,},
   // meadowTimerCleanGlassV1
   meadowTimerCleanGlass: {
-    backgroundColor: 'rgba(255,255,255,0.44)',
+    backgroundColor: 'rgba(223,226,227,0.50)',
 
     borderWidth: 1.25,
     borderColor: AERO_GLASS_EDGE,
@@ -2902,7 +3471,7 @@ const styles = StyleSheet.create({
     // aeroTimerMeadowCleanupV2
     
     // aeroTimerSceneV3
-    backgroundColor: 'rgba(255,255,255,0.72)',},
+    backgroundColor: aeroMeadow ? 'rgba(223,226,227,0.50)' : 'rgba(255,255,255,0.72)',},
   // Meadow fills the entire root/safe-area with its own neutral-green base.
   // This prevents the Aero ocean cyan fallback from showing below the artwork.
   meadowSafeAreaForkCV1: {
@@ -3009,8 +3578,8 @@ const styles = StyleSheet.create({
 
     backgroundColor:
       Platform.OS === 'web'
-        ? 'rgba(255,255,255,0.58)'
-        : 'rgba(255,255,255,0.72)',
+        ? aeroMeadow ? 'rgba(239,241,241,0.42)' : 'rgba(255,255,255,0.58)'
+        : aeroMeadow ? 'rgba(216,220,221,0.56)' : 'rgba(255,255,255,0.72)',
 
     borderWidth: 1.25,
     borderColor: AERO_GLASS_EDGE,
@@ -3173,7 +3742,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_themeButtonIcon
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -3387,7 +3956,17 @@ const styles = StyleSheet.create({
         ? ({ textShadow: 'none' } as any)
         : {}),
     } : {}),
-  },
+  
+    // ljingleTinyElegantDateR3
+    ...(celestialMode ? {
+      fontSize: 5,
+      lineHeight: 7,
+      fontWeight: '500',
+      letterSpacing: 1.2,
+      opacity: 1,
+      transform: [{ translateY: -14 }],
+    } : {}),
+},
   heading: {
     marginTop: 4,
     color: colors.text,
@@ -3406,11 +3985,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   quoteHero: {
-    minHeight: 126,
+    paddingBottom: 4,
+    minHeight: 114,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 22,
-    paddingTop: 8,
+    paddingTop: 4,
   },
   quoteMark: {
     
@@ -3521,7 +4101,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_quoteMark
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -3690,30 +4270,45 @@ const styles = StyleSheet.create({
     // forkN1CelestialHomeCommandBellV1_quoteSource
     ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
   },  catalogueCard: {
-    minHeight: 112,
-    marginTop: 25,
-    padding: 17,
+minHeight: 104,
+    marginTop: celestialMode ? 4 : 18,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: pixelMode ? 0 : 20,
     backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
-    borderWidth: pixelMode ? 2 : 1,
-    borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
+    borderWidth: 1.25,
+    borderColor: colors.accent,
   
     // forkN1CelestialHomeCommandBellV1_catalogueCard
     ...(celestialMode ? {
       backgroundColor: celestialAlpha(celestial.night, 0.94),
       borderColor: celestialAlpha(celestial.gold, 0.38),
-      shadowColor: '#000000',
+    shadowColor: colors.black,
       shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.34,
-      shadowRadius: 24,
-      elevation: 7,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
       ...(Platform.OS === 'web'
         ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
         : {}),
     } : {}),
-  },
+  
+    // ljingleBorderlessRiverR1_catalogueCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   cataloguePressed: {
     opacity: 0.7,
     transform: [{ scale: 0.99 }],
@@ -3736,11 +4331,21 @@ const styles = StyleSheet.create({
     } : {}),
   },
   catalogueJingleIconV1: {
+    elevation: 0,
+    shadowRadius: 0,
+    shadowOpacity: 0,
+    shadowColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    height: 56,
+    width: 56,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 0,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   catalogueJingleOrbitOuterV1: {
     position: 'absolute',
@@ -3831,23 +4436,25 @@ const styles = StyleSheet.create({
     ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.gold, 0.58) } : {}),
   },
   catalogueCopy: {
+    transform: [{ translateY: -3 }],
     flex: 1,
     marginLeft: 15,
   },
   catalogueEyebrow: {
-    color: colors.textMuted,
+color: colors.accent,
     fontSize: 11,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
     fontWeight: '800',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
+    opacity: 0.9,
   },
   catalogueTitle: {
-    marginTop: 2,
+    marginTop: 0,
     color: colors.text,
     fontSize: 21,
-    lineHeight: 26,
+    lineHeight: 24,
     fontFamily: pixelMode ? 'monospace' : undefined,
 
     fontWeight: '800',
@@ -3885,7 +4492,7 @@ const styles = StyleSheet.create({
     } : {}),
   },
   catalogueSubtitle: {
-    marginTop: 3,
+    marginTop: 1,
     color: colors.textMuted,
     fontSize: 12,
     lineHeight: 17,
@@ -3916,6 +4523,7 @@ const styles = StyleSheet.create({
     ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
   },
   catalogueArrow: {
+    transform: [{ translateY: -3 }],
     marginLeft: 8,
     color: colors.textMuted,
     fontSize: 31,
@@ -3940,7 +4548,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_catalogueArrow
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -3973,7 +4581,22 @@ const styles = StyleSheet.create({
         ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
         : {}),
     } : {}),
-  },
+  
+    // ljingleBorderlessRiverR1_dailyCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   // catalogueSearchDeleteV1Applied
   dailyGlobalTimerButton: {
     alignSelf: 'flex-start',
@@ -4119,11 +4742,17 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_dailyEyebrow
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
     } : {}),
+  },
+  dailySessionTotal: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
   },
   dailyTotal: {
     marginTop: 5,
@@ -4242,7 +4871,7 @@ const styles = StyleSheet.create({
     } : {}),
     // forkN1CelestialHomeCommandBellV1_dailyMarkText
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -4372,7 +5001,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_dailyValue
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -4419,12 +5048,14 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.995 }],
   },
   profileCardForkIV1: {
+    paddingBottom: 10,
+    paddingTop: 11,
     position: 'relative',
-    minHeight: celestialMode ? 140 : 166,
+    minHeight: 92,
     marginTop: 12,
     padding: 18,
     overflow: 'hidden',
-    borderRadius: pixelMode ? 0 : 22,
+    borderRadius: pixelMode ? 0 : 20,
     backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
     borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
@@ -4442,7 +5073,22 @@ const styles = StyleSheet.create({
         ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
         : {}),
     } : {}),
-  },
+  
+    // ljingleBorderlessRiverR1_profileCardForkIV1
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   profileTopForkIV1: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4468,27 +5114,29 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_profileMarkText
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
     } : {}),
   },
   profileArrowForkIV1: {
+    lineHeight: 30,
     color: colors.textMuted,
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '300',
   
     // forkN1CelestialHomeCommandBellV1_profileArrow
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
     } : {}),
   },
   profileEyebrowForkIV1: {
-    marginTop: 15,
+    lineHeight: 13,
+    marginTop: 8,
     color: colors.textMuted,
     fontSize: 10,
     fontFamily: pixelMode ? 'monospace' : undefined,
@@ -4497,17 +5145,17 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_profileEyebrow
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
     } : {}),
   },
   profileTitleForkIV1: {
-    marginTop: 3,
+    marginTop: 1,
     color: colors.text,
-    fontSize: 25,
-    lineHeight: 30,
+    fontSize: 21,
+    lineHeight: 25,
     fontFamily: pixelMode ? 'monospace' : undefined,
     fontWeight: '900',
     letterSpacing: -0.55,
@@ -4521,11 +5169,11 @@ const styles = StyleSheet.create({
     } : {}),
   },
   profileSubtitleForkIV1: {
-    marginTop: 4,
+    marginTop: 1,
     maxWidth: 520,
     color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
   
     // forkN1CelestialHomeCommandBellV1_profileSubtitle
     ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
@@ -4550,7 +5198,7 @@ const styles = StyleSheet.create({
     // forkN1CelestialHomeCommandBellV1_profileTag
     ...(celestialMode ? {
       backgroundColor: celestialAlpha(celestial.gold, 0.08),
-      color: celestial.gold,
+      color: celestial.accentText,
       borderWidth: 1,
       borderColor: celestialAlpha(celestial.gold, 0.20),
     } : {}),
@@ -4564,15 +5212,15 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.84 }],
   },
   profileCardCompactN51: {
-    minHeight: 116,
-    paddingTop: 15,
-    paddingBottom: 14,
+    minHeight: 92,
+    paddingTop: 11,
+    paddingBottom: 10,
   },
   profileTopCompactN51: {
     position: 'absolute',
-    top: 10,
-    left: 14,
-    right: 14,
+    top: 8,
+    left: 12,
+    right: 12,
     justifyContent: 'flex-end',
   },
   profileEyebrowCompactN51: {
@@ -4581,15 +5229,15 @@ const styles = StyleSheet.create({
   },
 
   quickGrid: {
-    marginTop: 14,
+    marginTop: 12,
     flexDirection: 'row',
     gap: 10,
   },
   quickCard: {
     flex: 1,
-    minHeight: 112,
-    padding: 15,
-    borderRadius: pixelMode ? 0 : 18,
+    minHeight: 94,
+    padding: 13,
+    borderRadius: pixelMode ? 0 : 20,
     backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
     borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
@@ -4607,26 +5255,58 @@ const styles = StyleSheet.create({
         ? ({ boxShadow: `0 18px 44px ${celestialAlpha(celestial.shadow, 0.34)}, inset 0 1px 0 ${celestialAlpha(celestial.gold, 0.12)}` } as any)
         : {}),
     } : {}),
-  },
+  
+    // ljingleBorderlessRiverR1_quickCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
 
   // finalHomeProfileJinglePolishV1
   jinglePolishCatalogueCard: {
-    position: 'relative',
+    boxShadow: Platform.OS === 'web' ? 'none' : undefined,
+position: 'relative',
     overflow: 'hidden',
     borderColor: homeAccent,
-    shadowColor: homeAccent,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.10,
-    shadowRadius: 18,
-    elevation: 2,
-  },
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderWidth: 1,
+  
+    // ljingleBorderlessRiverR1_jinglePolishCatalogueCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   jinglePolishCatalogueStar: {
     position: 'absolute',
     right: 28,
     top: 13,
     color: homeAccent,
     fontSize: 11,
-    opacity: 0.92,
+    opacity: 0.62,
     zIndex: 4,
   },
   jinglePolishCatalogueSpark: {
@@ -4635,7 +5315,7 @@ const styles = StyleSheet.create({
     bottom: 12,
     color: homeAccent,
     fontSize: 9,
-    opacity: 0.62,
+    opacity: 0.38,
     zIndex: 4,
   },
   jinglePolishCatalogueOrbit: {
@@ -4647,23 +5327,56 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: homeAccent,
-    opacity: 0.22,
-  },
+    opacity: 0.13,
+  
+    // ljingleBorderlessRiverR1_jinglePolishCatalogueOrbit
+    ...(celestialMode ? {
+      opacity: 0,
+    } : {}),
+},
   jinglePolishTimerRadioStack: {
     flexDirection: 'column-reverse',
     alignItems: 'stretch',
     flexWrap: 'nowrap',
-    gap: 8,
+    gap: 6,
   },
+  // ljingleHomeRadioTinyR1
+  // Transform keeps the authored radio proportions; negative margins collapse
+  // the original full-size layout box so the tiny radio does not leave a void.
+  ljingleRadioTinyR1: {
+    alignSelf: 'flex-start',
+    // ljingleCelestialHomeCompositionR15:radio-left
+    transformOrigin: 'left center',
+    transform: [{ scale: 0.48 }],
+    marginTop: -34,
+    marginBottom: -44,
+  },
+
   jinglePolishRadioCard: {
-    position: 'relative',
-    borderColor: homeAccent,
-    shadowColor: homeAccent,
+position: 'relative',
+    borderColor: colors.separator,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.14,
-    shadowRadius: 20,
-    elevation: 3,
-  },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderWidth: 1,
+  
+    // ljingleBorderlessRiverR1_jinglePolishRadioCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   jinglePolishRadioStar: {
     position: 'absolute',
     right: 13,
@@ -4692,16 +5405,30 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: homeAccent,
     opacity: 0.24,
-  },
+  
+    // ljingleBorderlessRiverR1_jinglePolishRadioOrbit
+    ...(celestialMode ? {
+      opacity: 0,
+    } : {}),
+},
 
   radioTimerRow: {
     // mobileStabilityUiPolishV1
-    marginTop: aeroMode && Platform.OS !== 'web' ? 19 : 30,
-    marginBottom: 14,
+    marginTop: 24,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'stretch',
     flexWrap: 'wrap',
     gap: 16,
+  
+    // ljingleHomeConstellationWheelR11:radio-timer-order
+    ...(celestialMode ? {
+      flexDirection: 'column-reverse',
+      alignItems: 'stretch',
+      flexWrap: 'nowrap',
+      gap: 10,
+      marginBottom: 6,
+    } : {}),
   },
   timerColumn: {
     flex: 1,
@@ -4746,6 +5473,21 @@ const styles = StyleSheet.create({
       shadowColor: '#000000',
       shadowOpacity: 0.42,
       shadowRadius: 22,
+    } : {}),
+  
+    // ljingleBorderlessRiverR1_memoryRadioCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
     } : {}),
   },
   // classicMobileRadioCompactV1
@@ -4814,7 +5556,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_radioBand
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -4901,7 +5643,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_radioHint
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -4918,7 +5660,22 @@ const styles = StyleSheet.create({
     backgroundColor: aeroMode ? celestialAlpha(celestial.ivory, 0.58) : colors.surface,
     borderWidth: pixelMode ? 2 : 1,
     borderColor: aeroMode ? celestialAlpha(celestial.ivory, 0.9) : colors.separator,
-  },
+  
+    // ljingleBorderlessRiverR1_quickWideCard
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   quickWideIcon: {
     width: 42,
     height: 42,
@@ -4989,6 +5746,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
   quickSymbol: {
+    lineHeight: 22,
     color: colors.text,
     fontSize: 20,
     fontFamily: pixelMode ? 'monospace' : undefined,
@@ -5012,14 +5770,15 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_quickSymbol
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
     } : {}),
   },
   quickTitle: {
-    marginTop: 11,
+    lineHeight: 20,
+    marginTop: 6,
     color: homeAccent,
     fontSize: 18,
     fontFamily: pixelMode ? 'monospace' : undefined,
@@ -5058,10 +5817,10 @@ const styles = StyleSheet.create({
     } : {}),
   },
   quickSubtitle: {
-    marginTop: 3,
+    marginTop: 1,
     color: colors.textMuted,
     fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 15,
   
     // aeroV3Override
     ...(aeroMode ? {
@@ -5089,8 +5848,8 @@ const styles = StyleSheet.create({
     ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
   },
   sectionHeading: {
-    marginTop: 29,
-    marginBottom: 13,
+    marginTop: 24,
+    marginBottom: 11,
     paddingHorizontal: 3,
     flexDirection: 'row',
     alignItems: 'center',
@@ -5172,7 +5931,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_sectionTitle
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -5200,7 +5959,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_countText
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -5309,7 +6068,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_emptyIconText
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -5619,7 +6378,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   recentSection: {
-    marginTop: 30,
+    marginTop: 18,
     paddingBottom: 8,
   },
   recentHeadingRow: {
@@ -5773,11 +6532,14 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_recentTitle
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
     } : {}),
+  
+    // ljingleCelestialWhiteHierarchyR11_recentTitle
+    ...(celestialMode ? { color: celestial.ivory, opacity: 0.72, fontSize: 18, lineHeight: 22, fontWeight: '700', letterSpacing: -0.1 } : {}),
   },
   recentSubtitle: {
     maxWidth: 310,
@@ -5851,6 +6613,9 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_recentSubtitle
     ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.62) } : {}),
+  
+    // ljingleCelestialWhiteHierarchyR11_recentSubtitle
+    ...(celestialMode ? { color: celestial.ivory, opacity: 0.58, fontSize: 12, lineHeight: 16, fontWeight: '500', marginTop: 2 } : {}),
   },
   recentCount: {
     minWidth: 28,
@@ -5932,7 +6697,7 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_recentCountText
     ...(celestialMode ? {
-      color: celestial.gold,
+      color: celestial.accentText,
       textShadowColor: 'transparent',
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 0,
@@ -5945,7 +6710,22 @@ const styles = StyleSheet.create({
   
     // forkN1CelestialHomeCommandBellV1_recentEmpty
     ...(celestialMode ? { backgroundColor: celestialAlpha(celestial.night, 0.94), borderWidth: 1, borderColor: celestialAlpha(celestial.gold, 0.24) } : {}),
-  },
+  
+    // ljingleBorderlessRecentEmptyR1
+    ...(celestialMode ? {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      ...(Platform.OS === 'web'
+        ? ({ boxShadow: 'none' } as any)
+        : {}),
+    } : {}),
+},
   recentEmptyText: {
     color: colors.textMuted,
     fontSize: 13,
@@ -5960,8 +6740,8 @@ const styles = StyleSheet.create({
   meadowGlassCardV3: {
     backgroundColor:
       Platform.OS === 'web'
-        ? 'rgba(255,255,255,0.62)'
-        : 'rgba(255,255,255,0.78)',
+        ? 'rgba(238,240,240,0.44)'
+        : 'rgba(214,218,219,0.56)',
     borderColor: AERO_GLASS_EDGE,
     borderWidth: 1.25,
     shadowColor: '#FFFFFF',
@@ -5981,43 +6761,45 @@ const styles = StyleSheet.create({
   meadowRecentCardV3: {
     backgroundColor:
       Platform.OS === 'web'
-        ? 'rgba(255,255,255,0.66)'
-        : 'rgba(255,255,255,0.82)',
+        ? 'rgba(242,244,244,0.42)'
+        : 'rgba(220,224,225,0.58)',
     borderColor: AERO_GLASS_EDGE,
     borderWidth: 1.25,
     minHeight: Platform.OS === 'web' ? undefined : 76,
   },
 
   meadowTopRowV3: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'stretch',
-    gap: Platform.OS === 'web' ? 18 : 10,
+    flexWrap: 'nowrap',
+    gap: 14,
   },
 
   meadowRadioSlotV3: {
-    flex: Platform.OS === 'web' ? 0.82 : 0.72,
+    flex: 0,
+    width: '100%',
+    maxWidth: 520,
     minWidth: 0,
+    minHeight: Platform.OS === 'web' ? 220 : 190,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-      alignSelf: 'stretch',
-    aspectRatio: undefined,
-    minHeight: Platform.OS === 'web' ? 128 : 118,
-},
+  },
 
   meadowTimerSlotV3: {
-    flex: Platform.OS === 'web' ? 1.18 : 1.28,
+    flex: 0,
+    width: '100%',
     minWidth: 0,
   },
 
   meadowRadioImageV3: {
-    width: Platform.OS === 'web' ? '88%' : '84%',
-    maxWidth: undefined,
-    height: Platform.OS === 'web' ? '88%' : '84%',
+    width: '100%',
+    height: '100%',
     resizeMode: 'contain',
     alignSelf: 'center',
-      top: Platform.OS === 'web' ? '6%' : '8%',
-    left: Platform.OS === 'web' ? '6%' : '8%',
-},
+    top: 0,
+    left: 0,
+  },
   // aeroSearchQuoteTimerHygieneV3:AeroHomeGeometry
   // Meadow V3 made radio + timer side-by-side. Aero returns to the original
   // hierarchy: a large radio row, then a full-width timer row.
@@ -6266,6 +7048,419 @@ const styles = StyleSheet.create({
       : {}),
   },
 
+  // ljingleTodayCleanPolishR1
+  todayCleanHiddenR1: {
+    display: 'none',
+  },
+
+  // ljingleTodayUiHarmonyR2
+  catalogueCopyHarmonyR2: {
+    marginLeft: 9,
+  },
+  catalogueArrowHarmonyR2: {
+    marginLeft: 5,
+    fontSize: 28,
+  },
+
+  // ljingleTodayFinalHarmonyR3
+
+  // ljingleTodayKatalogGlyphNoSquareR1
+
+  // ljingleTodayGreetingPlainLeftR3
+  greetingPlainLeftR3: {
+    transform: celestialMode ? [{ translateY: 12 }] : undefined,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingTop: 8,
+    paddingBottom: celestialMode ? 2 : 8,
+    ...(celestialMode ? {
+      marginHorizontal: 0,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderColor: 'transparent',
+      backgroundColor: 'transparent',
+      shadowColor: 'transparent',
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+    } : {}),
+  },
+  greetingTextLeftR3: {
+    alignSelf: 'stretch',
+    textAlign: 'left',
+  },
+  greetingSourceLeftR3: {
+    alignSelf: 'stretch',
+    textAlign: 'left',
+  },
+
+  // ljingleHomeRemoveGreetingRuleR1
+
+  // ljingleCelestialQuoteBelowDateR11:styles
+  celestialQuoteBelowDateR11: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 3,
+  },
+
+  celestialQuoteBelowDateTextR11: {
+    width: '100%',
+    alignSelf: 'stretch',
+    marginTop: 0,
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
+  celestialQuoteBelowDateSourceR11: {
+    width: '100%',
+    alignSelf: 'stretch',
+    marginTop: 5,
+    opacity: 0.72,
+    textAlign: 'center',
+  },
+
+  celestialGreetingAfterMovedQuoteR11: {
+    minHeight: 52,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+
+
+  // ljingleClassicRestoreRadioStarsR12:radio-styles
+  classicLjingleRadioCardR1: {
+    width: '100%',
+    maxWidth: 520,
+    minHeight: 148,
+    marginTop: 28,
+    marginBottom: 6,
+    padding: 18,
+    paddingBottom: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 16,
+    borderRadius: 25,
+    backgroundColor: colors.navy,
+    borderWidth: 1,
+    borderColor: colors.navy,
+    shadowColor: celestial.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 4,
+    transform: [
+      {
+        scale: 1,
+      },
+    ],
+  },
+
+  classicLjingleRadioAntennaR1: {
+    position: 'absolute',
+    top: -17,
+    left: 35,
+    width: 112,
+    height: 3,
+    borderRadius: 3,
+    backgroundColor: colors.text,
+    opacity: 1,
+    transform: [
+      {
+        rotate: '-7deg',
+      },
+    ],
+  },
+
+  classicLjingleRadioSpeakerR1: {
+    width: 92,
+    height: 82,
+    padding: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignContent: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 20,
+    backgroundColor: celestial.shadow,
+  },
+
+  classicLjingleRadioSpeakerHoleR1: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.navy,
+  },
+
+  classicLjingleRadioDisplayR1: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+  },
+
+  classicLjingleRadioBandR1: {
+    color: colors.navy,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+
+  classicLjingleRadioFrequencyR1: {
+    marginTop: 2,
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+  },
+
+  classicLjingleRadioStationR1: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+  },
+
+  classicLjingleRadioSignalR1: {
+    height: 4,
+    marginTop: 8,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: colors.fill,
+  },
+
+  classicLjingleRadioSignalActiveR1: {
+    width: '58%',
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: colors.navy,
+  },
+
+  classicLjingleRadioKnobR1: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    borderRadius: 25,
+    backgroundColor: colors.surface,
+    borderWidth: 5,
+    borderColor: celestial.shadow,
+  },
+
+  classicLjingleRadioKnobMarkR1: {
+    width: 3,
+    height: 13,
+    borderRadius: 2,
+    backgroundColor: colors.navy,
+  },
+
+  classicLjingleRadioHintR1: {
+    position: 'absolute',
+    left: 19,
+    bottom: 12,
+    color: colors.white,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+
+
+  // ljingleClassicInheritsCelestialR11:radio-styles
+  classicSrc7RadioCardR1: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: 520,
+    marginLeft: 'auto',
+    marginRight: 'auto',
+    minHeight: 148,
+    marginTop: 28,
+    marginBottom: 6,
+    padding: 18,
+    paddingBottom: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 16,
+    borderRadius: 25,
+    backgroundColor: colors.navy,
+    borderWidth: 1,
+    borderColor: colors.navy,
+    shadowColor: celestial.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+
+  classicSrc7RadioCompactR1: {
+    transform: [{ scale: 0.90 }],
+    marginTop: 18,
+    marginBottom: -10,
+  },
+
+  classicSrc7RadioAntennaR1: {
+    position: 'absolute',
+    top: -17,
+    left: 35,
+    width: 112,
+    height: 3,
+    borderRadius: 3,
+    backgroundColor: colors.text,
+    transform: [{ rotate: '-7deg' }],
+  },
+
+  classicSrc7RadioSpeakerR1: {
+    width: 92,
+    height: 82,
+    padding: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignContent: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 20,
+    backgroundColor: celestial.shadow,
+  },
+
+  classicSrc7RadioSpeakerHoleR1: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.navy,
+  },
+
+  classicSrc7RadioDisplayR1: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+  },
+
+  classicSrc7RadioBandR1: {
+    color: colors.navy,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+
+  classicSrc7RadioFrequencyR1: {
+    marginTop: 2,
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+  },
+
+  classicSrc7RadioStationR1: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+  },
+
+  classicSrc7RadioSignalR1: {
+    height: 4,
+    marginTop: 8,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: colors.fill,
+  },
+
+  classicSrc7RadioSignalActiveR1: {
+    width: '58%',
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: colors.navy,
+  },
+
+  classicSrc7RadioKnobR1: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    borderRadius: 25,
+    backgroundColor: colors.surface,
+    borderWidth: 5,
+    borderColor: celestial.shadow,
+  },
+
+  classicSrc7RadioKnobMarkR1: {
+    width: 3,
+    height: 13,
+    borderRadius: 2,
+    backgroundColor: colors.navy,
+  },
+
+  classicSrc7RadioHintR1: {
+    position: 'absolute',
+    left: 19,
+    bottom: 12,
+    color: colors.white,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+
+
+  // ljingleClassicHomeVisualFixR1:catalogue-glyph-host
+  classicCatalogueGlyphHostFixR1: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    overflow: 'visible',
+  },
+
 });
 
 
+
+// ljingleTargetedGlyphDeclutterR2:today
+
+// ljingleLivingConstellationTimerR1
+
+// ljingleLivingTimerSandglassRadioCleanR1:today
+
+// ljingleLivingTimerLegacyStartCleanR11:today
+
+// ljingleHomeRadioTinyR1
+
+// ljingleHomeRadioBelowConstellationR1
+
+// ljingleCelestialHomeCompositionR11
+
+// ljingleCelestialHomeCompositionR15
+
+// ljingleClassicSrc7RestoreR21:done
+
+// ljingleCelestialRadioAntennaPressFixR11
+
+// ljingleLivingSandglassQuickTimerCleanR11:today
+
+// ljingleClassicInheritsCelestialR11:done
+
+// ljingleSandglassPhysicalTurnTimerHrCleanR2:today
+
+// ljingleCelestialDiagonalRadioConstellationR1:separate-radio-hidden
+
+// ljingleCelestialDiagonalRadioConstellationR1:today
+
+// ljingleCelestialRadioConstellationConservativeR1:today

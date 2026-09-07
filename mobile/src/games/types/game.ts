@@ -42,7 +42,7 @@ export type GameMetadataResult = {
 };
 
 export type GameStackParamList = {
-  GameList: undefined;
+  GameList: { focusGameId?: string; collectionId?: string } | undefined;
   GameDetails: { gameId: string };
   GameForm: { gameId?: string; prefill?: GameMetadataResult } | undefined;
   GameMetadataSearch: undefined;

@@ -27,6 +27,8 @@ export function MediaNavigator() {
         name="MediaList"
         component={MediaListScreen}
         options={({ navigation }) => ({
+          // ljingleMorningFixesV1:mediaHeader — toolbar now scrolls with catalogue.
+          headerShown: false,
           title: 'Filmovi i serije',
           headerLeft: () => (
             <ParentBackButton onPress={() => navigation.getParent()?.goBack()} />

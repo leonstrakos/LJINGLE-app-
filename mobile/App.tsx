@@ -1,3 +1,5 @@
+import { isPaletteInteractionLocked as readerGestureIsLocked } from './src/utils/paletteInteractionLock';
+// ljingleReaderHoldGuardR2
 import {
   useEffect,
   useRef,
@@ -20,6 +22,8 @@ import { BookSearchScreen } from './src/screens/BookSearchScreen';
 import { CatalogueHomeScreen } from './src/screens/CatalogueHomeScreen';
 import { CollectionsScreen } from './src/screens/CollectionsScreen';
 import { CollectionDetailsScreen } from './src/screens/CollectionDetailsScreen';
+// memoryCapsuleBoxedV1
+import { MemoryCapsuleScreen } from './src/screens/MemoryCapsuleScreen';
 import { EntryFormScreen } from './src/screens/EntryFormScreen';
 import { EntryListScreen } from './src/screens/EntryListScreen';
 import { MemoryAudioProvider } from './src/audio/MemoryAudioProvider';
@@ -38,6 +42,9 @@ import { TodayScreen } from './src/screens/TodayScreen';
 import { ThemePickerScreen } from './src/screens/ThemePickerScreen';
 import { TopicDetailsScreen } from './src/screens/TopicDetailsScreen';
 import { TopicListScreen } from './src/screens/TopicListScreen';
+// jinglePortalNetworkV1
+import { JingleNetworkScreen } from './src/screens/JingleNetworkScreen';
+import { JingleProfileScreen } from './src/screens/JingleProfileScreen';
 import { colors,
   isDarkBackground,
 } from './src/theme/colors';
@@ -143,6 +150,7 @@ function LJingleAuthenticatedApp() {
 
   const beginGlobalHold = (event: any) => {
     cancelGlobalHold();
+    if (readerGestureIsLocked()) return;
 
     if (
       event.nativeEvent?.touches &&
@@ -157,6 +165,7 @@ function LJingleAuthenticatedApp() {
       globalHoldTimer.current = null;
       globalHoldStart.current = null;
 
+      if (readerGestureIsLocked()) return;
       void semanticFeedback.gestureThreshold();
       setPaletteOpenSignal(
         (current) => current + 1,
@@ -218,13 +227,37 @@ function LJingleAuthenticatedApp() {
             headerBackTitle: 'Natrag',
             headerShadowVisible: false,
             contentStyle: { backgroundColor: colors.background },
-            headerLeft: () => <ParentBackButton onPress={() => navigation.goBack()} />,
+            // ljingleSafeRootBackR1
+            headerLeft: () => (
+              <ParentBackButton
+                onPress={() => {
+                  if (navigation.canGoBack()) {
+                    navigation.goBack();
+                    return;
+                  }
+
+                  navigation.navigate('Today');
+                }}
+              />
+            ),
           })}
         >
           <Stack.Screen
             name="Today"
             component={TodayScreen}
             options={{ headerShown: false }}
+          />
+
+          <Stack.Screen
+            name="JingleNetwork"
+            component={JingleNetworkScreen}
+            options={{ headerShown: false }}
+          />
+
+          <Stack.Screen
+            name="JingleProfile"
+            component={JingleProfileScreen}
+            options={{ title: 'Jingle Portal' }}
           />
 
           <Stack.Screen
@@ -251,7 +284,13 @@ function LJingleAuthenticatedApp() {
             options={{ title: 'Collection' }}
           />
 
+          
           <Stack.Screen
+            name="MemoryCapsule"
+            component={MemoryCapsuleScreen}
+            options={{ title: 'Memory Capsule' }}
+          />
+<Stack.Screen
             name="BookList"
             component={BookListScreen}
             options={{ title: 'Knjige' }}

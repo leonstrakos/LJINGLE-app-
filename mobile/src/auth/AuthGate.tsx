@@ -1,3 +1,4 @@
+// ljingleZodiacPlayR1
 import {
   type PropsWithChildren,
   useState,
@@ -16,6 +17,7 @@ import {
 
 import { colors } from '../theme/colors';
 import { useAuth } from './AuthContext';
+import { BirthdayGate } from './BirthdayFeature';
 
 type Mode = 'login' | 'register';
 
@@ -49,9 +51,6 @@ export function AuthGate({
   const [username, setUsername] =
     useState('');
 
-  const [inviteCode, setInviteCode] =
-    useState('');
-
   const [password, setPassword] =
     useState('');
 
@@ -73,7 +72,7 @@ export function AuthGate({
   }
 
   if (user) {
-    return <>{children}</>;
+    return <BirthdayGate key={user.id} userId={user.id}>{children}</BirthdayGate>;
   }
 
   const submit = async () => {
@@ -93,7 +92,6 @@ export function AuthGate({
           email,
           username,
           password,
-          inviteCode,
         });
       }
     } catch (submitError) {
@@ -120,10 +118,33 @@ export function AuthGate({
         }
         keyboardShouldPersistTaps="handled"
       >
+        <View pointerEvents="none" style={styles.sky}>
+          <View style={[styles.star, styles.starOne]}><Text style={styles.starText}>✦</Text></View>
+          <View style={[styles.star, styles.starTwo]}><Text style={styles.starText}>✧</Text></View>
+          <View style={[styles.star, styles.starThree]}><Text style={styles.starText}>·</Text></View>
+          <View style={styles.constellationLineOne} />
+          <View style={styles.constellationLineTwo} />
+        </View>
+
         <View style={styles.shell}>
-          <Text style={styles.wordmark}>
-            LJINGLE
-          </Text>
+          <View accessibilityLabel="LJingle" style={styles.brand}>
+            <Text style={styles.crownStar}>✦</Text>
+            <View style={styles.bellMark}>
+              <View style={styles.bellLoop} />
+              <View style={styles.bellCrown} />
+              <View style={styles.bellBody}>
+                <Text style={styles.bellStar}>✦</Text>
+              </View>
+              <View style={styles.bellRim} />
+              <View style={styles.bellClapper} />
+            </View>
+            <Text style={styles.wordmark}>LJINGLE</Text>
+            <View style={styles.brandRule}>
+              <View style={styles.brandRuleLine} />
+              <Text style={styles.brandRuleStar}>✦</Text>
+              <View style={styles.brandRuleLine} />
+            </View>
+          </View>
 
           <Text style={styles.eyebrow}>
             YOUR PERSONAL CATALOGUE
@@ -138,7 +159,7 @@ export function AuthGate({
           <Text style={styles.copy}>
             {mode === 'login'
               ? 'Sign in to unlock this installation and your private cloud backup.'
-              : 'Registration is invite-only during the LJingle beta.'}
+              : 'Create an account and begin your own private archive.'}
           </Text>
 
           {mode === 'login' ? (
@@ -186,18 +207,6 @@ export function AuthGate({
                 />
               </View>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>
-                  INVITE CODE
-                </Text>
-                <TextInput
-                  value={inviteCode}
-                  onChangeText={setInviteCode}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  style={styles.input}
-                />
-              </View>
             </>
           )}
 
@@ -272,7 +281,7 @@ export function AuthGate({
               style={styles.secondaryText}
             >
               {mode === 'login'
-                ? 'HAVE AN INVITE? CREATE ACCOUNT'
+                ? 'NEW HERE? CREATE ACCOUNT'
                 : 'ALREADY HAVE AN ACCOUNT? SIGN IN'}
             </Text>
           </Pressable>
@@ -286,35 +295,72 @@ export function AuthGate({
   );
 }
 
+const NAVY = '#13264A';
+const GOLD = '#C89A3D';
+const IVORY = '#FBF7EE';
+
 const styles = StyleSheet.create({
+  sky: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  star: { position: 'absolute' },
+  starText: { color: GOLD, fontSize: 18 },
+  starOne: { left: '9%', top: 72 },
+  starTwo: { right: '12%', top: 126 },
+  starThree: { left: '17%', top: 180 },
+  constellationLineOne: { position: 'absolute', left: '9%', top: 93, width: 84, height: 1, backgroundColor: GOLD, opacity: 0.35, transform: [{ rotate: '18deg' }] },
+  constellationLineTwo: { position: 'absolute', right: '9%', top: 154, width: 70, height: 1, backgroundColor: GOLD, opacity: 0.28, transform: [{ rotate: '-24deg' }] },
+  brand: { alignItems: 'center', marginBottom: 4 },
+  crownStar: { color: GOLD, fontSize: 25, lineHeight: 27 },
+  bellMark: { width: 82, height: 92, alignItems: 'center', position: 'relative' },
+  bellLoop: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: NAVY },
+  bellCrown: { width: 48, height: 18, marginTop: -3, borderTopLeftRadius: 25, borderTopRightRadius: 25, borderWidth: 2, borderBottomWidth: 0, borderColor: NAVY },
+  bellBody: { width: 62, height: 46, marginTop: -1, borderBottomLeftRadius: 31, borderBottomRightRadius: 31, borderWidth: 2, borderTopWidth: 0, borderColor: NAVY, alignItems: 'center', justifyContent: 'center' },
+  bellStar: { color: GOLD, fontSize: 18, marginTop: -3 },
+  bellRim: { position: 'absolute', left: 7, right: 7, top: 62, height: 2, backgroundColor: NAVY },
+  bellClapper: { position: 'absolute', bottom: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: GOLD },
+  brandRule: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  brandRuleLine: { width: 44, height: StyleSheet.hairlineWidth, backgroundColor: GOLD },
+  brandRuleStar: { color: GOLD, fontSize: 13, marginHorizontal: 8 },
   flex: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: IVORY,
   },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 20,
-    backgroundColor: colors.background,
+    backgroundColor: IVORY,
   },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 26,
     paddingVertical: 42,
-    backgroundColor: colors.background,
+    backgroundColor: IVORY,
   },
   shell: {
     width: '100%',
     maxWidth: 460,
     alignSelf: 'center',
-  },
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 26,
+    borderRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GOLD,
+    backgroundColor: 'rgba(255,252,246,0.94)',
+    shadowColor: NAVY,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.10,
+    shadowRadius: 28,
+    elevation: 5,
+  }, // authVisualCardCelestialV1
   wordmark: {
-    color: colors.black,
-    fontSize: 25,
-    fontWeight: '800',
-    letterSpacing: 4.2,
+    color: NAVY,
+    fontSize: 27,
+    fontWeight: '600',
+    letterSpacing: 7.5,
+    marginLeft: 7.5,
   },
   eyebrow: {
     marginTop: 10,
@@ -325,7 +371,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   title: {
-    marginTop: 42,
+    marginTop: 28,
     color: colors.text,
     fontSize: 30,
     fontWeight: '600',
@@ -351,12 +397,14 @@ const styles = StyleSheet.create({
     opacity: 0.62,
   },
   input: {
-    minHeight: 48,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.separator,
-    color: colors.text,
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(19,38,74,0.18)',
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    color: NAVY,
     fontSize: 16,
-    paddingHorizontal: 0,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
   error: {
@@ -371,8 +419,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    backgroundColor: colors.black,
-    borderRadius: 4,
+    backgroundColor: NAVY,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: GOLD,
   },
   primaryText: {
     color: colors.surface,

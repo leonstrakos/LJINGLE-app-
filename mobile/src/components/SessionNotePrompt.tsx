@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   saveText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 14,
     fontWeight: '900',
   },

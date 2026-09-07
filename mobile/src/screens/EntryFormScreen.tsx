@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -13,12 +12,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { EntryLinkPicker } from '../components/EntryLinkPicker';
 import { EntityRelationsPanel } from '../components/EntityRelationsPanel';
-import { PrimaryButton } from '../components/PrimaryButton';
 import { ApiError, entryApi } from '../services/entryApi';
-import { sharePortableEntry } from '../services/portableExport';
 import { emptyEntryLinks, entryLinksApi } from '../services/entryLinksApi';
 import {
   getEntryImages,
@@ -31,7 +29,6 @@ import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { createdFeedback } from '../utils/crudFeedback';
-import { ShareGlyph } from '../components/ShareGlyph';
 import {
   entryTypeLabels,
   entryTypeMarks,
@@ -54,23 +51,38 @@ export type EntryFormScreenProps = {
 
 // brutusImageRemoveGlyphV1
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+
+function normalizeCustomLabel(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('hr-HR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+// ljingleZapisiVaultR1
 export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
-  const entryId = route.params?.entryId;
+  // ljingleEntryObsidianUxR1:form
+  // A new editor owns a persisted draft immediately; route entries keep their id.
+  const routeEntryId = route.params?.entryId;
+  const [draftEntryId, setDraftEntryId] = useState<string | null>(null);
+  const entryId = routeEntryId ?? draftEntryId ?? undefined;
   const editing = Boolean(entryId);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<EntryType>('NOTE');
+  const [customLabel, setCustomLabel] = useState('');
+  const [knownCustomLabels, setKnownCustomLabels] = useState<string[]>([]);
   const [bookId, setBookId] = useState<string | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [activityId, setActivityId] = useState<string | null>(null);
   const [links, setLinks] = useState<EntryLinks>(emptyEntryLinks);
-  const [loading, setLoading] = useState(editing);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingLinks, setLoadingLinks] = useState(true);
   const [linksError, setLinksError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const contentInputRef = useRef<TextInput>(null);
@@ -79,10 +91,20 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
   const [pendingImages, setPendingImages] = useState<PendingEntryImage[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const [pickingImages, setPickingImages] = useState(false);
+  const draftCreateStartedRef = useRef(false);
+  const autosaveReadyRef = useRef(false);
+  const lastSavedPayloadRef = useRef('');
+  const autosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const mountedRef = useRef(true);
+  const latestDraftRef = useRef<{
+    entryId: string;
+    payload: EntryRequest;
+    serialized: string;
+  } | null>(null);
 
   const contentHeight = Math.max(
-    330,
-    52 + content.split('\n').reduce((total, line) => {
+    190,
+    44 + content.split('\n').reduce((total, line) => {
       const charactersPerLine = Platform.OS === 'web' ? 82 : 34;
       return total + Math.max(1, Math.ceil(line.length / charactersPerLine));
     }, 0) * 26,
@@ -115,23 +137,33 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
   };
 
   const loadEntry = useCallback(async () => {
-    if (!entryId) {
-      setLoading(false);
-      return;
-    }
+    if (!entryId) return;
     setLoading(true);
     setLoadError(null);
+    autosaveReadyRef.current = false;
     try {
       const entry = await entryApi.getById(entryId);
       setTitle(entry.title ?? '');
       setContent(entry.content);
       setType(entry.type);
+      setCustomLabel(entry.customLabel ?? '');
       setBookId(entry.bookId);
       setTopicId(entry.topicId);
       setActivityId(entry.activityId);
       setEntryImages(await getEntryImages(entryId));
       setPendingImages([]);
       setRemovedImageIds([]);
+      // ljingleEntryObsidianUxR1:loaded-snapshot
+      lastSavedPayloadRef.current = JSON.stringify({
+        title: entry.title?.trim() || null,
+        content: entry.content,
+        type: entry.type,
+        customLabel: entry.customLabel?.trim() || null,
+        bookId: entry.bookId,
+        topicId: entry.topicId,
+        activityId: entry.activityId,
+      } satisfies EntryRequest);
+      autosaveReadyRef.current = true;
     } catch (caught) {
       setLoadError(caught instanceof Error ? caught.message : 'Zapis se nije mogao učitati.');
     } finally {
@@ -155,6 +187,45 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
     }
   }, []);
 
+  const createDraft = useCallback(async () => {
+    if (entryId || draftCreateStartedRef.current) return;
+
+    draftCreateStartedRef.current = true;
+    setLoading(true);
+    setLoadError(null);
+
+    const blankDraft: EntryRequest = {
+      title: null,
+      content: '',
+      type: 'NOTE',
+      customLabel: null,
+      bookId: null,
+      topicId: null,
+      activityId: null,
+    };
+
+    try {
+      const created = await entryApi.create(blankDraft);
+      createdFeedback();
+      lastSavedPayloadRef.current = JSON.stringify(blankDraft);
+      setDraftEntryId(created.entryId);
+      // loadEntry runs as soon as the newly-owned entryId becomes active.
+    } catch (caught) {
+      draftCreateStartedRef.current = false;
+      setLoadError(
+        caught instanceof Error
+          ? caught.message
+          : 'Novi zapis se nije mogao kreirati.',
+      );
+      setLoading(false);
+    }
+  }, [entryId]);
+
+  // ljingleEntryObsidianUxR1:instant-draft
+  useEffect(() => {
+    if (!entryId) void createDraft();
+  }, [createDraft, entryId]);
+
   useEffect(() => {
     void loadEntry();
   }, [loadEntry]);
@@ -162,9 +233,30 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
   useEffect(() => {
     void loadLinks();
   }, [loadLinks]);
+  // ljingleZapisiVaultR1: load reusable custom chips from existing entries.
+  useEffect(() => {
+    let active = true;
+    void entryApi.getAll()
+      .then((allEntries) => {
+        if (!active) return;
+        const labels = new Map<string, string>();
+        for (const entry of allEntries) {
+          const label = entry.customLabel?.trim();
+          if (label) labels.set(normalizeCustomLabel(label), label);
+        }
+        setKnownCustomLabels(
+          [...labels.values()].sort((left, right) => left.localeCompare(right, 'hr-HR')),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
 
   const addImages = async () => {
-    if (pickingImages) return;
+    if (pickingImages || !entryId) return;
 
     setPickingImages(true);
     setSaveError(null);
@@ -173,7 +265,9 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
       const picked = await pickEntryImages();
 
       if (picked.length > 0) {
-        setPendingImages((current) => [...current, ...picked]);
+        // The draft already exists, so image persistence no longer waits for Save.
+        await saveEntryImageChanges(entryId, picked, []);
+        setEntryImages(await getEntryImages(entryId));
       }
     } catch (caught) {
       setSaveError(
@@ -186,12 +280,22 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
     }
   };
 
-  const removeExistingImage = (attachmentId: string) => {
-    setRemovedImageIds((current) =>
-      current.includes(attachmentId)
-        ? current
-        : [...current, attachmentId],
-    );
+  const removeExistingImage = async (attachmentId: string) => {
+    if (!entryId) return;
+
+    setSaveError(null);
+    try {
+      await saveEntryImageChanges(entryId, [], [attachmentId]);
+      setEntryImages((current) =>
+        current.filter((image) => image.attachmentId !== attachmentId),
+      );
+    } catch (caught) {
+      setSaveError(
+        caught instanceof Error
+          ? caught.message
+          : 'Slika se nije mogla ukloniti.',
+      );
+    }
   };
 
   const removePendingImage = (tempId: string) => {
@@ -204,97 +308,109 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
     (image) => !removedImageIds.includes(image.attachmentId),
   );
 
-  const validate = (): EntryRequest | null => {
-    const nextErrors: Record<string, string> = {};
-    const trimmedTitle = title.trim();
-    const trimmedContent = content.trim();
-    if (trimmedTitle.length > 255) {
-      nextErrors.title = 'Naslov smije imati najviše 255 znakova.';
-    }
-    if (!trimmedContent) {
-      nextErrors.content = 'Sadržaj zapisa je obavezan.';
-    } else if (trimmedContent.length > 50000) {
-      nextErrors.content = 'Sadržaj smije imati najviše 50 000 znakova.';
-    }
-    setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return null;
 
-    return {
-      title: trimmedTitle || null,
-      content: trimmedContent,
-      type,
-      bookId,
-      topicId,
-      activityId,
-    };
+  // ljingleZapisiVaultR1: restore the canonical save flow if an older cleanup removed it.
+
+  // ljingleEntryObsidianUxR1:autosave
+  const autosavePayload: EntryRequest = {
+    title: title.trim() || null,
+    content,
+    type,
+    customLabel: customLabel.trim() || null,
+    bookId,
+    topicId,
+    activityId,
   };
+  const autosaveSerialized = JSON.stringify(autosavePayload);
 
-  const shareEntry = async () => {
-    if (!entryId || sharing) return;
-
-    setSharing(true);
-    setSaveError(null);
-
-    try {
-      await sharePortableEntry(entryId);
-    } catch (caught) {
-      setSaveError(
-        caught instanceof Error
-          ? caught.message
-          : 'Share nije uspio.',
-      );
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  const save = async () => {
-    if (saving) return;
-    const payload = validate();
-    if (!payload) return;
-
-    setSaving(true);
-    setSaveError(null);
-    try {
-      let savedEntryId = entryId;
-
-      if (entryId) {
-        await entryApi.update(entryId, payload);
-      } else {
-        const created = await entryApi.create(payload);
-        savedEntryId = created.entryId;
-        createdFeedback();
+  latestDraftRef.current = entryId
+    ? {
+        entryId,
+        payload: autosavePayload,
+        serialized: autosaveSerialized,
       }
+    : null;
 
-      if (savedEntryId) {
-        try {
-          await saveEntryImageChanges(
-            savedEntryId,
-            pendingImages,
-            removedImageIds,
-          );
-        } catch {
-          Alert.alert(
-            'Zapis je spremljen',
-            'Tekst je spremljen, ali neke slike nisu. Zapis možeš ponovno otvoriti i pokušati ih dodati.',
-          );
+  const queueAutosave = (draft: {
+    entryId: string;
+    payload: EntryRequest;
+    serialized: string;
+  }) => {
+    autosaveQueueRef.current = autosaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await entryApi.update(draft.entryId, draft.payload);
+        lastSavedPayloadRef.current = draft.serialized;
+      })
+      .then(() => {
+        if (!mountedRef.current) return;
+        if (latestDraftRef.current?.serialized === draft.serialized) {
+          setSaveError(null);
+          setFieldErrors({});
         }
-      }
-
-      navigation.goBack();
-    } catch (caught) {
-      if (caught instanceof ApiError && caught.fieldErrors) {
-        setFieldErrors(caught.fieldErrors);
-      }
-      setSaveError(caught instanceof Error ? caught.message : 'Spremanje nije uspjelo.');
-    } finally {
-      setSaving(false);
-    }
+      })
+      .catch((caught) => {
+        if (!mountedRef.current) return;
+        if (caught instanceof ApiError && caught.fieldErrors) {
+          setFieldErrors(caught.fieldErrors);
+        }
+        setSaveError(
+          caught instanceof Error
+            ? caught.message
+            : 'Automatsko spremanje nije uspjelo.',
+        );
+      });
   };
+
+  useEffect(() => {
+    const draft = latestDraftRef.current;
+    if (!entryId || loading || !autosaveReadyRef.current || !draft) return;
+    if (draft.serialized === lastSavedPayloadRef.current) return;
+
+    const timer = setTimeout(() => {
+      const latest = latestDraftRef.current;
+      if (!latest || latest.entryId !== entryId) return;
+      if (latest.serialized === lastSavedPayloadRef.current) return;
+      queueAutosave(latest);
+    }, 650);
+
+    return () => clearTimeout(timer);
+  }, [
+    entryId,
+    loading,
+    title,
+    content,
+    type,
+    customLabel,
+    bookId,
+    topicId,
+    activityId,
+  ]);
+
+  // Back/navigation does not need a Save action. Flush the newest render once
+  // more on unmount so a very fast "type -> back" does not lose the last edit.
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (!autosaveReadyRef.current) return;
+
+      const draft = latestDraftRef.current;
+      if (!draft || draft.serialized === lastSavedPayloadRef.current) return;
+
+      autosaveQueueRef.current = autosaveQueueRef.current
+        .catch(() => undefined)
+        .then(() => entryApi.update(draft.entryId, draft.payload))
+        .then(() => {
+          lastSavedPayloadRef.current = draft.serialized;
+        })
+        .catch(() => undefined);
+    };
+  }, []);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <AeroAtmosphere variant="entries" />
         <View style={styles.centerState}>
           <ActivityIndicator color={colors.black} size="large" />
           <Text style={styles.stateCopy}>Učitavanje zapisa…</Text>
@@ -306,13 +422,14 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
   if (loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <AeroAtmosphere variant="entries" />
         <View style={styles.centerState}>
           <Text style={styles.errorMark}>!</Text>
           <Text style={styles.stateTitle}>Zapis se nije učitao</Text>
           <Text style={styles.stateCopy}>{loadError}</Text>
           <Pressable
             accessibilityRole="button"
-            onPress={() => void loadEntry()}
+            onPress={() => void (entryId ? loadEntry() : createDraft())}
             style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
           >
             <Text style={styles.retryText}>Pokušaj ponovno</Text>
@@ -324,6 +441,7 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="entries" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={90}
@@ -344,21 +462,6 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                 {editing ? 'Uredi zapis' : 'Novi zapis'}
               </Text>
 
-              {editing && entryId ? (
-                <Pressable
-                  accessibilityLabel="Share zapis"
-                  accessibilityRole="button"
-                  disabled={sharing}
-                  onPress={() => void shareEntry()}
-                  style={({ pressed }) => [
-                    styles.portableShare,
-                    pressed && styles.pressed,
-                    sharing && styles.disabled,
-                  ]}
-                >
-                  <ShareGlyph />
-                </Pressable>
-              ) : null}
             </View>
             {/* portableVisualPolishV1 */}
             <Text style={styles.intro}>
@@ -366,9 +469,22 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
             </Text>
 </View>
 
-          <View style={[styles.formCard, celestialMode && styles.celestialModule]}>
-            <Text style={styles.sectionTitle}>Vrsta zapisa</Text>
-            <View style={styles.typeGrid}>
+          <View style={[styles.vaultEditor, celestialMode && styles.vaultEditorCelestial]}>
+            <View pointerEvents="none" style={styles.vaultOrnaments}>
+              <Text style={styles.vaultStarTop}>✦</Text>
+              <Text style={styles.vaultStarSide}>⋆</Text>
+              <Text style={styles.vaultGlyph}>⌑</Text>
+            </View>
+
+            <Text style={styles.vaultKicker}>Vrsta zapisa</Text>
+            <ScrollView
+              contentContainerStyle={styles.vaultTypeRail}
+              horizontal
+              nestedScrollEnabled
+              style={styles.vaultTypeScrollerRepairR2}
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+            >
               {entryTypes.map((option) => (
                 <Pressable
                   accessibilityRole="button"
@@ -378,86 +494,149 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
                     setFieldErrors((current) => ({ ...current, type: '' }));
                   }}
                   style={({ pressed }) => [
-                    styles.typeOption,
-                    celestialMode && styles.celestialChip,
-                    type === option && styles.typeOptionActive,
+                    styles.vaultTypeChip,
+                    type === option && styles.vaultTypeChipActive,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={[styles.typeMark, type === option && styles.typeTextActive]}>
+                  <Text style={[styles.vaultTypeMark, type === option && styles.vaultTypeTextActive]}>
                     {entryTypeMarks[option]}
                   </Text>
-                  <Text style={[styles.typeText, type === option && styles.typeTextActive]}>
+                  <Text style={[styles.vaultTypeText, type === option && styles.vaultTypeTextActive]}>
                     {entryTypeLabels[option]}
                   </Text>
                 </Pressable>
               ))}
-            </View>
-            {fieldErrors.type ? <Text style={styles.fieldError}>{fieldErrors.type}</Text> : null}
+            </ScrollView>
 
-            <View style={styles.field}>
-              <View style={styles.fieldHeading}>
-                <Text style={styles.label}>Naslov</Text>
-                <Text style={styles.counter}>{title.length}/255</Text>
-              </View>
+            <View style={styles.vaultMetaRule} />
+
+            <View style={styles.vaultLabelHeading}>
+              <Text style={styles.vaultKicker}>Custom oznaka</Text>
+              <Text style={styles.vaultMetaHint}>postaje filter u Zapisima</Text>
+            </View>
+            <View style={[styles.vaultLabelInput, fieldErrors.customLabel && styles.inputError]}>
+              <Text style={styles.vaultHash}>#</Text>
               <TextInput
                 autoCapitalize="sentences"
+                maxLength={40}
+                onChangeText={(value) => {
+                  setCustomLabel(value);
+                  setSaveError(null);
+                  setFieldErrors((current) => ({ ...current, customLabel: '' }));
+                }}
+                placeholder="npr. IIT, roman, istraživanje…"
+                placeholderTextColor={colors.textMuted}
+                style={styles.vaultLabelTextInput}
+                value={customLabel}
+              />
+              {customLabel ? (
+                <Pressable
+                  accessibilityLabel="Ukloni oznaku"
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => setCustomLabel('')}
+                  style={({ pressed }) => [styles.vaultLabelClear, pressed && styles.pressed]}
+                >
+                  <Text style={styles.vaultLabelClearText}>×</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {fieldErrors.customLabel ? <Text style={styles.fieldError}>{fieldErrors.customLabel}</Text> : null}
+
+            {knownCustomLabels.length > 0 ? (
+              <ScrollView
+                contentContainerStyle={styles.vaultSuggestions}
+                horizontal
+                nestedScrollEnabled
+                style={styles.vaultSuggestionScrollerRepairR2}
+                keyboardShouldPersistTaps="handled"
+                showsHorizontalScrollIndicator={false}
+              >
+                {knownCustomLabels.map((label) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={label}
+                    onPress={() => setCustomLabel(label)}
+                    style={({ pressed }) => [
+                      styles.vaultSuggestionChip,
+                      normalizeCustomLabel(customLabel) === normalizeCustomLabel(label) && styles.vaultSuggestionChipActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.vaultSuggestionText}>✦ {label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.vaultTitleBlock}>
+              <TextInput
+                autoCapitalize="sentences"
+                maxLength={255}
+                multiline
                 onChangeText={(value) => {
                   setTitle(value);
                   setSaveError(null);
                   setFieldErrors((current) => ({ ...current, title: '' }));
                 }}
-                placeholder="Neobavezni naslov"
-                placeholderTextColor="#98989D"
-                style={[styles.input, celestialMode && styles.celestialInput, fieldErrors.title && styles.inputError]}
+                placeholder="Untitled"
+                placeholderTextColor={celestialAlpha(celestial.ivory, 0.28)}
+                style={[styles.vaultTitleInput, fieldErrors.title && styles.vaultTextError]}
                 value={title}
               />
-              {fieldErrors.title ? (
-                <Text style={styles.fieldError}>{fieldErrors.title}</Text>
-              ) : null}
+              <Text style={styles.vaultTitleCounter}>{title.length}/255</Text>
             </View>
+            {fieldErrors.title ? <Text style={styles.fieldError}>{fieldErrors.title}</Text> : null}
 
-            <View style={styles.field}>
-              <View style={styles.fieldHeading}>
-                <Text style={styles.label}>Sadržaj *</Text>
-                <Text style={styles.counter}>{content.length}/50 000</Text>
-              </View>
-              <View style={styles.composer}>
-                <View style={styles.composerHeading}>
-                  <Text style={styles.composerTitle}>Formatiranje</Text>
-                  <Text style={styles.composerHint}>Označi tekst, zatim odaberi alat.</Text>
-                </View>
-                <View style={styles.formatToolbar}>
-                  <FormatButton label="B" onPress={() => wrapSelection('**')} strong />
-                  <FormatButton label="Marker" onPress={() => wrapSelection('==')} />
-                  <FormatButton label="Link na zapis" onPress={() => wrapSelection('[[', ']]')} />
-                  <FormatButton label="Popis" onPress={() => prefixLines('- ')} />
-                  <FormatButton label="Citat" onPress={() => prefixLines('> ')} />
-                </View>
-              </View>
-              <TextInput
-                autoCapitalize="sentences"
-                ref={contentInputRef}
-                multiline
-                onChangeText={updateContent}
-                onSelectionChange={({ nativeEvent }) => setSelection(nativeEvent.selection)}
-                scrollEnabled={false}
-                placeholder={type === 'QUOTE' ? 'Upiši citat…' : 'Što želiš sačuvati?'}
-                placeholderTextColor="#98989D"
-                style={[
-                  styles.input,
-                  styles.contentInput,
-                  celestialMode && styles.celestialInput,
-                  { height: contentHeight },
-                  fieldErrors.content && styles.inputError,
-                ]}
-                textAlignVertical="top"
-                selection={selection}
-                value={content}
-              />
-              {fieldErrors.content ? (
-                <Text style={styles.fieldError}>{fieldErrors.content}</Text>
-              ) : null}
+            <View style={styles.vaultWritingRule} />
+
+            <View style={styles.vaultComposerHeading}>
+              <Text style={styles.vaultKicker}>Sadržaj</Text>
+              <Text style={styles.vaultCounter}>{content.length}/50 000</Text>
+            </View>
+            <ScrollView
+              contentContainerStyle={styles.vaultToolbar}
+              horizontal
+              nestedScrollEnabled
+              style={styles.vaultToolbarScrollerRepairR2}
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+            >
+              <FormatButton accessibilityLabel="Podebljano" label="B" onPress={() => wrapSelection('**')} strong />
+              <FormatButton accessibilityLabel="Marker" label="H" onPress={() => wrapSelection('==')} />
+              <FormatButton accessibilityLabel="Link na zapis" label="[[ ]]" onPress={() => wrapSelection('[[', ']]')} />
+              <FormatButton accessibilityLabel="Popis" label="•" onPress={() => prefixLines('- ')} />
+              <FormatButton accessibilityLabel="Citat" label="❝" onPress={() => prefixLines('> ')} />
+            </ScrollView>
+
+            <TextInput
+              autoCapitalize="sentences"
+              ref={contentInputRef}
+              maxLength={50000}
+              multiline
+              onChangeText={updateContent}
+              onSelectionChange={({ nativeEvent }) => setSelection(nativeEvent.selection)}
+              scrollEnabled={false}
+              placeholder={type === 'QUOTE' ? 'Upiši citat…' : 'Počni pisati…'}
+              placeholderTextColor={celestialAlpha(celestial.ivory, 0.30)}
+              style={[
+                styles.vaultWritingInput,
+                type === 'QUOTE' && styles.vaultQuoteInput,
+                { height: contentHeight },
+                fieldErrors.content && styles.vaultTextError,
+              ]}
+              textAlignVertical="top"
+              selection={selection}
+              value={content}
+            />
+            {fieldErrors.content ? <Text style={styles.fieldError}>{fieldErrors.content}</Text> : null}
+
+            <View pointerEvents="none" style={styles.vaultFooterOrnament}>
+              <View style={styles.vaultFooterLine} />
+              <Text style={styles.vaultFooterStar}>✦</Text>
+              <Text style={styles.vaultFooterStarSmall}>⋆</Text>
+              <View style={styles.vaultFooterLine} />
             </View>
           </View>
 
@@ -560,51 +739,369 @@ export function EntryFormScreen({ navigation, route }: EntryFormScreenProps) {
             <EntityRelationsPanel
               entityType="ENTRY"
               entityId={entryId}
-              title={title.trim() || 'Zapis'}
+              title={title.trim() || 'Untitled'}
+              // ljingleConnectedTrailsR1:entry
+              intrinsicReferences={[
+                ...(bookId
+                  ? [
+                      {
+                        entityType:
+                          'BOOK' as const,
+                        entityId: bookId,
+                        title:
+                          links.books.find(
+                            (item) =>
+                              item.id ===
+                              bookId,
+                          )?.label ||
+                          'Povezana knjiga',
+                        subtitle:
+                          'Izvor zapisa',
+                      },
+                    ]
+                  : []),
+                ...(topicId
+                  ? [
+                      {
+                        entityType:
+                          'TOPIC' as const,
+                        entityId: topicId,
+                        title:
+                          links.topics.find(
+                            (item) =>
+                              item.id ===
+                              topicId,
+                          )?.label ||
+                          'Povezana tema',
+                        subtitle:
+                          'Tema zapisa',
+                      },
+                    ]
+                  : []),
+              ]}
             />
           ) : null}
           {/* entryConnectionsCleanupV1 */}
 
 
-          {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
-<View style={styles.actions}>
-            <View style={styles.actionItem}>
-              <PrimaryButton
-                disabled={saving}
-                label="Odustani"
-                onPress={navigation.goBack}
-                variant="secondary"
-              />
-            </View>
-<View style={styles.actionItemLast}>
-              <PrimaryButton
-                label={editing ? 'Spremi promjene' : 'Spremi zapis'}
-                loading={saving}
-                onPress={() => void save()}
-              />
-            </View>
-          </View>
-        </ScrollView>
+          {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 type FormatButtonProps = {
+  accessibilityLabel: string;
   label: string;
   onPress: () => void;
   strong?: boolean;
 };
 
-function FormatButton({ label, onPress, strong = false }: FormatButtonProps) {
+function FormatButton({ accessibilityLabel, label, onPress, strong = false }: FormatButtonProps) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.formatButton, pressed && styles.pressed]}>
-      <Text style={[styles.formatButtonText, strong && styles.formatButtonStrong]}>{label}</Text>
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.vaultToolButton, pressed && styles.pressed]}
+    >
+      <Text style={[styles.vaultToolButtonText, strong && styles.vaultToolButtonStrong]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // ljingleEntryEditorAndroidLayoutRepairR2
+  // ljingleZapisiVaultR1: one calm writing surface instead of nested form boxes.
+  vaultEditor: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.38),
+    borderRadius: 24,
+    backgroundColor: celestial.night,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 22,
+    shadowColor: celestial.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.09,
+    shadowRadius: 22,
+    elevation: 3,
+  },
+  vaultEditorCelestial: {
+    borderColor: celestialAlpha(celestial.gold, 0.48),
+    backgroundColor: celestial.night,
+  },
+  vaultOrnaments: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  vaultStarTop: {
+    position: 'absolute',
+    top: 14,
+    right: 20,
+    color: celestialAlpha(celestial.gold, 0.36),
+    fontSize: 17,
+  },
+  vaultStarSide: {
+    position: 'absolute',
+    top: 118,
+    right: 10,
+    color: celestialAlpha(celestial.gold, 0.22),
+    fontSize: 22,
+  },
+  vaultGlyph: {
+    position: 'absolute',
+    bottom: 58,
+    right: 13,
+    color: celestialAlpha(celestial.gold, 0.12),
+    fontSize: 36,
+  },
+  vaultKicker: {
+    color: celestialAlpha(celestial.gold, 0.82),
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.35,
+    textTransform: 'uppercase',
+  },
+  vaultTypeScrollerRepairR2: {
+    minHeight: 56,
+    maxHeight: 56,
+  },
+  vaultTypeRail: {
+    minHeight: 56,
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingRight: 16,
+  },
+  vaultTypeChip: {
+    minHeight: 38,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.24),
+    borderRadius: 999,
+    backgroundColor: celestialAlpha(celestial.ivory, 0.035),
+    paddingHorizontal: 13,
+  },
+  vaultTypeChipActive: {
+    borderColor: celestial.gold,
+    backgroundColor: celestial.gold,
+  },
+  vaultTypeMark: {
+    marginRight: 6,
+    color: celestial.gold,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  vaultTypeText: {
+    color: celestialAlpha(celestial.ivory, 0.76),
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  vaultTypeTextActive: {
+    color: celestial.night,
+  },
+  vaultMetaRule: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: 18,
+    marginBottom: 17,
+    backgroundColor: celestialAlpha(celestial.gold, 0.18),
+  },
+  vaultLabelHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  vaultMetaHint: {
+    color: celestialAlpha(celestial.ivory, 0.40),
+    fontSize: 10,
+  },
+  vaultLabelInput: {
+    minHeight: 43,
+    marginTop: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.22),
+    borderRadius: 14,
+    backgroundColor: celestialAlpha(celestial.ivory, 0.04),
+    paddingLeft: 13,
+    paddingRight: 7,
+  },
+  vaultHash: {
+    color: celestial.gold,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  vaultLabelTextInput: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    color: celestial.ivory,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  vaultLabelClear: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: celestialAlpha(celestial.ivory, 0.07),
+  },
+  vaultLabelClearText: {
+    color: celestialAlpha(celestial.ivory, 0.72),
+    fontSize: 19,
+    lineHeight: 21,
+  },
+  vaultSuggestionScrollerRepairR2: {
+    minHeight: 44,
+    maxHeight: 44,
+  },
+  vaultSuggestions: {
+    minHeight: 44,
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 6,
+    paddingRight: 14,
+  },
+  vaultSuggestionChip: {
+    marginRight: 7,
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.17),
+    borderRadius: 999,
+    backgroundColor: celestialAlpha(celestial.ivory, 0.025),
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  vaultSuggestionChipActive: {
+    borderColor: celestialAlpha(celestial.gold, 0.62),
+    backgroundColor: celestialAlpha(celestial.gold, 0.09),
+  },
+  vaultSuggestionText: {
+    color: celestialAlpha(celestial.ivory, 0.58),
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  vaultTitleBlock: {
+    position: 'relative',
+    marginTop: 26,
+  },
+  vaultTitleInput: {
+    minHeight: 52,
+    padding: 0,
+    paddingRight: 58,
+    color: celestial.ivory,
+    fontSize: 29,
+    fontWeight: '800',
+    letterSpacing: -0.75,
+    lineHeight: 35,
+  },
+  vaultTitleCounter: {
+    position: 'absolute',
+    right: 0,
+    bottom: 5,
+    color: celestialAlpha(celestial.ivory, 0.30),
+    fontSize: 9,
+  },
+  vaultWritingRule: {
+    height: 1,
+    marginTop: 13,
+    marginBottom: 14,
+    backgroundColor: celestialAlpha(celestial.gold, 0.42),
+  },
+  vaultComposerHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  vaultCounter: {
+    color: celestialAlpha(celestial.ivory, 0.32),
+    fontSize: 9,
+  },
+  vaultToolbarScrollerRepairR2: {
+    minHeight: 52,
+    maxHeight: 52,
+  },
+  vaultToolbar: {
+    minHeight: 52,
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingRight: 14,
+    paddingBottom: 8,
+  },
+  vaultToolButton: {
+    minWidth: 38,
+    height: 34,
+    marginRight: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.20),
+    borderRadius: 11,
+    backgroundColor: celestialAlpha(celestial.ivory, 0.035),
+    paddingHorizontal: 10,
+  },
+  vaultToolButtonText: {
+    color: celestialAlpha(celestial.ivory, 0.74),
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  vaultToolButtonStrong: {
+    color: celestial.gold,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  vaultWritingInput: {
+    minHeight: 190,
+    width: '100%',
+    paddingHorizontal: 2,
+    paddingTop: 10,
+    paddingBottom: 18,
+    color: celestial.ivory,
+    fontSize: 18,
+    lineHeight: 29,
+  },
+  vaultQuoteInput: {
+    borderLeftWidth: 2,
+    borderLeftColor: celestial.gold,
+    paddingLeft: 14,
+    color: celestial.gold,
+    fontStyle: 'italic',
+    fontSize: 19,
+    lineHeight: 31,
+  },
+  vaultTextError: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.danger,
+  },
+  vaultFooterOrnament: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  vaultFooterLine: {
+    width: 42,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: celestialAlpha(celestial.gold, 0.28),
+  },
+  vaultFooterStar: {
+    marginLeft: 8,
+    color: celestial.gold,
+    fontSize: 12,
+  },
+  vaultFooterStarSmall: {
+    marginHorizontal: 6,
+    color: celestialAlpha(celestial.gold, 0.58),
+    fontSize: 11,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -616,12 +1113,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 860,
     alignSelf: 'center',
-    paddingHorizontal: 28,
-    paddingTop: 42,
+    paddingHorizontal: 14,
+    paddingTop: 20,
     paddingBottom: 64,
   },
   hero: {
-    marginBottom: 30,
+    marginBottom: 18,
+    paddingHorizontal: 4,
   },
   eyebrow: {
     color: colors.textMuted,
@@ -1014,7 +1512,7 @@ const styles = StyleSheet.create({
   celestialHero: {
     position: 'relative',
     overflow: 'hidden',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
     borderBottomColor: celestialAlpha(celestial.gold, 0.28),
   },
   celestialModule: {

@@ -2,12 +2,14 @@
 import { Animated } from 'react-native';
 import type { ImageStyle, StyleProp } from 'react-native';
 
+import { colors } from '../theme/colors';
 import { jingleSwing, semanticSpring } from '../utils/semanticMotion';
 import { useReducedMotion } from '../utils/useReducedMotion';
 
 type Props = {
   active: boolean;
   inactiveOpacity?: number;
+  color?: string;
   style?: StyleProp<ImageStyle>;
 };
 
@@ -15,6 +17,7 @@ type Props = {
 export function JingleBellIcon({
   active,
   inactiveOpacity = 0.5,
+  color = colors.navy,
   style,
 }: Props) {
   const reducedMotion = useReducedMotion();
@@ -61,6 +64,9 @@ export function JingleBellIcon({
       style={[
         style,
         {
+          // jingleAccentMaskR1
+          // fav.png alpha = mask; semantic theme token = visible color.
+          tintColor: color,
           opacity: active ? 1 : inactiveOpacity,
           transform: [{ rotate }, { scale }],
         },

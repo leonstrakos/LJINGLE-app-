@@ -1,3 +1,4 @@
+// ljingleContrastTargetedR3
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
@@ -6,7 +7,8 @@ import type { TopicResponse } from '../types/topic';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+const aeroMode = activeVisualSkinId === 'aero';
 
 type Props = {
   topic: TopicResponse;
@@ -25,9 +27,9 @@ export function TopicCard({ topic, onPress }: Props) {
       accessibilityRole="button"
       accessibilityLabel={`Otvori temu ${topic.name}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, celestialMode && styles.celestialCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, aeroMode && styles.aeroCard, celestialMode && styles.celestialCard, pressed && styles.pressed]}
     >
-      <View style={[styles.monogram, celestialMode && styles.celestialMonogram]}>
+      <View style={[styles.monogram, aeroMode && styles.aeroMonogram, celestialMode && styles.celestialMonogram]}>
         <Text style={[styles.monogramText, celestialMode && styles.celestialMonogramText]}>{topic.name.trim().charAt(0).toUpperCase()}</Text>
       </View>
 
@@ -71,7 +73,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   monogramText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 27,
     fontWeight: '800',
   },
@@ -105,6 +107,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '300',
   },
+  aeroCard: {
+    borderColor: 'rgba(255,255,255,0.94)',
+    shadowColor: colors.navySoft,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  aeroMonogram: {
+    backgroundColor: colors.navySoft,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.92)',
+  },
   celestialCard: {
     backgroundColor: celestial.night,
     borderColor: celestialAlpha(celestial.gold, 0.42),
@@ -119,7 +134,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: celestialAlpha(celestial.gold, 0.55),
   },
-  celestialMonogramText: { color: celestial.gold },
+  celestialMonogramText: { color: celestial.accentText },
   celestialName: { color: celestial.ivory },
   celestialMuted: { color: celestialAlpha(celestial.ivory, 0.62) },
   celestialCount: { color: celestial.gold, letterSpacing: 0.8 },

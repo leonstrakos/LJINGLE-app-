@@ -2,8 +2,9 @@ import { Platform } from 'react-native';
 import { getDatabaseConnection } from '../storage/databaseConnection';
 
 const STORAGE_KEY = 'tracking_app_visual_skin';
+// FRUTIGER_AERO_MAX_UI_V2
 
-export type VisualSkinId = 'classic' | 'pixel' | 'aero';
+export type VisualSkinId = 'classic' | 'classic-ljingle' | 'pixel' | 'aero';
 
 export type VisualSkinDefinition = {
   id: VisualSkinId;
@@ -28,6 +29,15 @@ export const visualSkins: VisualSkinDefinition[] = [
     specimen: '✦  ✧  ⋆',
     tokens: { radius: 'current', typography: 'current', shadow: 'soft', decoration: 'dither' },
   },
+  // ljingleThemeSplitCelestialClassicR1
+  {
+    id: 'classic-ljingle',
+    name: 'LJingle Classic',
+    shortName: 'CLASSIC',
+    description: 'Izvorni LJINGLE raspored: Katalog, Timer, Radio, Teme, Zapisi i Profil.',
+    specimen: '●  LJINGLE',
+    tokens: { radius: 'current', typography: 'current', shadow: 'soft', decoration: 'none' },
+  },
   {
     id: 'pixel',
     name: 'Pixel Mono',
@@ -38,16 +48,16 @@ export const visualSkins: VisualSkinDefinition[] = [
   },
   {
     id: 'aero',
-    name: 'Frutiger Aero',
-    shortName: 'AERO',
-    description: 'Nebo, voda, staklo, sjaj i optimistični digitalni svijet.',
-    specimen: '◉  BLUE_SKY',
+    name: 'Frutiger Aero MAX',
+    shortName: 'AERO MAX',
+    description: 'Nebo, voda, staklo, mjehurići, zelena brda i glossy 2000s optimizam kroz cijeli LJingle.',
+    specimen: '◉  ☁  ◌  BLUE_SKY',
     tokens: { radius: 'bubble', typography: 'aero', shadow: 'glass', decoration: 'sky' },
   },
 ];
 
 function isVisualSkin(value: unknown): value is VisualSkinId {
-  return value === 'classic' || value === 'pixel' || value === 'aero';
+  return value === 'classic' || value === 'classic-ljingle' || value === 'pixel' || value === 'aero';
 }
 
 function database() {

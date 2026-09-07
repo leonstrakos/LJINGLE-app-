@@ -389,13 +389,13 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 5,
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 18,
     fontWeight: '900',
   },
   time: {
     marginTop: 7,
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 31,
     fontWeight: '300',
     fontVariant: ['tabular-nums'],
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   doneText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 12,
     fontWeight: '800',
   },

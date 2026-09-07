@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { FeedbackView } from '../components/FeedbackView';
 import { bookApi } from '../services/bookApi';
@@ -80,6 +81,7 @@ export function BookStatsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="books" />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -210,7 +212,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   metricValueDark: {
-    color: colors.white,
+    color: colors.onAccent,
   },
   metricLabel: {
     color: colors.textMuted,

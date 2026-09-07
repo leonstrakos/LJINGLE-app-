@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { historyApi } from '../services/historyApi';
 import { getSessionNotes } from '../services/sessionNotes';
@@ -21,7 +22,7 @@ import { activeVisualSkinId } from '../theme/visualSkins';
 // Classic-only celestial archive skin.
 // IMPORTANT: celestial *language* is fixed, but its palette stays driven by
 // ThemePicker semantic colors. Pixel + Aero (Meadow/Frutiger) stay untouched.
-const n4Celestial = activeVisualSkinId === 'classic';
+const n4Celestial = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const N4_NIGHT = colors.background;
 const N4_PANEL = colors.surface;
 const N4_PANEL_RAISED = colors.fillStrong;
@@ -608,6 +609,7 @@ export function HistoryScreen() {
   if (loading && sessions.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="history" />
         <View style={styles.centerState}>
           <ActivityIndicator color={colors.black} size="large" />
           <Text style={styles.stateCopy}>Slažemo tvoju vremensku crtu…</Text>
@@ -619,6 +621,7 @@ export function HistoryScreen() {
   if (error && sessions.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="history" />
         <View style={styles.centerState}>
           <Text style={styles.errorMark}>!</Text>
           <Text style={styles.stateTitle}>Povijest se nije učitala</Text>
@@ -637,6 +640,7 @@ export function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <AeroAtmosphere variant="history" />
       <N4HistoryDust />
       <FlatList
         data={rows}

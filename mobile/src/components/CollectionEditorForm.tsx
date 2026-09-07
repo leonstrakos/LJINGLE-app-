@@ -84,7 +84,7 @@ export function CollectionEditorForm({
         ]}
       >
         {saving ? (
-          <ActivityIndicator color={colors.white} />
+          <ActivityIndicator color={colors.onAccent} />
         ) : (
           <Text style={styles.saveText}>{submitLabel}</Text>
         )}
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   saveText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 15,
     fontWeight: '900',
   },

@@ -53,10 +53,10 @@ export function ReadingTimerCard({ timer, loading, errorMessage, onToggle }: Pro
     <View style={[styles.card, timer.running && styles.runningCard]}>
       <View style={styles.headingRow}>
         <View style={styles.headingText}>
-          <Text style={[styles.eyebrow, timer.running && styles.runningMuted]}>
+          <Text style={styles.eyebrow}>
             Vrijeme čitanja
           </Text>
-          <Text style={[styles.title, timer.running && styles.runningText]} numberOfLines={2}>
+          <Text style={styles.title} numberOfLines={2}>
             {timer.label}
           </Text>
         </View>
@@ -65,12 +65,12 @@ export function ReadingTimerCard({ timer, loading, errorMessage, onToggle }: Pro
 
       <Text
         accessibilityLabel={`Ukupno praćeno vrijeme ${formatDuration(total)}`}
-        style={[styles.time, timer.running && styles.runningText]}
+        style={styles.time}
       >
         {formatDuration(total)}
       </Text>
 
-      <Text style={[styles.status, timer.running && styles.runningMuted]}>
+      <Text style={styles.status}>
         {timer.running
           ? 'Sesija je aktivna i nastavlja se i kada zatvoriš aplikaciju.'
           : timer.activityId
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   runningCard: {
-    backgroundColor: colors.black,
+    backgroundColor: colors.surface,
     borderColor: colors.black,
   },
   headingRow: {
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.separator,
   },
   activeDot: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.black,
   },
   time: {
     color: colors.text,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   runningText: {
-    color: colors.white,
+    color: colors.onAccent,
   },
   runningMuted: {
     color: '#AEAEB2',

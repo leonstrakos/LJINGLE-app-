@@ -22,6 +22,11 @@ export type ContextSignal = {
   collectionAt: string | null;
   collections: string[];
   relatedTopics: string[];
+  // ljingleSearchSnippetsBrainContextR2:spine
+  relatedBooks: string[];
+  readerSources: string[];
+  // ljingleBrainRelationalCurrentContextR2:spine
+  linkedKeys: string[];
   aliases: string[];
 };
 
@@ -103,6 +108,9 @@ function empty(kind: ContextEntityKind, id: string): ContextSignal {
     collectionAt: null,
     collections: [],
     relatedTopics: [],
+    relatedBooks: [],
+    readerSources: [],
+    linkedKeys: [],
     aliases: [],
   };
 }
@@ -363,6 +371,439 @@ export async function loadContextSpine(force = false) {
     }
   }
 
+
+  // ljingleSearchSnippetsBrainContextR2:book-reader-context
+  if (
+    (await tableExists(database, 'entries')) &&
+    (await tableExists(database, 'books'))
+  ) {
+    const rows = await database
+      .getAllAsync<Row>(
+        `SELECT
+           e.entry_id AS entity_id,
+           b.title AS book_title,
+           b.author AS book_author
+         FROM entries e
+         JOIN books b ON b.book_id=e.book_id
+         WHERE e.book_id IS NOT NULL`,
+      )
+      .catch(() => []);
+
+    for (const row of rows) {
+      const id = String(row.entity_id ?? '');
+      if (!id) continue;
+
+      const key = 'ENTRY:' + id;
+      const signal =
+        map.get(key) ?? empty('ENTRY', id);
+
+      pushUnique(
+        signal.relatedBooks,
+        [
+          row.book_title,
+          row.book_author,
+        ]
+          .filter(Boolean)
+          .map(String)
+          .join(' · '),
+      );
+
+      map.set(key, signal);
+    }
+  }
+
+  if (
+    (await tableExists(database, 'entity_links')) &&
+    (await tableExists(database, 'books'))
+  ) {
+    const rows = await database
+      .getAllAsync<Row>(
+        `SELECT
+           el.source_type AS entity_type,
+           el.source_id AS entity_id,
+           b.title AS book_title,
+           b.author AS book_author
+         FROM entity_links el
+         JOIN books b
+           ON el.target_type='BOOK'
+          AND b.book_id=el.target_id
+
+         UNION ALL
+
+         SELECT
+           el.target_type AS entity_type,
+           el.target_id AS entity_id,
+           b.title AS book_title,
+           b.author AS book_author
+         FROM entity_links el
+         JOIN books b
+           ON el.source_type='BOOK'
+          AND b.book_id=el.source_id`,
+      )
+      .catch(() => []);
+
+    for (const row of rows) {
+      const kind =
+        String(
+          row.entity_type ?? '',
+        ) as ContextEntityKind;
+
+      const id =
+        String(row.entity_id ?? '');
+
+      if (
+        !id ||
+        ![
+          'BOOK',
+          'MEDIA',
+          'GAME',
+          'TOPIC',
+          'ENTRY',
+          'FREQUENCY',
+        ].includes(kind)
+      ) {
+        continue;
+      }
+
+      const key = kind + ':' + id;
+      const signal =
+        map.get(key) ?? empty(kind, id);
+
+      pushUnique(
+        signal.relatedBooks,
+        [
+          row.book_title,
+          row.book_author,
+        ]
+          .filter(Boolean)
+          .map(String)
+          .join(' · '),
+      );
+
+      map.set(key, signal);
+    }
+  }
+
+  if (
+    (await tableExists(database, 'reader_entry_anchors')) &&
+    (await tableExists(database, 'books'))
+  ) {
+    const rows = await database
+      .getAllAsync<Row>(
+        `SELECT
+           a.entry_id AS entity_id,
+           a.page,
+           b.title AS book_title,
+           b.author AS book_author
+         FROM reader_entry_anchors a
+         JOIN books b ON b.book_id=a.book_id`,
+      )
+      .catch(() => []);
+
+    for (const row of rows) {
+      const id =
+        String(row.entity_id ?? '');
+
+      if (!id) continue;
+
+      const key = 'ENTRY:' + id;
+      const signal =
+        map.get(key) ?? empty('ENTRY', id);
+
+      const bookLabel =
+        [
+          row.book_title,
+          row.book_author,
+        ]
+          .filter(Boolean)
+          .map(String)
+          .join(' · ');
+
+      pushUnique(
+        signal.relatedBooks,
+        bookLabel,
+      );
+
+      const page = Number(row.page);
+
+      pushUnique(
+        signal.readerSources,
+        [
+          bookLabel,
+          Number.isFinite(page) && page > 0
+            ? 'str. ' + page
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      );
+
+      map.set(key, signal);
+    }
+  }
+
+
+  // ljingleBrainRelationalCurrentContextR2:links
+  if (
+    await tableExists(
+      database,
+      'entity_links',
+    )
+  ) {
+    const rows =
+      await database
+        .getAllAsync<Row>(
+          `SELECT
+             source_type,
+             source_id,
+             target_type,
+             target_id
+           FROM entity_links`,
+        )
+        .catch(() => []);
+
+    for (const row of rows) {
+      const sourceKind =
+        String(
+          row.source_type ?? '',
+        ) as ContextEntityKind;
+      const targetKind =
+        String(
+          row.target_type ?? '',
+        ) as ContextEntityKind;
+
+      const sourceId =
+        String(
+          row.source_id ?? '',
+        );
+      const targetId =
+        String(
+          row.target_id ?? '',
+        );
+
+      if (
+        !sourceId ||
+        !targetId
+      ) {
+        continue;
+      }
+
+      const sourceKey =
+        sourceKind +
+        ':' +
+        sourceId;
+      const targetKey =
+        targetKind +
+        ':' +
+        targetId;
+
+      const sourceSignal =
+        map.get(sourceKey) ??
+        empty(
+          sourceKind,
+          sourceId,
+        );
+
+      const targetSignal =
+        map.get(targetKey) ??
+        empty(
+          targetKind,
+          targetId,
+        );
+
+      pushUnique(
+        sourceSignal.linkedKeys,
+        targetKey,
+      );
+
+      pushUnique(
+        targetSignal.linkedKeys,
+        sourceKey,
+      );
+
+      map.set(
+        sourceKey,
+        sourceSignal,
+      );
+
+      map.set(
+        targetKey,
+        targetSignal,
+      );
+    }
+  }
+
+  if (
+    await tableExists(
+      database,
+      'entries',
+    )
+  ) {
+    const rows =
+      await database
+        .getAllAsync<Row>(
+          `SELECT
+             entry_id,
+             book_id,
+             topic_id
+           FROM entries
+           WHERE
+             book_id IS NOT NULL
+             OR topic_id IS NOT NULL`,
+        )
+        .catch(() => []);
+
+    for (const row of rows) {
+      const entryId =
+        String(
+          row.entry_id ?? '',
+        );
+
+      if (!entryId) continue;
+
+      const entryKey =
+        'ENTRY:' +
+        entryId;
+
+      const entrySignal =
+        map.get(entryKey) ??
+        empty(
+          'ENTRY',
+          entryId,
+        );
+
+      const bookId =
+        String(
+          row.book_id ?? '',
+        );
+
+      if (bookId) {
+        const bookKey =
+          'BOOK:' + bookId;
+
+        pushUnique(
+          entrySignal.linkedKeys,
+          bookKey,
+        );
+
+        const bookSignal =
+          map.get(bookKey) ??
+          empty(
+            'BOOK',
+            bookId,
+          );
+
+        pushUnique(
+          bookSignal.linkedKeys,
+          entryKey,
+        );
+
+        map.set(
+          bookKey,
+          bookSignal,
+        );
+      }
+
+      const topicId =
+        String(
+          row.topic_id ?? '',
+        );
+
+      if (topicId) {
+        const topicKey =
+          'TOPIC:' +
+          topicId;
+
+        pushUnique(
+          entrySignal.linkedKeys,
+          topicKey,
+        );
+
+        const topicSignal =
+          map.get(topicKey) ??
+          empty(
+            'TOPIC',
+            topicId,
+          );
+
+        pushUnique(
+          topicSignal.linkedKeys,
+          entryKey,
+        );
+
+        map.set(
+          topicKey,
+          topicSignal,
+        );
+      }
+
+      map.set(
+        entryKey,
+        entrySignal,
+      );
+    }
+  }
+
+  if (
+    await tableExists(
+      database,
+      'collection_items',
+    )
+  ) {
+    const rows =
+      await database
+        .getAllAsync<Row>(
+          `SELECT
+             collection_id,
+             entity_type,
+             entity_id
+           FROM collection_items`,
+        )
+        .catch(() => []);
+
+    for (const row of rows) {
+      const kind =
+        String(
+          row.entity_type ?? '',
+        ) as ContextEntityKind;
+
+      const id =
+        String(
+          row.entity_id ?? '',
+        );
+
+      const collectionId =
+        String(
+          row.collection_id ?? '',
+        );
+
+      if (
+        !id ||
+        !collectionId
+      ) {
+        continue;
+      }
+
+      const key =
+        kind + ':' + id;
+
+      const signal =
+        map.get(key) ??
+        empty(kind, id);
+
+      pushUnique(
+        signal.linkedKeys,
+        'COLLECTION:' +
+          collectionId,
+      );
+
+      map.set(
+        key,
+        signal,
+      );
+    }
+  }
+
   for (const signal of map.values()) {
     signal.aliases = getContextAliases(signal.key);
   }
@@ -418,6 +859,48 @@ function rankOne(query: string, signal: ContextSignal): ContextRank {
     if (value > score) {
       score = value;
       reasons.splice(0, reasons.length, 'Ranije potvrđen naziv');
+    }
+  }
+
+  for (const readerSource of signal.readerSources) {
+    const value =
+      phraseScore(query, readerSource);
+
+    if (value > 0) {
+      const adjusted =
+        Math.min(0.97, value + 0.24);
+
+      if (adjusted > score) {
+        score = adjusted;
+        reasons.splice(
+          0,
+          reasons.length,
+          'Iz čitanja “' +
+            readerSource +
+            '”',
+        );
+      }
+    }
+  }
+
+  for (const relatedBook of signal.relatedBooks) {
+    const value =
+      phraseScore(query, relatedBook);
+
+    if (value > 0) {
+      const adjusted =
+        Math.min(0.94, value + 0.18);
+
+      if (adjusted > score) {
+        score = adjusted;
+        reasons.splice(
+          0,
+          reasons.length,
+          'Povezano s knjigom “' +
+            relatedBook +
+            '”',
+        );
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { CatalogueCoverDisplay, CatalogueCoverOverrideControls } from '../components/CatalogueCoverOverride';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
@@ -30,6 +31,7 @@ import {
   mediaEnjoymentLabels,
   mediaTypeLabels,
   watchStatusLabels,
+  watchStatuses,
   type MediaResponse,
   type MediaTimerResponse,
 } from '../types/media';
@@ -38,13 +40,15 @@ import type { SeriesProgress } from '../types/series';
 import { deletedFeedback } from '../utils/crudFeedback';
 import { TimerMotionView } from '../components/TimerMotionView';
 import { semanticFeedback } from '../utils/semanticFeedback';
+import { triggerCompletionCelebration } from '../services/completionCelebration';
+// completionCelebrationR1:media-details
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 import { JingleBellIcon } from '../components/JingleBellIcon';
 
 type Props = NativeStackScreenProps<MediaStackParamList, 'MediaDetails'>;
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 export function MediaDetailsScreen({ route, navigation }: Props) {
   const { mediaId } = route.params;
@@ -58,6 +62,7 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [jingleBusy, setJingleBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false); // catalogueFinalPolishV1
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,6 +113,36 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
       setTimerError(caught instanceof Error ? caught.message : 'Promjena timera nije uspjela.');
     } finally {
       setTimerLoading(false);
+    }
+  };
+
+  const cycleWatchStatus = async () => {
+    if (!item || statusBusy) return;
+    const index = watchStatuses.indexOf(item.watchStatus);
+    const nextStatus = watchStatuses[(index + 1) % watchStatuses.length] ?? watchStatuses[0]!;
+    setStatusBusy(true);
+    setError(null);
+    try {
+      const { mediaId: _mediaId, ...payload } = item;
+      const updated = await mediaApi.update(item.mediaId, {
+        ...payload,
+        watchStatus: nextStatus,
+        progress: item.mediaType === 'MOVIE' ? (nextStatus === 'COMPLETED' ? 100 : 0) : item.progress,
+      });
+      setItem(updated);
+      if (
+        item.watchStatus !== 'COMPLETED' &&
+        nextStatus === 'COMPLETED'
+      ) {
+        triggerCompletionCelebration({
+          kind: item.mediaType === 'SERIES' ? 'SERIES' : 'MOVIE',
+          title: item.title,
+        });
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Status nije spremljen.');
+    } finally {
+      setStatusBusy(false);
     }
   };
 
@@ -186,6 +221,7 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="media" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.hero, celestialMode && styles.celestialHero]}>
           {celestialMode ? <CelestialAtmosphere variant="media" /> : null}
@@ -202,6 +238,7 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
             <MediaPoster
               title={item.title}
               posterPath={item.posterPath}
+              cacheKey={item.posterPath ? 'tmdb:poster:' + item.posterPath : null}
               width={156}
               height={234}
             />
@@ -210,29 +247,38 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
             <Text style={styles.type}>{mediaTypeLabels[item.mediaType]}</Text>
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.year}>{item.releaseYear ?? 'Godina nije poznata'}</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{watchStatusLabels[item.watchStatus]}</Text>
+            {/* finalPrebuildUiV1: bell stays beside the status tag. */}
+            <View style={styles.heroStatusRowFinalV1}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Promijeni status gledanja"
+                disabled={statusBusy}
+                onPress={() => void cycleWatchStatus()}
+                style={[styles.badge, statusBusy && { opacity: 0.55 }]}
+              >
+                <Text style={styles.badgeText}>{watchStatusLabels[item.watchStatus]}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  item.favourite
+                    ? 'Makni iz Jingle'
+                    : 'Dodaj u Jingle'
+                }
+                disabled={jingleBusy}
+                hitSlop={10}
+                onPress={() =>
+                  void toggleJingle()
+                }
+                style={styles.heroJingleButton}
+              >
+                <JingleBellIcon
+                  active={item.favourite}
+                  inactiveOpacity={0.28}
+                  style={styles.heroJingle}
+                />
+              </Pressable>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                item.favourite
-                  ? 'Makni iz Jingle'
-                  : 'Dodaj u Jingle'
-              }
-              disabled={jingleBusy}
-              hitSlop={10}
-              onPress={() =>
-                void toggleJingle()
-              }
-              style={styles.heroJingleButton}
-            >
-              <JingleBellIcon
-                active={item.favourite}
-                inactiveOpacity={0.28}
-                style={styles.heroJingle}
-              />
-            </Pressable>
           </View>
         </View>
 <CatalogueCoverOverrideControls
@@ -297,7 +343,6 @@ export function MediaDetailsScreen({ route, navigation }: Props) {
           <DetailRow label="Dojam" value={item.enjoyment ? mediaEnjoymentLabels[item.enjoyment] : 'Nije ocijenjeno'} />
           <DetailRow label="Početak gledanja" value={item.startedOn ?? 'Nije zabilježeno'} />
           <DetailRow label="Završetak gledanja" value={item.completedOn ?? 'Nije zabilježeno'} />
-          <DetailRow label="Online izvor" value={item.tmdbId ? String(item.tmdbId) : 'Ručni unos'} />
         </View>
 
         <View style={styles.actions}>
@@ -351,17 +396,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   title: { color: colors.text, fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 6 },
-  year: { color: colors.textMuted, fontSize: 14, marginTop: 8 },
-  badge: { alignSelf: 'flex-start', marginTop: 14, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.fillStrong },
+  year: { color: colors.onAccent, fontSize: 14, marginTop: 8 },
+  heroStatusRowFinalV1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  badge: { alignSelf: 'flex-start', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.fillStrong },
   badgeText: { color: colors.text, fontSize: 12, fontWeight: '800' },
   // // catalogueJingleProgressSemanticsV1:MediaJingle
   heroJingleButton: {
-    alignSelf: 'flex-start',
-    marginTop: 10,
+    alignSelf: 'center',
   },
   heroJingle: {
-    width: 32,
-    height: 39,
+    width: 44,
+    height: 53,
   },
   progressCard: { marginTop: 20, padding: 17, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -395,3 +446,7 @@ const styles = StyleSheet.create({
 });
 
 // catalogueJingleProgressSemanticsV1
+
+// ljingleCoverAssetsMobileR2
+
+// ljingleCompletionSealRemovalFilterSpacingR2:MediaDetails

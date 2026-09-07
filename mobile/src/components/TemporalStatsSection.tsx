@@ -35,7 +35,7 @@ const pixelMode =
 
 // forkN4CelestialArchiveVisualV12
 // ThemePicker-driven Classic celestial palette.
-const n4Celestial = activeVisualSkinId === 'classic';
+const n4Celestial = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const N4_NIGHT = colors.background;
 const N4_PANEL = colors.surface;
 const N4_PANEL_RAISED = colors.fillStrong;
@@ -47,6 +47,21 @@ const N4_MUTED = colors.textMuted;
 
 const aeroMode =
   activeVisualSkinId === 'aero';
+// ljingleMorningFixesV1:aeroProfileCompanion
+const AERO_TEXT = temporalAeroMeadow ? '#31453C' : '#06366C';
+const AERO_MUTED = temporalAeroMeadow ? '#5E7167' : '#087D99';
+const AERO_SURFACE = temporalAeroMeadow
+  ? 'rgba(238,240,240,0.58)'
+  : 'rgba(255,255,255,0.76)';
+const AERO_FILL = temporalAeroMeadow
+  ? 'rgba(218,222,223,0.64)'
+  : 'rgba(230,248,253,0.76)';
+const AERO_FILL_STRONG = temporalAeroMeadow
+  ? 'rgba(205,211,211,0.70)'
+  : 'rgba(215,243,251,0.82)';
+const AERO_LINE = temporalAeroMeadow
+  ? 'rgba(255,255,255,0.84)'
+  : 'rgba(4,104,151,0.22)';
 
 function formatTime(
   seconds: number
@@ -441,25 +456,24 @@ const styles =
           ? 2
           : 1,
       borderColor:
-        n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
+        aeroMode ? AERO_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
       backgroundColor:
-        n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
+        aeroMode ? AERO_SURFACE : n4Celestial ? N4_PANEL : colors.surface,
     },
 
+    // mediaStickyAeroProfileFixV1:temporal
     aeroGlass: {
-      backgroundColor:
-        celestialAlpha(celestial.ivory, 0.72),
-      borderColor:
-        celestialAlpha(celestial.ivory, 0.96),
+      backgroundColor: AERO_SURFACE,
+      borderColor: AERO_LINE,
       shadowColor:
-        (temporalAeroMeadow ? '#5E7167' : '#087D99'),
+        (temporalAeroMeadow ? 'transparent' : '#087D99'),
       shadowOffset: {
         width: 0,
         height: 8,
       },
-      shadowOpacity: temporalAeroMeadow ? 0 : 0.12,
+      shadowOpacity: temporalAeroMeadow ? 0 : 0.10,
       shadowRadius: 18,
-      elevation: temporalAeroMeadow ? 0 : 3,
+      elevation: temporalAeroMeadow ? 0 : 2,
     },
 
     eyebrow: {
@@ -494,7 +508,7 @@ const styles =
 
     copy: {
       marginTop: 6,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 12,
       lineHeight: 18,
     },
@@ -514,7 +528,7 @@ const styles =
           ? 0
           : 16,
       backgroundColor:
-        n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
+        aeroMode ? AERO_FILL_STRONG : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
     },
 
     arrowColumn: {
@@ -524,13 +538,13 @@ const styles =
     },
 
     arrow: {
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 22,
       fontWeight: '700',
     },
 
     periodTitle: {
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 0.7,
@@ -538,14 +552,14 @@ const styles =
 
     periodTotal: {
       marginTop: 4,
-      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
+      color: aeroMode ? AERO_TEXT : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 18,
       fontWeight: '900',
     },
 
     empty: {
       marginTop: 12,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       lineHeight: 16,
     },
@@ -565,13 +579,13 @@ const styles =
     categoryLabel: {
       flex: 1,
       minWidth: 0,
-      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
+      color: aeroMode ? AERO_TEXT : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 11,
       fontWeight: '700',
     },
 
     categoryShare: {
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 10,
       fontWeight: '800',
     },
@@ -583,12 +597,12 @@ const styles =
       overflow: 'hidden',
       borderRadius: 999,
       backgroundColor:
-        n4Celestial ? N4_PANEL : n4Celestial ? N4_PANEL : colors.surface,
+        aeroMode ? AERO_SURFACE : n4Celestial ? N4_PANEL : colors.surface,
     },
 
     fill: {
       backgroundColor:
-        n4Celestial ? N4_GOLD : n4Celestial ? N4_GOLD : colors.black,
+        aeroMode ? AERO_TEXT : n4Celestial ? N4_GOLD : colors.black,
     },
 
     mover: {
@@ -601,11 +615,11 @@ const styles =
           : 14,
       borderWidth: 1,
       borderColor:
-        n4Celestial ? N4_GOLD_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
+        aeroMode ? AERO_LINE : n4Celestial ? N4_GOLD_LINE : colors.separator,
     },
 
     moverLabel: {
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 0.8,
@@ -613,14 +627,14 @@ const styles =
 
     moverValue: {
       marginTop: 4,
-      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
+      color: aeroMode ? AERO_TEXT : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 16,
       fontWeight: '900',
     },
 
     moverMeta: {
       marginTop: 2,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
     },
 
@@ -632,11 +646,11 @@ const styles =
           ? 0
           : 14,
       backgroundColor:
-        n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
+        aeroMode ? AERO_FILL_STRONG : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
     },
 
     baselineText: {
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       lineHeight: 17,
     },
@@ -651,7 +665,7 @@ const styles =
 
     itemsEyebrow: {
       marginTop: 15,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 0.8,
@@ -669,7 +683,7 @@ const styles =
     },
 
     definingTitle: {
-      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
+      color: aeroMode ? AERO_TEXT : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 13,
       fontWeight: '900',
     },
@@ -682,7 +696,7 @@ const styles =
 
     itemNumber: {
       width: 23,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
       fontWeight: '900',
     },
@@ -693,27 +707,27 @@ const styles =
     },
 
     itemTitle: {
-      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
+      color: aeroMode ? AERO_TEXT : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 11,
       fontWeight: '700',
     },
 
     itemTime: {
       marginTop: 1,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 9,
     },
 
     emptyAll: {
       marginTop: 16,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       lineHeight: 17,
     },
 
     loadingText: {
       marginTop: 8,
-      color: n4Celestial ? N4_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
+      color: aeroMode ? AERO_MUTED : n4Celestial ? N4_MUTED : colors.textMuted,
       fontSize: 11,
       textAlign: 'center',
     },
@@ -728,11 +742,11 @@ const styles =
           ? 0
           : 12,
       backgroundColor:
-        n4Celestial ? N4_PANEL_RAISED : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
+        aeroMode ? AERO_FILL_STRONG : n4Celestial ? N4_PANEL_RAISED : colors.fillStrong,
     },
 
     retryText: {
-      color: n4Celestial ? N4_IVORY : n4Celestial ? N4_IVORY : colors.text,
+      color: aeroMode ? AERO_TEXT : n4Celestial ? N4_IVORY : colors.text,
       fontSize: 11,
       fontWeight: '800',
     },

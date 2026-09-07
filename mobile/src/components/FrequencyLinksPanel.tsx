@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   doneText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 10,
     fontWeight: '900',
   },
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   relationTextActive: {
-    color: colors.white,
+    color: colors.onAccent,
   },
   search: {
     minHeight: 48,
@@ -983,7 +983,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fill,
   },
   changeText: {
-    color: colors.text,
+    color: colors.onAccent,
     fontSize: 9,
     fontWeight: '800',
   },

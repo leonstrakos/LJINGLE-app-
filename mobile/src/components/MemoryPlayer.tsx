@@ -10,7 +10,14 @@ function time(value: number) {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
 }
 
-export function MemoryPlayer({ memory }: { memory: MemoryTrack }) {
+// ljingleOnboardingPlayerV1
+export function MemoryPlayer({
+  memory,
+  queue,
+}: {
+  memory: MemoryTrack;
+  queue?: MemoryTrack[];
+}) {
   const audio = useMemoryAudio();
   // memoryRadioUnlinkDeleteV3
   const active = audio.current?.trackId === memory.trackId;
@@ -28,7 +35,7 @@ export function MemoryPlayer({ memory }: { memory: MemoryTrack }) {
         <Pressable
           accessibilityLabel={active && audio.playing ? 'Pauziraj' : 'Pusti'}
           accessibilityRole="button"
-          onPress={() => audio.toggle(memory)}
+          onPress={() => audio.toggle(memory, queue)}
           style={({ pressed }) => [styles.play, pressed && styles.pressed]}
         >
           {active && audio.playing ? (

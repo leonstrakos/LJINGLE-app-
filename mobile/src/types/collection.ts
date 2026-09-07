@@ -44,6 +44,14 @@ export type CollectionDetail = {
   items: CollectionItem[];
 };
 
+// ljingleCollectionChipsR1: compact membership payload for catalogue filters.
+export type CollectionFilterChip = {
+  collectionId: string;
+  name: string;
+  symbol: string | null;
+  itemIds: string[];
+};
+
 export type CollectionRequest = {
   name: string;
   description?: string | null;

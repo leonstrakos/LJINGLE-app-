@@ -5,7 +5,7 @@ import { activeVisualSkinId } from '../theme/visualSkins';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 type Props = {
   visible: boolean;

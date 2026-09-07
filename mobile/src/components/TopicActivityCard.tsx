@@ -16,7 +16,7 @@ import {
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkN2CelestialCollectionsTopicsV2
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const CELESTIAL_GOLD = celestial.gold;
 
 type Props = {

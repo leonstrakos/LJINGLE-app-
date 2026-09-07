@@ -6,11 +6,14 @@ import {
 } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import {
   celestial,
   celestialEnabled,
 } from '../theme/celestial';
 import { AnimatedPressable } from './AnimatedPressable';
+
+const aeroMode = activeVisualSkinId === 'aero';
 
 type Props = {
   label: string;
@@ -49,6 +52,10 @@ export function PrimaryButton({
       style={[
         styles.button,
         styles[variant],
+        aeroMode && styles.aeroButton,
+        aeroMode && variant === 'primary' && styles.aeroPrimary,
+        aeroMode && variant === 'secondary' && styles.aeroSecondary,
+        aeroMode && variant === 'danger' && styles.aeroDanger,
         celestialEnabled && styles.celestialButton,
         celestialEnabled &&
           variant === 'primary' &&
@@ -63,6 +70,7 @@ export function PrimaryButton({
       ]}
       pressedStyle={!isDisabled ? styles.pressed : undefined}
     >
+      {aeroMode ? <Text pointerEvents="none" style={styles.aeroShine}>◌</Text> : null}
       {loading ? (
         <ActivityIndicator color={loaderColor} />
       ) : (
@@ -87,6 +95,7 @@ export function PrimaryButton({
   );
 }
 
+// MEADOW_SILVER_GLASS_FIX_V1: Meadow uses neutral graphite/silver tokens from colors.ts.
 const styles = StyleSheet.create({
   button: {
     minHeight: 52,
@@ -107,7 +116,7 @@ const styles = StyleSheet.create({
     borderColor: colors.separator,
   },
   label: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -124,6 +133,28 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 
+  aeroButton: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.94)',
+    shadowColor: colors.navySoft,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.20,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  aeroPrimary: { backgroundColor: colors.navySoft },
+  aeroSecondary: { backgroundColor: colors.surface },
+  aeroDanger: { backgroundColor: 'rgba(255,241,245,0.84)' },
+  aeroShine: {
+    position: 'absolute',
+    top: -14,
+    right: 8,
+    color: 'rgba(255,255,255,0.52)',
+    fontSize: 46,
+    lineHeight: 52,
+  },
   celestialButton: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: celestial.hairlineStrong,

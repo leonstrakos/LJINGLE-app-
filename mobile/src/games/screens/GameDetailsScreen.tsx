@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../../components/AeroAtmosphere';
 
 import { CatalogueCoverDisplay, CatalogueCoverOverrideControls } from '../../components/CatalogueCoverOverride';
+import { ApiArtworkImage } from '../../components/ApiArtworkImage';
+// ljingleCoverAssetsMobileR2
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { FeedbackView } from '../../components/FeedbackView';
 import { EntityRelationsPanel } from '../../components/EntityRelationsPanel';
@@ -40,7 +43,7 @@ import { JingleBellIcon } from '../../components/JingleBellIcon';
 
 type Props = NativeStackScreenProps<GameStackParamList, 'GameDetails'>;
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -180,6 +183,7 @@ export function GameDetailsScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="games" />
       <ScrollView contentContainerStyle={styles.content}>
         {/* mobileStabilityUiPolishV1 */}
         <View style={[styles.hero, celestialMode && styles.celestialHero]}>
@@ -190,8 +194,10 @@ export function GameDetailsScreen({ route, navigation }: Props) {
             imageStyle={styles.cover}
           >
             {game.coverUrl ? (
-              <Image
-                source={{ uri: game.coverUrl }}
+              <ApiArtworkImage
+                
+              cacheKey={'igdb:cover:' + game.coverUrl}
+              sourceUrl={game.coverUrl}
                 resizeMode="cover"
                 style={styles.cover}
               />
@@ -218,11 +224,34 @@ export function GameDetailsScreen({ route, navigation }: Props) {
                 .join(' · ') || game.platform}
             </Text>
 
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>
-                {gameStatusLabels[game.gameStatus]}
-                {game.dnf ? ' *' : ''}
-              </Text>
+            {/* finalPrebuildUiV1: bell sits beside the status tag. */}
+            <View style={styles.heroStatusRowFinalV1}>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>
+                  {gameStatusLabels[game.gameStatus]}
+                  {game.dnf ? ' *' : ''}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  game.favourite
+                    ? 'Makni iz Jingle'
+                    : 'Dodaj u Jingle'
+                }
+                disabled={jingleBusy}
+                hitSlop={10}
+                onPress={() =>
+                  void toggleJingle()
+                }
+                style={styles.heroJingleButton}
+              >
+                <JingleBellIcon
+                  active={game.favourite}
+                  inactiveOpacity={0.28}
+                  style={styles.heroJingle}
+                />
+              </Pressable>
             </View>
 
             <Text
@@ -231,27 +260,6 @@ export function GameDetailsScreen({ route, navigation }: Props) {
             >
               {game.platform}
             </Text>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                game.favourite
-                  ? 'Makni iz Jingle'
-                  : 'Dodaj u Jingle'
-              }
-              disabled={jingleBusy}
-              hitSlop={10}
-              onPress={() =>
-                void toggleJingle()
-              }
-              style={styles.heroJingleButton}
-            >
-              <JingleBellIcon
-                active={game.favourite}
-                inactiveOpacity={0.28}
-                style={styles.heroJingle}
-              />
-            </Pressable>
           </View>
         </View>
 <CatalogueCoverOverrideControls
@@ -385,29 +393,34 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: 18,
-    color: colors.navySoft,
+    color: colors.onAccent,
     fontSize: 82,
     fontWeight: '900',
   },
-  coverTitle: { color: colors.white, fontSize: 30, lineHeight: 36, fontWeight: '900' },
+  coverTitle: { color: colors.onAccent, fontSize: 30, lineHeight: 36, fontWeight: '900' },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 20 },
   titleCopy: { flex: 1 },
   title: { color: colors.text, fontSize: 29, lineHeight: 35, fontWeight: '900' },
   // // catalogueJingleProgressSemanticsV1:GameJingle
+  heroStatusRowFinalV1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 13,
+  },
   heroJingleButton: {
-    alignSelf: 'flex-start',
-    marginTop: 9,
+    alignSelf: 'center',
   },
   heroJingle: {
-    width: 34,
-    height: 41,
+    width: 44,
+    height: 53,
   },
   subtitle: { color: colors.textMuted, fontSize: 15, lineHeight: 21, marginTop: 6 },
   favourite: { color: colors.black, fontSize: 25 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
   statusBadge: {
     alignSelf: 'flex-start',
-    marginTop: 13,
     backgroundColor: colors.successSoft,
     paddingHorizontal: 11,
     paddingVertical: 7,
@@ -462,3 +475,5 @@ const styles = StyleSheet.create({
 });
 
 // catalogueJingleProgressSemanticsV1
+
+// ljingleCompletionSealRemovalFilterSpacingR2:GameDetails

@@ -1,7 +1,7 @@
+// ljingleContrastTargetedR3
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import {
   catalogueStateKey,
@@ -25,24 +26,38 @@ import {
   type GameResponse,
 } from '../games/types/game';
 import { bookApi } from '../services/bookApi';
+import { entryApi } from '../services/entryApi';
 import { collectionApi } from '../services/collectionApi';
 import { mediaApi } from '../services/mediaApi';
+import { topicApi } from '../services/topicApi';
 import { activityAccents, colors } from '../theme/colors';
+import { ensureContrast } from '../theme/contrast';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import type { BookResponse } from '../types/book';
+import type { Entry } from '../types/entry';
 import type { MediaResponse } from '../types/media';
+import type { CollectionSummary } from '../types/collection';
 import type { RootStackParamList } from '../types/navigation';
+import type { TopicResponse } from '../types/topic';
 import { semanticFeedback } from '../utils/semanticFeedback';
 
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { celestial, celestialAlpha } from '../theme/celestial';
 import { CollectionMemoryBoxGlyph } from '../components/CollectionMemoryBoxGlyph';
+import { JingleBellIcon } from '../components/JingleBellIcon';
+import {
+  archiveMatchedExcerpt,
+  archiveSearchTerms,
+} from '../intelligence/archiveSearchExcerpt';
+import { CelestialMotionLayer } from '../components/CelestialMotionLayer';
+import { updateCelestialParallax } from '../motion/celestialParallax';
 
 // forkN5GlyphReorderV1
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Catalogue'>;
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+const classicLjingleMode = activeVisualSkinId === 'classic-ljingle';
 
 type Counts = {
   books: number;
@@ -53,13 +68,16 @@ type Counts = {
 
 type CatalogueResult = {
   key: string;
-  kind: 'BOOK' | 'MEDIA' | 'GAME';
+  kind: 'BOOK' | 'MEDIA' | 'GAME' | 'TOPIC' | 'ENTRY' | 'COLLECTION';
   id: string;
   title: string;
   typeLabel: string;
   meta: string;
+  // ljingleSearchSnippetsBrainContextR2:catalogue
+  searchText?: string;
+  snippet?: string | null;
 
-  searchType: 'BOOK' | 'MOVIE' | 'SERIES' | 'GAME';
+  searchType: 'BOOK' | 'MOVIE' | 'SERIES' | 'GAME' | 'TOPIC' | 'ENTRY' | 'COLLECTION';
   searchStatus: string;
   searchYear?: number;
   favourite: boolean;
@@ -85,7 +103,7 @@ function normalize(value: unknown) {
 type CatalogueSearchQuery = {
   terms: string[];
   jingle: boolean;
-  type?: 'BOOK' | 'MOVIE' | 'SERIES' | 'GAME';
+  type?: 'BOOK' | 'MOVIE' | 'SERIES' | 'GAME' | 'TOPIC' | 'ENTRY' | 'COLLECTION';
   status?: string;
   year?: number;
 };
@@ -140,6 +158,31 @@ function parseCatalogueSearch(
 
         if (value === 'game' || value === 'igra') {
           result.type = 'GAME';
+          continue;
+        }
+
+        if (value === 'topic' || value === 'tema') {
+          result.type = 'TOPIC';
+          continue;
+        }
+
+        if (
+          value === 'entry' ||
+          value === 'zapis' ||
+          value === 'note'
+        ) {
+          result.type = 'ENTRY';
+          continue;
+        }
+
+        if (
+          value === 'collection' ||
+          value === 'kolekcija' ||
+          value === 'memorybox' ||
+          value === 'memory-box' ||
+          value === 'box'
+        ) {
+          result.type = 'COLLECTION';
           continue;
         }
       }
@@ -271,6 +314,18 @@ function getCatalogueSearchSuggestions(
       {
         label: 'Igra',
         token: 'type:game ',
+      },
+      {
+        label: 'Tema',
+        token: 'type:topic ',
+      },
+      {
+        label: 'Zapis',
+        token: 'type:entry ',
+      },
+      {
+        label: 'Memory Box',
+        token: 'type:memorybox ',
       },
     ].filter((suggestion) =>
       typedValue.length === 0 ||
@@ -551,6 +606,11 @@ export function CatalogueHomeScreen({ navigation }: Props) {
   const [books, setBooks] = useState<BookResponse[]>([]);
   const [media, setMedia] = useState<MediaResponse[]>([]);
   const [games, setGames] = useState<GameResponse[]>([]);
+  // // ljingleUniversalArchiveSearchR1
+  const [topics, setTopics] = useState<TopicResponse[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [archiveCollections, setArchiveCollections] =
+    useState<CollectionSummary[]>([]);
 
   const [query, setQuery] = useState(
     initialScreenState?.query ?? '',
@@ -640,16 +700,23 @@ export function CatalogueHomeScreen({ navigation }: Props) {
         loadedMedia,
         loadedGames,
         collections,
+        loadedTopics,
+        loadedEntries,
       ] = await Promise.all([
         bookApi.getAll(),
         mediaApi.getAll(),
         gameApi.getAll(),
         collectionApi.getAll(),
+        topicApi.getAll(),
+        entryApi.getAll(),
       ]);
 
       setBooks(loadedBooks);
       setMedia(loadedMedia);
       setGames(loadedGames);
+      setTopics(loadedTopics);
+      setEntries(loadedEntries);
+      setArchiveCollections(collections);
 
       setCounts({
         books: loadedBooks.length,
@@ -699,6 +766,15 @@ export function CatalogueHomeScreen({ navigation }: Props) {
         ]
           .filter(Boolean)
           .join(' · '),
+        searchText: [
+          book.title,
+          book.author,
+          book.isbn,
+          book.publishedYear,
+          book.readingStatus,
+        ]
+          .filter(Boolean)
+          .join(' · '),
 
         searchType: 'BOOK',
         searchStatus: String(book.readingStatus ?? ''),
@@ -721,6 +797,15 @@ export function CatalogueHomeScreen({ navigation }: Props) {
             ? item.originalTitle
             : null,
           item.releaseYear,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        searchText: [
+          item.title,
+          item.originalTitle,
+          item.overview,
+          item.releaseYear,
+          item.watchStatus,
         ]
           .filter(Boolean)
           .join(' · '),
@@ -747,11 +832,92 @@ export function CatalogueHomeScreen({ navigation }: Props) {
         ]
           .filter(Boolean)
           .join(' · '),
+        searchText: [
+          game.title,
+          game.developer,
+          game.platform,
+          game.releaseYear,
+          game.gameStatus,
+        ]
+          .filter(Boolean)
+          .join(' · '),
 
         searchType: 'GAME',
         searchStatus: String(game.gameStatus ?? ''),
         searchYear: game.releaseYear ?? undefined,
         favourite: Boolean(game.favourite),
+      })),
+
+      ...topics.map((topic): CatalogueResult => ({
+        key: 'TOPIC:' + topic.topicId,
+        kind: 'TOPIC',
+        id: topic.topicId,
+        title: topic.name,
+        typeLabel: 'Tema',
+        meta: topic.description?.trim() || '',
+        searchText: [
+          topic.name,
+          topic.description,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        searchType: 'TOPIC',
+        searchStatus: '',
+        favourite: false,
+      })),
+
+      ...entries.map((entry): CatalogueResult => {
+        const cleanContent =
+          entry.content.replace(/\s+/g, ' ').trim();
+
+        return {
+          key: 'ENTRY:' + entry.entryId,
+          kind: 'ENTRY',
+          id: entry.entryId,
+          title:
+            entry.title?.trim() ||
+            cleanContent.slice(0, 86) ||
+            'Zapis',
+          typeLabel: 'Zapis',
+          meta: [
+            entry.customLabel?.trim(),
+            cleanContent.slice(0, 150),
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          searchText: [
+            entry.title,
+            entry.customLabel,
+            cleanContent,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          searchType: 'ENTRY',
+          searchStatus: '',
+          favourite: false,
+        };
+      }),
+
+      ...archiveCollections.map((collection): CatalogueResult => ({
+        key: 'COLLECTION:' + collection.collectionId,
+        kind: 'COLLECTION',
+        id: collection.collectionId,
+        title: collection.name,
+        typeLabel: 'Memory Box',
+        meta:
+          collection.description?.trim() ||
+          (collection.itemCount === 1
+            ? '1 stavka'
+            : collection.itemCount + ' stavki'),
+        searchText: [
+          collection.name,
+          collection.description,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        searchType: 'COLLECTION',
+        searchStatus: '',
+        favourite: false,
       })),
     ];
 
@@ -797,6 +963,7 @@ export function CatalogueHomeScreen({ navigation }: Props) {
             item.title,
             item.typeLabel,
             item.meta,
+            item.searchText,
           ].join(' ')
         );
 
@@ -822,11 +989,17 @@ export function CatalogueHomeScreen({ navigation }: Props) {
             query,
           );
 
-        // Stable sort keeps the previous catalogue ordering
-        // for equal relevance and for pure structured queries.
         return leftRank - rightRank;
-      });
-  }, [books, games, media, query]);
+      })
+      .map((item) => ({
+        ...item,
+        snippet:
+          archiveMatchedExcerpt(
+            item.searchText ?? item.meta,
+            archiveSearchTerms(query),
+          ),
+      }));
+  }, [archiveCollections, books, entries, games, media, query, topics]);
 
   const searchTerms = useMemo(
     () => parseCatalogueSearch(query).terms,
@@ -849,6 +1022,9 @@ export function CatalogueHomeScreen({ navigation }: Props) {
         MOVIE: 'Film',
         SERIES: 'Serija',
         GAME: 'Igra',
+        TOPIC: 'Tema',
+        ENTRY: 'Zapis',
+        COLLECTION: 'Memory Box',
       } as const;
 
       chips.push(typeLabels[parsed.type]);
@@ -1024,15 +1200,36 @@ export function CatalogueHomeScreen({ navigation }: Props) {
       return;
     }
 
-    (navigation as any).navigate(
-      'Games',
-      {
-        screen: 'GameDetails',
-        params: {
-          gameId: result.id,
+    if (result.kind === 'GAME') {
+      (navigation as any).navigate(
+        'Games',
+        {
+          screen: 'GameDetails',
+          params: {
+            gameId: result.id,
+          },
         },
-      },
-    );
+      );
+      return;
+    }
+
+    if (result.kind === 'TOPIC') {
+      navigation.navigate('TopicDetails', {
+        topicId: result.id,
+      });
+      return;
+    }
+
+    if (result.kind === 'ENTRY') {
+      navigation.navigate('EntryForm', {
+        entryId: result.id,
+      });
+      return;
+    }
+
+    navigation.navigate('CollectionDetails', {
+      collectionId: result.id,
+    });
   };
 
   const pickSomething = () => {
@@ -1078,23 +1275,35 @@ export function CatalogueHomeScreen({ navigation }: Props) {
       style={styles.safeArea}
       edges={['left', 'right', 'bottom']}
     >
+      <AeroAtmosphere variant="catalogue" />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         onScroll={(event) => {
+          const y =
+            event.nativeEvent
+              .contentOffset.y;
+
           rememberCatalogueScroll(
-            event.nativeEvent.contentOffset.y,
+            y,
+          );
+
+          // ljingleSemanticAliveR21Exact:parallax-catalogue
+          updateCelestialParallax(
+            y,
           );
         }}
-        scrollEventThrottle={100}
+        scrollEventThrottle={16}
         onContentSizeChange={
           restoreCatalogueScroll
         }
       >
         <View style={[styles.hero, celestialMode && styles.celestialHero]}>
-        {celestialMode ? <CelestialAtmosphere variant="catalogue" /> : null}
+          {/* ljingleCelestialMotionLanguageR1:catalogue */}
+          <CelestialMotionLayer preset="catalogue" />
+        {(celestialMode || classicLjingleMode) ? <CelestialAtmosphere variant="catalogue" /> : null}
           <Text style={styles.heading}>
             Katalog
           </Text>
@@ -1126,11 +1335,11 @@ export function CatalogueHomeScreen({ navigation }: Props) {
             </Text>
 
             <TextInput
-              accessibilityLabel="Pretraži cijeli katalog"
+              accessibilityLabel="Pretraži cijeli LJINGLE arhiv"
               autoCapitalize="none"
               autoCorrect={false}
               onChangeText={setQuery}
-              placeholder="Naslov · type:movie · jingle · year:2024"
+              placeholder="Naslov, zapis, tema, Memory Box…"
               placeholderTextColor={colors.textMuted}
               returnKeyType="search"
               style={styles.searchInput}
@@ -1243,20 +1452,20 @@ export function CatalogueHomeScreen({ navigation }: Props) {
                         terms={searchTerms}
                       />
 
-                      {result.meta ? (
+                      {result.snippet || result.meta ? (
                         <Text
-                          numberOfLines={1}
+                          numberOfLines={2}
                           style={styles.resultMeta}
                         >
-                          {result.meta}
+                          {result.snippet || result.meta}
                         </Text>
                       ) : null}
                     </View>
 
                     {result.favourite ? (
-                      <Image
+                      <JingleBellIcon
                         accessibilityLabel="Jingle"
-                        source={require('../assets/aero/fav.png')}
+                        active
                         style={styles.resultJingleIcon}
                       />
                     ) : null}
@@ -1443,6 +1652,7 @@ function CatalogueCard({
   onPress,
   title,
 }: CatalogueCardProps) {
+  const glyphInk = celestialMode ? ensureContrast(colors.background, accent, 4.5) : colors.white;
   return (
     <Pressable
       accessibilityRole="button"
@@ -1468,16 +1678,18 @@ function CatalogueCard({
               style={[
                 styles.catalogueBookPageV2,
                 styles.catalogueBookLeftV2,
+                { borderColor: glyphInk },
               ]}
             />
             <View
               style={[
                 styles.catalogueBookPageV2,
                 styles.catalogueBookRightV2,
+                { borderColor: glyphInk },
               ]}
             />
             <View
-              style={styles.catalogueBookSpineV2}
+              style={[styles.catalogueBookSpineV2, { backgroundColor: glyphInk }]}
             />
           </View>
         ) : title === 'Igre' ? (
@@ -1486,28 +1698,28 @@ function CatalogueCard({
             style={styles.catalogueJoystickGlyphV2}
           >
             <View
-              style={styles.catalogueJoystickStickV2}
+              style={[styles.catalogueJoystickStickV2, { backgroundColor: glyphInk }]}
             />
             <View
-              style={styles.catalogueJoystickBallV2}
+              style={[styles.catalogueJoystickBallV2, { backgroundColor: glyphInk }]}
             />
             <View
-              style={styles.catalogueJoystickBaseV2}
+              style={[styles.catalogueJoystickBaseV2, { borderColor: glyphInk }]}
             />
             <View
-              style={styles.catalogueJoystickBaseInnerV2}
+              style={[styles.catalogueJoystickBaseInnerV2, { backgroundColor: glyphInk }]}
             />
           </View>
         ) : title === 'Collections' || title === 'Kolekcije' ? (
           <>
             {/* forkN5GlyphReorderV1:catalogue-memory-box */}
             <CollectionMemoryBoxGlyph
-              color={colors.white}
+              color={glyphInk}
               size={32}
             />
           </>
         ) : (
-          <Text style={styles.cardMarkText}>
+          <Text style={[styles.cardMarkText, { color: glyphInk }]}>
             {mark}
           </Text>
         )}
@@ -2102,7 +2314,7 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     backgroundColor: colors.white,
-    opacity: 0.72,
+    opacity: 1,
   },
 
   cardMarkText: {
@@ -2177,7 +2389,7 @@ const styles = StyleSheet.create({
   noteMark: {
     width: 28,
     height: 28,
-    color: colors.white,
+    color: colors.onAccent,
     backgroundColor: colors.black,
     borderRadius: 14,
     textAlign: 'center',

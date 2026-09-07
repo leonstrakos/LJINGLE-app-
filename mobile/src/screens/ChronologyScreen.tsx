@@ -16,6 +16,7 @@ import {
 import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import {
   buildSeasonalMemories,
@@ -320,6 +321,7 @@ export function ChronologyScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
+      <AeroAtmosphere variant="history" />
         <View style={styles.center}>
           <ActivityIndicator />
           <Text style={styles.loadingText}>
@@ -333,6 +335,7 @@ export function ChronologyScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.safe}>
+      <AeroAtmosphere variant="history" />
         <View style={styles.center}>
           <Text style={styles.errorTitle}>
             Kronologija nije dostupna
@@ -348,6 +351,7 @@ export function ChronologyScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AeroAtmosphere variant="history" />
       <ScrollView
         contentContainerStyle={
           styles.content

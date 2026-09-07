@@ -12,20 +12,27 @@ import {
 import { EntryMarkup } from './EntryMarkup';
 import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
-// forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+import { celestial, celestialAlpha } from '../theme/celestial';
 import {
-  entryTypeLabels,  type Entry,
+  entryTypeLabels,
+  entryTypeMarks,
+  type Entry,
   type EntryLinkLabels,
 } from '../types/entry';
+import type { ReaderAnchorPreview } from '../types/reader';
+import { FreshItemShimmer } from './FreshItemShimmer';
 
-import { celestial, celestialAlpha } from '../theme/celestial';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+const aeroMode = activeVisualSkinId === 'aero';
+
 type Props = {
   entry: Entry;
   linkLabels: EntryLinkLabels;
   onEdit: () => void;
   onDelete: () => void;
   onOpenReference?: (title: string) => void;
+  onOpenReaderAnchor?: () => void;
+  readerAnchor?: ReaderAnchorPreview | null;
   imageUris?: string[];
 };
 
@@ -39,11 +46,6 @@ function dateLabel(value: string) {
   }).format(date);
 }
 
-function boldFragments(content: string) {
-  const found = content.match(/\*\*[^*]+\*\*/g) ?? [];
-  return [...new Set(found.map((item) => item.slice(2, -2).trim()).filter(Boolean))].slice(0, 4);
-}
-
 function attachmentLabels(entry: Entry, labels: EntryLinkLabels) {
   return [
     entry.bookId ? `Knjiga · ${labels.books[entry.bookId] ?? 'Povezana knjiga'}` : null,
@@ -54,62 +56,117 @@ function attachmentLabels(entry: Entry, labels: EntryLinkLabels) {
   ].filter((value): value is string => Boolean(value));
 }
 
+function readerAnchorLabel(anchor: ReaderAnchorPreview) {
+  if (anchor.format === 'PDF' && anchor.page) return `PDF · stranica ${anchor.page}`;
+  return 'EPUB · spremljeno mjesto';
+}
+
 export function EntryCard({
   entry,
   linkLabels,
   onEdit,
   onDelete,
   onOpenReference,
+  onOpenReaderAnchor,
+  readerAnchor,
   imageUris = [],
 }: Props) {
   const attachments = attachmentLabels(entry, linkLabels);
-  const highlights = boldFragments(entry.content);
-  const isLong = entry.content.length > 460 || entry.content.split('\n').length > 8;
-  const showHighlights = isLong && highlights.length > 0;
   const [viewerImage, setViewerImage] = useState<string | null>(null);
 
   return (
-    <View style={[styles.card, celestialMode && styles.celestialCard]}>
-      <View style={styles.topLine}>
-        <View style={styles.typeGroup}>
-          <View>
-            <Text style={[styles.typeLabel, celestialMode && styles.celestialType]}>{entryTypeLabels[entry.type]}</Text>
-            <Text style={[styles.date, celestialMode && styles.celestialMuted]}>{dateLabel(entry.modifiedAt)}</Text>
+    <View
+      style={[
+        styles.card,
+        aeroMode && styles.aeroCard,
+        celestialMode && styles.celestialCard,
+      ]}
+    >
+      {/* ljingleSemanticAliveR21Exact:entry-fresh */}
+      <FreshItemShimmer
+        entityKey={
+          'ENTRY:' +
+          entry.entryId
+        }
+        createdAt={
+          (entry as any).createdAt ??
+          (entry as any).modifiedAt ??
+          null
+        }
+      />
+      <View style={[styles.accentRail, celestialMode && styles.celestialAccentRail]} />
+      <View pointerEvents="none" style={styles.cardConstellation}>
+        <Text style={styles.cardStarLarge}>✦</Text>
+        <Text style={styles.cardStarSmall}>⋆</Text>
+        <Text style={styles.cardGlyph}>⌑</Text>
+      </View>
+
+      <View style={styles.cardBody}>
+        <View style={styles.topLine}>
+          <View style={styles.identity}>
+            <View style={[styles.typeMark, celestialMode && styles.celestialTypeMark]}>
+              <Text style={[styles.typeMarkText, celestialMode && styles.celestialTypeMarkText]}>
+                {entryTypeMarks[entry.type]}
+              </Text>
+            </View>
+            <View style={styles.identityCopy}>
+              <Text style={[styles.typeLabel, celestialMode && styles.celestialType]}>
+                {entryTypeLabels[entry.type]}
+              </Text>
+              <Text style={[styles.date, celestialMode && styles.celestialMuted]}>
+                {dateLabel(entry.modifiedAt)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityLabel="Uredi zapis"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onEdit}
+              style={({ pressed }) => [
+                styles.actionButton,
+                celestialMode && styles.celestialActionButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.actionText, celestialMode && styles.celestialActionText]}>
+                Uredi
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Obriši zapis"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onDelete}
+              style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.deleteText}>×</Text>
+            </Pressable>
           </View>
         </View>
 
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityLabel="Uredi zapis"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={onEdit}
-            style={({ pressed }) => [styles.actionButton, celestialMode && styles.celestialActionButton, pressed && styles.pressed]}
-          >
-            <Text style={[styles.actionText, celestialMode && styles.celestialActionText]}>Uredi</Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Obriši zapis"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={onDelete}
-            style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.deleteText}>Obriši</Text>
-          </Pressable>
-        </View>
-      </View>
-<View style={styles.body}>
-        {entry.title ? (
-          <Text numberOfLines={2} style={[styles.title, celestialMode && styles.celestialTitle]}>
-            {entry.title}
-          </Text>
+
+        {entry.customLabel ? (
+          <View style={styles.customLabelChip}>
+            <Text style={styles.customLabelMark}>✦</Text>
+            <Text numberOfLines={1} style={styles.customLabelText}>
+              {entry.customLabel}
+            </Text>
+          </View>
         ) : null}
-        <View style={styles.content}>
+
+        {/* ljingleEntryObsidianUxR1:card — null title remains null in storage; UI says Untitled. */}
+        <Text numberOfLines={3} style={[styles.title, celestialMode && styles.celestialTitle]}>
+          {entry.title?.trim() || 'Untitled'}
+        </Text>
+
+        <View style={[styles.content, entry.type === 'QUOTE' && styles.quoteContent]}>
           <EntryMarkup
             content={entry.content}
+            numberOfLines={entry.type === 'QUOTE' ? 7 : 8}
             onOpenReference={onOpenReference}
-            numberOfLines={entry.type === 'QUOTE' ? 6 : 7}
             quote={entry.type === 'QUOTE'}
           />
         </View>
@@ -127,16 +184,9 @@ export function EntryCard({
                   accessibilityRole="button"
                   key={uri + index}
                   onPress={() => setViewerImage(uri)}
-                  style={({ pressed }) => [
-                    styles.imageThumbButton,
-                    pressed && styles.pressed,
-                  ]}
+                  style={({ pressed }) => [styles.imageThumbButton, pressed && styles.pressed]}
                 >
-                  <Image
-                    resizeMode="cover"
-                    source={{ uri }}
-                    style={styles.imageThumb}
-                  />
+                  <Image resizeMode="cover" source={{ uri }} style={styles.imageThumb} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -147,43 +197,58 @@ export function EntryCard({
               transparent
               visible={viewerImage !== null}
             >
-              <Pressable
-                onPress={() => setViewerImage(null)}
-                style={styles.viewerBackdrop}
-              >
+              <Pressable onPress={() => setViewerImage(null)} style={styles.viewerBackdrop}>
                 {viewerImage ? (
-                  <Image
-                    resizeMode="contain"
-                    source={{ uri: viewerImage }}
-                    style={styles.viewerImage}
-                  />
+                  <Image resizeMode="contain" source={{ uri: viewerImage }} style={styles.viewerImage} />
                 ) : null}
-
-                <Text style={styles.viewerHint}>
-                  Dodirni za zatvaranje
-                </Text>
+                <Text style={styles.viewerHint}>Dodirni za zatvaranje</Text>
               </Pressable>
             </Modal>
           </>
         ) : null}
 
-        {showHighlights ? (
-          <View style={styles.highlights}>
-            <Text style={[styles.highlightsLabel, celestialMode && styles.celestialHighlightsLabel]}>IZDVOJENO IZ ZAPISA</Text>
-            {highlights.map((highlight) => (
-              <View key={highlight} style={styles.highlightRow}>
-                <View style={[styles.highlightLine, celestialMode && styles.celestialHighlightLine]} />
-                <Text style={[styles.highlightText, celestialMode && styles.celestialHighlightText]}>{highlight}</Text>
-              </View>
-            ))}
-          </View>
+        {readerAnchor ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onOpenReaderAnchor}
+            style={({ pressed }) => [
+              styles.readerAnchor,
+              celestialMode && styles.celestialReaderAnchor,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.readerAnchorMark, celestialMode && styles.celestialReaderAnchorText]}>⌑</Text>
+            <View style={styles.readerAnchorCopy}>
+              <Text style={[styles.readerAnchorTitle, celestialMode && styles.celestialReaderAnchorText]}>
+                {readerAnchorLabel(readerAnchor)}
+              </Text>
+              {readerAnchor.selectedText ? (
+                <Text numberOfLines={1} style={[styles.readerAnchorQuote, celestialMode && styles.celestialMuted]}>
+                  {readerAnchor.selectedText}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={[styles.readerAnchorArrow, celestialMode && styles.celestialReaderAnchorText]}>›</Text>
+          </Pressable>
         ) : null}
 
         {attachments.length > 0 ? (
           <View style={styles.attachments}>
             {attachments.map((attachment) => (
-              <View key={attachment} style={[styles.attachmentPill, celestialMode && styles.celestialAttachmentPill]}>
-                <Text numberOfLines={1} style={[styles.attachmentText, celestialMode && styles.celestialAttachmentText]}>
+              <View
+                key={attachment}
+                style={[
+                  styles.attachmentPill,
+                  celestialMode && styles.celestialAttachmentPill,
+                ]}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.attachmentText,
+                    celestialMode && styles.celestialAttachmentText,
+                  ]}
+                >
                   {attachment}
                 </Text>
               </View>
@@ -196,98 +261,140 @@ export function EntryCard({
 }
 
 const styles = StyleSheet.create({
+  // ljingleZapisiVaultR1: quiet archive-card ornament and custom thread chip.
+  cardConstellation: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cardStarLarge: {
+    position: 'absolute',
+    top: 12,
+    right: 108,
+    color: celestialAlpha(celestial.gold, 0.16),
+    fontSize: 13,
+  },
+  cardStarSmall: {
+    position: 'absolute',
+    top: 35,
+    right: 92,
+    color: celestialAlpha(celestial.gold, 0.11),
+    fontSize: 15,
+  },
+  cardGlyph: {
+    position: 'absolute',
+    right: 13,
+    bottom: 10,
+    color: celestialAlpha(celestial.gold, 0.075),
+    fontSize: 28,
+  },
+  customLabelChip: {
+    alignSelf: 'flex-start',
+    maxWidth: '86%',
+    marginTop: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.22),
+    borderRadius: 999,
+    backgroundColor: celestialAlpha(celestial.gold, 0.065),
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  customLabelMark: {
+    marginRight: 6,
+    color: celestial.gold,
+    fontSize: 10,
+  },
+  customLabelText: {
+    color: celestialAlpha(celestial.ivory, 0.66),
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   card: {
-    marginBottom: 22,
+    position: 'relative',
+    overflow: 'hidden',
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.separator,
-    borderRadius: 28,
+    borderRadius: 20,
     backgroundColor: colors.surface,
-    padding: 28,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.045,
+    shadowRadius: 12,
     elevation: 2,
   },
-  topLine: {
-    flexDirection: 'row',
+  accentRail: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 4,
+    backgroundColor: colors.gold,
+  },
+  cardBody: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 17 },
+  topLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  identity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  identityCopy: { flex: 1, minWidth: 0, marginLeft: 9 },
+  typeMark: {
+    width: 34,
+    height: 34,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: colors.goldSoft,
   },
-  typeGroup: {
-    flex: 1,
-    minWidth: 0,
-  },
+  typeMarkText: { color: colors.text, fontSize: 18, fontWeight: '800' },
   typeLabel: {
-    color: colors.textMuted,
+    color: colors.text,
     fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+    letterSpacing: 0.35,
   },
-  date: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  actions: {
-    marginLeft: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  date: { marginTop: 2, color: colors.textMuted, fontSize: 11 },
+  actions: { marginLeft: 10, flexDirection: 'row', alignItems: 'center' },
   actionButton: {
-    paddingHorizontal: 9,
-    paddingVertical: 7,
+    minHeight: 34,
+    justifyContent: 'center',
     borderRadius: 10,
     backgroundColor: colors.fill,
+    paddingHorizontal: 10,
   },
   deleteButton: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
     borderRadius: 10,
     backgroundColor: colors.dangerSoft,
   },
-  actionText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  deleteText: {
-    color: colors.danger,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  body: {
-    marginTop: 0,
-  },
+  actionText: { color: colors.text, fontSize: 11, fontWeight: '700' },
+  deleteText: { color: colors.danger, fontSize: 23, lineHeight: 25, fontWeight: '400' },
   title: {
-    marginTop: 25,
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-    lineHeight: 34,
-  },
-  content: {
     marginTop: 15,
+    color: colors.text,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.35,
+    lineHeight: 27,
   },
-  imageStrip: {
-    marginTop: 20,
-    paddingRight: 8,
+  content: { marginTop: 10 },
+  quoteContent: {
+    borderLeftWidth: 2,
+    borderLeftColor: colors.gold,
+    paddingLeft: 12,
   },
+  imageStrip: { marginTop: 14, paddingRight: 8 },
   imageThumbButton: {
-    width: 126,
-    height: 126,
-    marginRight: 10,
-    borderRadius: 16,
+    width: 104,
+    height: 104,
+    marginRight: 8,
     overflow: 'hidden',
+    borderRadius: 13,
     backgroundColor: colors.fill,
   },
-  imageThumb: {
-    width: '100%',
-    height: '100%',
-  },
+  imageThumb: { width: '100%', height: '100%' },
   viewerBackdrop: {
     flex: 1,
     alignItems: 'center',
@@ -295,98 +402,76 @@ const styles = StyleSheet.create({
     backgroundColor: celestialAlpha(celestial.shadow, 0.92),
     padding: 20,
   },
-  viewerImage: {
-    width: '100%',
-    height: '82%',
-  },
-  viewerHint: {
+  viewerImage: { width: '100%', height: '82%' },
+  viewerHint: { marginTop: 14, color: '#FFFFFF', fontSize: 12, fontWeight: '600', opacity: 0.72 },
+  readerAnchor: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 14,
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    opacity: 0.72,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 14,
+    backgroundColor: colors.goldSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  highlights: {
-    marginTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: colors.separator,
-    paddingTop: 17,
-  },
-  highlightsLabel: {
-    marginBottom: 11,
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  highlightRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
-  },
-  highlightLine: {
-    width: 3,
-    alignSelf: 'stretch',
-    marginRight: 11,
-    borderRadius: 999,
-    backgroundColor: colors.navySoft,
-  },
-  highlightText: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 24,
-  },
-    attachments: {
-    marginTop: 21,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
+  readerAnchorMark: { color: colors.text, fontSize: 21, fontWeight: '800' },
+  readerAnchorCopy: { flex: 1, minWidth: 0, marginLeft: 9 },
+  readerAnchorTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  readerAnchorQuote: { marginTop: 2, color: colors.textMuted, fontSize: 11 },
+  readerAnchorArrow: { marginLeft: 8, color: colors.text, fontSize: 22 },
+  attachments: { marginTop: 13, flexDirection: 'row', flexWrap: 'wrap' },
   attachmentPill: {
     maxWidth: '100%',
     marginRight: 6,
     marginBottom: 6,
     borderRadius: 999,
     backgroundColor: colors.fill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
-  attachmentText: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  pressed: {
-    opacity: 0.72,
+  attachmentText: { color: colors.textMuted, fontSize: 10, fontWeight: '600' },
+  pressed: { opacity: 0.72 },
+  aeroCard: {
+    borderColor: 'rgba(255,255,255,0.94)',
+    shadowColor: colors.navySoft,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.13,
+    shadowRadius: 15,
+    elevation: 3,
   },
   celestialCard: {
     backgroundColor: celestial.night,
-    borderColor: celestialAlpha(celestial.gold, 0.44),
+    borderColor: celestialAlpha(celestial.gold, 0.40),
     shadowColor: celestial.gold,
-    shadowOpacity: 0.09,
+    shadowOpacity: 0.08,
   },
-  celestialType: { color: celestial.gold, letterSpacing: 1.0 },
+  celestialAccentRail: { backgroundColor: celestial.gold },
+  celestialTypeMark: {
+    borderWidth: 1,
+    borderColor: celestialAlpha(celestial.gold, 0.28),
+    backgroundColor: celestialAlpha(celestial.gold, 0.08),
+  },
+  celestialTypeMarkText: { color: celestial.gold },
+  celestialType: { color: celestial.gold, letterSpacing: 0.75 },
   celestialMuted: { color: celestialAlpha(celestial.ivory, 0.58) },
   celestialActionButton: {
-    backgroundColor: celestialAlpha(celestial.gold, 0.08),
     borderWidth: 1,
-    borderColor: celestialAlpha(celestial.gold, 0.25),
+    borderColor: celestialAlpha(celestial.gold, 0.24),
+    backgroundColor: celestialAlpha(celestial.gold, 0.07),
   },
   celestialActionText: { color: celestial.gold },
   celestialTitle: { color: celestial.ivory },
-  celestialHighlightsLabel: { color: celestial.gold, letterSpacing: 1.2 },
-  celestialHighlightLine: { backgroundColor: celestial.gold },
-  celestialHighlightText: { color: celestial.ivory },
+  celestialReaderAnchor: {
+    borderColor: celestialAlpha(celestial.gold, 0.25),
+    backgroundColor: celestialAlpha(celestial.gold, 0.07),
+  },
+  celestialReaderAnchorText: { color: celestial.gold },
   celestialAttachmentPill: {
-    backgroundColor: celestialAlpha(celestial.ivory, 0.05),
     borderWidth: 1,
-    borderColor: celestialAlpha(celestial.gold, 0.22),
+    borderColor: celestialAlpha(celestial.gold, 0.20),
+    backgroundColor: celestialAlpha(celestial.ivory, 0.045),
   },
   celestialAttachmentText: { color: celestialAlpha(celestial.ivory, 0.62) },
-  celestialTypeLabel: {
-    color: celestial.gold,
-    letterSpacing: 1.15,
-  },
-
 });

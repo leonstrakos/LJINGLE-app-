@@ -1,3 +1,4 @@
+// bookOptionalAuthorOnlyR2
 import type {
   BookImportConfirmRequest,
   BookImportPreviewRequest,
@@ -63,7 +64,8 @@ function findDuplicates(candidate: BookMetadataCandidate, books: BookResponse[])
 function changedFields(existing: BookResponse, candidate: BookMetadataCandidate) {
   const fields: string[] = [];
   if (existing.title !== candidate.title?.trim()) fields.push('title');
-  if (existing.author !== authorText(candidate)) fields.push('author');
+  const incomingAuthor = authorText(candidate);
+  if (incomingAuthor && existing.author !== incomingAuthor) fields.push('author');
   if (normalizeIsbn(existing.isbn) !== preferredIsbn(candidate)) fields.push('isbn');
   if (existing.publishedYear !== candidate.publishedYear) fields.push('publishedYear');
   return fields;
@@ -76,12 +78,26 @@ async function localPreview(
   const books = await bookApi.getAll();
   const duplicates = findDuplicates(candidate, books);
   const warnings: string[] = [];
-  if (!candidate.title?.trim()) warnings.push('Izvor ne sadrži naslov.');
-  if (!authorText(candidate)) warnings.push('Izvor ne sadrži autora.');
-  if (!preferredIsbn(candidate)) warnings.push('Izvor ne sadrži ISBN-10 ili ISBN-13.');
-  if (candidate.publishedYear === null) warnings.push('Izvor ne sadrži valjanu godinu izdanja.');
+  const blockingWarnings: string[] = [];
+  if (!candidate.title?.trim()) {
+    const warning = 'Izvor ne sadrži naslov.';
+    warnings.push(warning);
+    blockingWarnings.push(warning);
+  }
+  // Author is optional in LJingle. Warn, but never block solely because it is absent.
+  if (!authorText(candidate)) warnings.push('Izvor ne sadrži autora. Knjiga će biti spremljena bez autora.');
+  if (!preferredIsbn(candidate)) {
+    const warning = 'Izvor ne sadrži ISBN-10 ili ISBN-13.';
+    warnings.push(warning);
+    blockingWarnings.push(warning);
+  }
+  if (candidate.publishedYear === null) {
+    const warning = 'Izvor ne sadrži valjanu godinu izdanja.';
+    warnings.push(warning);
+    blockingWarnings.push(warning);
+  }
 
-  if (warnings.length > 0) {
+  if (blockingWarnings.length > 0) {
     return {
       candidate,
       action: 'BLOCKED',
@@ -123,7 +139,7 @@ async function localPreview(
       protectedPersonalFields,
       confirmationRequired: false,
       importable: true,
-      warnings: [],
+      warnings,
     };
   }
   const changedBibliographicFields = changedFields(existing, candidate);
@@ -136,7 +152,7 @@ async function localPreview(
     protectedPersonalFields,
     confirmationRequired: changedBibliographicFields.length > 0,
     importable: true,
-    warnings: [],
+    warnings,
   };
 }
 
@@ -180,9 +196,10 @@ export const bookMetadataApi = {
       throw new ApiError('Bibliografske promjene moraju biti potvrđene.');
     }
     const candidate = preview.candidate;
+    const candidateAuthor = authorText(candidate);
     const bibliographic = {
       title: candidate.title!.trim(),
-      author: authorText(candidate),
+      author: candidateAuthor,
       isbn: preferredIsbn(candidate),
       publishedYear: candidate.publishedYear!,
     };
@@ -206,7 +223,12 @@ export const bookMetadataApi = {
     const existing = preview.existingBook!;
     const book =
       preview.action === 'UPDATE_EXISTING'
-        ? await bookApi.update(existing.bookId, { ...existing, ...bibliographic })
+        ? await bookApi.update(existing.bookId, {
+            ...existing,
+            ...bibliographic,
+            // Missing author from the API must never erase a known local author.
+            author: candidateAuthor || existing.author,
+          })
         : existing;
     return {
       action: preview.action,

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { seriesApi } from '../services/seriesApi';
+import { triggerCompletionCelebration } from '../services/completionCelebration';
+// completionCelebrationR1:series-tracker
 import { colors } from '../theme/colors';
 import type { SeriesEpisode, SeriesProgress } from '../types/series';
 
@@ -22,11 +24,30 @@ function episodeCode(episode: SeriesEpisode) {
   return `S${String(episode.seasonNumber).padStart(2, '0')} E${String(episode.episodeNumber).padStart(2, '0')}`;
 }
 
+function seriesComplete(value: SeriesProgress | null) {
+  return Boolean(
+    value &&
+    value.totalCount > 0 &&
+    value.watchedCount >= value.totalCount
+  );
+}
+
+function celebrateIfSeriesJustCompleted(
+  previous: SeriesProgress | null,
+  next: SeriesProgress,
+  title: string,
+) {
+  if (!seriesComplete(previous) && seriesComplete(next)) {
+    triggerCompletionCelebration({ kind: 'SERIES', title });
+  }
+}
+
 export function SeriesTracker({ mediaId, title, onProgressChange }: Props) {
   const [progress, setProgress] = useState<SeriesProgress | null>(null);
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [changingId, setChangingId] = useState<number | null>(null);
+  const [changingSeason, setChangingSeason] = useState<number | null>(null); // catalogueFinalPolishV1
   const [error, setError] = useState<string | null>(null);
   const initialSeasonChosen = useRef(false);
 
@@ -75,10 +96,28 @@ export function SeriesTracker({ mediaId, title, onProgressChange }: Props) {
       const next = await seriesApi.setWatched(mediaId, episode.episodeId, !episode.watched);
       setProgress(next);
       await onProgressChange(next);
+      celebrateIfSeriesJustCompleted(progress, next, title);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Promjena epizode nije spremljena.');
     } finally {
       setChangingId(null);
+    }
+  };
+
+  const toggleSeason = async (season: number, episodes: SeriesEpisode[]) => {
+    if (changingId !== null || changingSeason !== null) return;
+    const allWatched = episodes.length > 0 && episodes.every((episode) => episode.watched);
+    setChangingSeason(season);
+    setError(null);
+    try {
+      const next = await seriesApi.setSeasonWatched(mediaId, season, !allWatched);
+      setProgress(next);
+      await onProgressChange(next);
+      celebrateIfSeriesJustCompleted(progress, next, title);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Sezona nije spremljena.');
+    } finally {
+      setChangingSeason(null);
     }
   };
 
@@ -132,13 +171,34 @@ export function SeriesTracker({ mediaId, title, onProgressChange }: Props) {
           const expanded = expandedSeason === season;
           return (
             <View key={season} style={styles.seasonBlock}>
-              <Pressable onPress={() => setExpandedSeason(expanded ? null : season)} style={styles.seasonHeader}>
-                <View>
-                  <Text style={styles.seasonName}>{season === 0 ? 'Specijali' : `Sezona ${season}`}</Text>
-                  <Text style={styles.seasonMeta}>{watched} / {episodes.length} pogledano</Text>
-                </View>
-                <Text style={styles.chevron}>{expanded ? '−' : '+'}</Text>
-              </Pressable>
+              <View style={styles.seasonHeader}>
+                <Pressable
+                  onPress={() => setExpandedSeason(expanded ? null : season)}
+                  style={styles.seasonOpen}
+                >
+                  <View>
+                    <Text style={styles.seasonName}>{season === 0 ? 'Specijali' : `Sezona ${season}`}</Text>
+                    <Text style={styles.seasonMeta}>{watched} / {episodes.length} pogledano</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={watched === episodes.length ? 'Označi cijelu sezonu kao nepogledanu' : 'Označi cijelu sezonu kao pogledanu'}
+                  disabled={changingId !== null || changingSeason !== null}
+                  onPress={() => void toggleSeason(season, episodes)}
+                  style={[styles.seasonBulk, watched === episodes.length && styles.seasonBulkActive]}
+                >
+                  <Text style={[styles.seasonBulkText, watched === episodes.length && styles.seasonBulkTextActive]}>✓</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={expanded ? 'Sakrij epizode' : 'Prikaži epizode'}
+                  onPress={() => setExpandedSeason(expanded ? null : season)}
+                  style={styles.seasonExpand}
+                >
+                  <Text style={styles.chevron}>{expanded ? '−' : '+'}</Text>
+                </Pressable>
+              </View>
               {expanded ? episodes.map((episode) => (
                 <Pressable
                   key={episode.episodeId}
@@ -181,15 +241,21 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.textMuted, fontSize: 10, marginTop: 3 },
   continueButton: { flexDirection: 'row', alignItems: 'center', marginTop: 18, padding: 15, borderRadius: 17, backgroundColor: colors.black },
   continueText: { flex: 1, paddingRight: 10 },
-  continueEyebrow: { color: colors.white, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, opacity: 0.72 },
-  continueTitle: { color: colors.white, fontSize: 15, fontWeight: '800', marginTop: 4 },
-  continueAction: { color: colors.white, fontSize: 19, fontWeight: '900' },
+  continueEyebrow: { color: colors.onAccent, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, opacity: 0.72 },
+  continueTitle: { color: colors.onAccent, fontSize: 15, fontWeight: '800', marginTop: 4 },
+  continueAction: { color: colors.onAccent, fontSize: 19, fontWeight: '900' },
   finished: { color: colors.text, fontSize: 14, fontWeight: '800', marginTop: 18 },
   inlineError: { color: colors.danger, fontSize: 12, marginTop: 10 },
   seasonsCard: { marginTop: 16, paddingHorizontal: 18, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
   seasonsTitle: { color: colors.text, fontSize: 19, fontWeight: '900', paddingTop: 19, paddingBottom: 8 },
   seasonBlock: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  seasonHeader: { minHeight: 67, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  seasonHeader: { minHeight: 67, flexDirection: 'row', alignItems: 'center' },
+  seasonOpen: { flex: 1, minHeight: 67, justifyContent: 'center' },
+  seasonBulk: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  seasonBulkActive: { backgroundColor: colors.black, borderColor: colors.black },
+  seasonBulkText: { color: colors.textMuted, fontSize: 16, fontWeight: '900' },
+  seasonBulkTextActive: { color: colors.onAccent },
+  seasonExpand: { width: 40, height: 48, alignItems: 'flex-end', justifyContent: 'center' },
   seasonName: { color: colors.text, fontSize: 16, fontWeight: '800' },
   seasonMeta: { color: colors.textMuted, fontSize: 11, marginTop: 3 },
   chevron: { color: colors.textMuted, fontSize: 24, fontWeight: '400' },
@@ -197,7 +263,7 @@ const styles = StyleSheet.create({
   check: { width: 27, height: 27, alignItems: 'center', justifyContent: 'center', borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   checkActive: { backgroundColor: colors.black, borderColor: colors.black },
   checkText: { color: colors.text, fontSize: 14, fontWeight: '900' },
-  checkTextActive: { color: colors.white },
+  checkTextActive: { color: colors.onAccent },
   episodeText: { flex: 1, paddingHorizontal: 12 },
   episodeCode: { color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   episodeName: { color: colors.text, fontSize: 14, fontWeight: '700', lineHeight: 19, marginTop: 2 },

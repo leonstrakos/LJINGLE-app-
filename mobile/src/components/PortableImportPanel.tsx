@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   railMark: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 1.2,

@@ -10,8 +10,9 @@ import {
 } from './colors';
 import { activeVisualSkinId } from './visualSkins';
 
+import { resolveContrastPalette } from './contrast';
 export const celestialEnabled =
-  activeVisualSkinId === 'classic';
+  (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 const BLACK = '#000000';
 const WHITE = '#FFFFFF';
@@ -62,9 +63,32 @@ export function celestialAlpha(
  */
 const accent = activeAccentColor;
 const background = activeBackgroundColor;
+
+// ljingleCelestialContrastEngineR1
+const contrast =
+  resolveContrastPalette(
+    background,
+    accent,
+  );
 const dark = isDarkBackground;
 
 const accentLuminance = luminance(accent);
+
+// ljingleCelestialAdaptiveContrastR1
+// Readable accent foreground derived from the existing 0.48 dark/light cutoff.
+// Raw accent is still preserved as celestial.gold for authored fills/borders.
+const adaptiveAccent =
+  dark
+    ? (
+        accentLuminance < 0.42
+          ? mixHex(accent, WHITE, 0.38)
+          : accent
+      )
+    : (
+        accentLuminance > 0.42
+          ? mixHex(accent, BLACK, 0.38)
+          : accent
+      );
 
 export const celestial = {
   // User-owned ThemePicker values.
@@ -81,33 +105,30 @@ export const celestial = {
   goldDeep: mixHex(accent, BLACK, 0.24),
   goldInk: mixHex(accent, BLACK, 0.42),
 
-  ivory: colors.text,
-  ivoryMuted: colors.textMuted,
+  ivory: contrast.text,
+  ivoryMuted: contrast.textMuted,
   celestialBlue: mixHex(background, accent, 0.16),
 
-  star: accent,
-  text: colors.text,
-  muted: colors.textMuted,
+  star: adaptiveAccent,
+  text: contrast.text,
+  muted: contrast.textMuted,
 
-  onAccent:
-    accentLuminance > 0.58
-      ? mixHex(background, BLACK, 0.86)
-      : mixHex(background, WHITE, 0.94),
+  onAccent: contrast.onAccent,
 
   shadow: dark ? BLACK : mixHex(background, BLACK, 0.82),
 
-  accentText: accent,
+  accentText: contrast.accentText,
 
-  ornament: celestialAlpha(accent, dark ? 0.74 : 0.70),
-  hairline: celestialAlpha(accent, dark ? 0.34 : 0.30),
-  hairlineStrong: celestialAlpha(accent, dark ? 0.58 : 0.48),
+  ornament: celestialAlpha(adaptiveAccent, dark ? 0.74 : 0.70),
+  hairline: celestialAlpha(adaptiveAccent, dark ? 0.34 : 0.30),
+  hairlineStrong: celestialAlpha(adaptiveAccent, dark ? 0.58 : 0.48),
 
   panel: celestialAlpha(colors.surface, dark ? 0.76 : 0.90),
   panelStrong: celestialAlpha(colors.fillStrong, dark ? 0.86 : 0.94),
   panelSoft: celestialAlpha(colors.fill, dark ? 0.34 : 0.42),
 
-  goldWash: celestialAlpha(accent, dark ? 0.10 : 0.08),
-  dither: celestialAlpha(accent, dark ? 0.25 : 0.16),
+  goldWash: celestialAlpha(adaptiveAccent, dark ? 0.10 : 0.08),
+  dither: celestialAlpha(adaptiveAccent, dark ? 0.25 : 0.16),
 
   radius: {
     small: 12,

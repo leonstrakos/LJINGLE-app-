@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 import { reloadAppAsync } from 'expo';
 
 import {
@@ -31,7 +32,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import { PortableImportPanel } from '../components/PortableImportPanel';
 import { getUiSoundEffectsEnabled, setUiSoundEffectsEnabled } from '../audio/uiSoundPreference';
-import { BridgePanel } from '../components/BridgePanel';
 import {
   deleteCloudSnapshot,
   forceUploadNamedCheckpoint,
@@ -75,12 +75,24 @@ import {
   getJingleBackgroundEnabled,
   setJingleBackgroundEnabled,
 } from '../services/jinglePortalStylePreference';
+import { FirstRunTutorial } from '../components/FirstRunTutorial';
+// ljingleOnboardingPlayerV1
 const MAP_STEPS = 28;
 const HUE_STEPS = 48;
+
+// sparkleChromePresetR1
+// Palette sampled from the water-sparkle reference.
+const SPARKLE_CHROME_BACKGROUND = '#0A2752';
+const SPARKLE_CHROME_ACCENT = '#F2F8FC';
+
 // forkN4CelestialDefaultPaletteV12
 // forkLCelestialThemeBindingV1
-const DEFAULT_ACCENT = '#D4AF55';
-const DEFAULT_BACKGROUND = '#0B0F16';
+const DEFAULT_ACCENT = '#E8B42B';
+const DEFAULT_BACKGROUND = '#010711';
+// ljingleMorningFixesV1:palettePreset
+// ljingleMidnightDefaultColorsR1: Settings Midnight preset
+const AERO_MIDNIGHT_ACCENT = '#E8B42B';
+const AERO_MIDNIGHT_BACKGROUND = '#020c57';
 const mapRows = Array.from({ length: MAP_STEPS }, (_, index) => index);
 const mapColumns = Array.from({ length: MAP_STEPS }, (_, index) => index);
 const hueStops = Array.from({ length: HUE_STEPS }, (_, index) => index);
@@ -343,6 +355,7 @@ export function ThemePickerScreen() {
   const [jingleBackgroundEnabled, setJingleBackgroundEnabledState] =
     useState(false);
   const [jingleBackgroundReady, setJingleBackgroundReady] = useState(false);
+  const [tutorialVisible, setTutorialVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   // themeRestartPromptV1
   const [restartPromptVisible, setRestartPromptVisible] = useState(false);
@@ -901,10 +914,11 @@ export function ThemePickerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="profile" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Postavke</Text>
-          <Text style={styles.heading}>Izgled</Text>
+          <Text style={styles.eyebrow}></Text>
+          <Text style={styles.heading}>Postavke</Text>
           <Text style={styles.intro}>
             Odaberi jednu boju. Aplikacija sama iz nje radi pozadine, obrube i gumbe.
           </Text>
@@ -934,18 +948,33 @@ export function ThemePickerScreen() {
                   onPress={() => setVisualSkin(skin.id)}
                   style={({ pressed }) => [
                     styles.skinCard,
+                    skin.id === 'aero' && styles.skinCardAero,
                     selected && styles.skinCardSelected,
+                    selected && skin.id === 'aero' && styles.skinCardAeroSelected,
                     pressed && styles.pressed,
                   ]}
                 >
                   <View style={styles.skinTopRow}>
-                    <Text style={[styles.skinCode, selected && styles.skinCodeSelected]}>{skin.shortName}</Text>
-                    <View style={[styles.skinRadio, selected && styles.skinRadioSelected]} />
+                    <Text style={[styles.skinCode, skin.id === 'aero' && styles.skinAeroCode, selected && styles.skinCodeSelected, selected && skin.id === 'aero' && styles.skinAeroCodeSelected]}>{skin.shortName}</Text>
+                    <View style={[styles.skinRadio, skin.id === 'aero' && styles.skinAeroRadio, selected && styles.skinRadioSelected, selected && skin.id === 'aero' && styles.skinAeroRadioSelected]} />
                   </View>
-                  <Text style={styles.skinSpecimen}>{skin.specimen}</Text>
-                  <Text style={styles.skinName}>{skin.name}</Text>
-                  <Text style={styles.skinDescription}>{skin.description}</Text>
-                  <Text style={styles.skinStatus}>{skin.id === 'classic' ? 'AKTIVAN DIZAJN' : 'TEMELJ SPREMAN'}</Text>
+                  {skin.id === 'aero' ? (
+                    <View pointerEvents="none" style={styles.skinAeroPreview}>
+                      <View style={styles.skinAeroSun} />
+                      <View style={styles.skinAeroBubbleOne} />
+                      <View style={styles.skinAeroBubbleTwo} />
+                      <View style={styles.skinAeroHillBack} />
+                      <View style={styles.skinAeroHillFront} />
+                      <Text style={styles.skinAeroPreviewText}>AERO MAX</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.skinSpecimen}>{skin.specimen}</Text>
+                  )}
+                  <Text style={[styles.skinName, skin.id === 'aero' && styles.skinAeroName]}>{skin.name}</Text>
+                  <Text style={[styles.skinDescription, skin.id === 'aero' && styles.skinAeroDescription]}>{skin.description}</Text>
+                  <Text style={[styles.skinStatus, skin.id === 'aero' && styles.skinAeroStatus]}>
+                    {skin.id === 'classic' ? 'AKTIVAN DIZAJN' : skin.id === 'aero' ? 'OCEAN · MEADOW · GLASS' : 'TEMELJ SPREMAN'}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -1363,6 +1392,78 @@ export function ThemePickerScreen() {
             </Pressable>
           </View>
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Primijeni midnight paletu"
+            onPress={() => {
+              setAccent(AERO_MIDNIGHT_ACCENT);
+              setBackgroundColor(AERO_MIDNIGHT_BACKGROUND);
+            }}
+            style={({ pressed }) => [
+              styles.originalBackgroundButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.dualPresetSwatches}>
+              <View style={[styles.dualPresetSwatch, { backgroundColor: AERO_MIDNIGHT_BACKGROUND }]} />
+              <View style={[styles.dualPresetSwatch, { backgroundColor: AERO_MIDNIGHT_ACCENT }]} />
+            </View>
+            <View style={styles.originalBackgroundCopy}>
+              <Text style={styles.originalBackgroundTitle}>Midnight</Text>
+              <Text style={styles.originalBackgroundValue}>
+                {AERO_MIDNIGHT_BACKGROUND} · {AERO_MIDNIGHT_ACCENT}
+              </Text>
+            </View>
+          </Pressable>
+          {/* ljingleSparkleChromeColorSchemeR1 */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Primijeni Sparkle Chrome paletu"
+            onPress={() => {
+              setAccent(
+                SPARKLE_CHROME_ACCENT
+              );
+              setBackgroundColor(
+                SPARKLE_CHROME_BACKGROUND
+              );
+            }}
+            style={({ pressed }) => [
+              styles.originalBackgroundButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.dualPresetSwatches}>
+              <View
+                style={[
+                  styles.dualPresetSwatch,
+                  {
+                    backgroundColor:
+                      SPARKLE_CHROME_BACKGROUND,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.dualPresetSwatch,
+                  {
+                    backgroundColor:
+                      SPARKLE_CHROME_ACCENT,
+                  },
+                ]}
+              />
+            </View>
+          
+            <View style={styles.originalBackgroundCopy}>
+              <Text style={styles.originalBackgroundTitle}>
+                Sparkle Chrome
+              </Text>
+              <Text style={styles.originalBackgroundValue}>
+                {SPARKLE_CHROME_BACKGROUND} · {SPARKLE_CHROME_ACCENT}
+              </Text>
+            </View>
+          </Pressable>
+
+
           {colorTarget === 'accent' ? (
             <Pressable
               // finalHomeProfileJinglePolishV1
@@ -1509,18 +1610,14 @@ export function ThemePickerScreen() {
               setAccent(DEFAULT_ACCENT);
               setBackgroundColor(DEFAULT_BACKGROUND);
             }}
-            style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.resetButton,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.resetText}>Vrati zadano</Text>
+            <Text style={styles.resetText}>Vrati zadane boje</Text>
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            disabled={saving}
-            onPress={() => void save()}
-            style={({ pressed }) => [styles.saveButton, { backgroundColor: accent }, pressed && styles.pressed]}
-          >
-            {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Primijeni</Text>}
-          </Pressable>
+
         </View>
 
         
@@ -1529,7 +1626,7 @@ export function ThemePickerScreen() {
         <SettingsAccordion
           glyph="□"
           title="Podaci i sync"
-          subtitle="Cloud, Bridge, prijenos, backup i restore"
+          subtitle="Cloud, prijenos, backup i restore"
           open={openSettingsGroup === 'data'}
           onPress={() =>
             toggleSettingsGroup('data')
@@ -1816,10 +1913,62 @@ export function ThemePickerScreen() {
           </Text>
         </View>
 
-              <BridgePanel />
       
         </SettingsAccordion>
-</ScrollView>
+
+        {/* ljingleTutorialStandaloneSettingsR1 */}
+<Pressable
+          accessibilityRole="button"
+          onPress={() => setTutorialVisible(true)}
+          style={({ pressed }) => [
+            styles.tutorialButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <View style={styles.tutorialButtonMark}>
+            <Text style={styles.tutorialButtonMarkText}>?</Text>
+          </View>
+          <View style={styles.tutorialButtonCopy}>
+            <Text style={styles.tutorialButtonTitle}>Otvori LJingle tutorial</Text>
+            <Text style={styles.tutorialButtonHint}>
+              Katalog, Zapisi, veze, Collections, Memory Radio i Jingleportal
+            </Text>
+          </View>
+          <Text style={styles.tutorialButtonChevron}>›</Text>
+        </Pressable>
+
+      </ScrollView>
+
+      {/* settingsApplyNotesSpeedV1: Apply belongs to all appearance settings, not Boje. */}
+      <View style={styles.applyDock}>
+        <View style={styles.applyDockInner}>
+          <View style={styles.applyDockCopy}>
+            <Text style={styles.applyDockEyebrow}>IZGLED APLIKACIJE</Text>
+            <Text numberOfLines={1} style={styles.applyDockHint}>
+              Tema, katalog, radio i boje
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Primijeni promjene izgleda"
+            disabled={saving}
+            onPress={() => void save()}
+            style={({ pressed }) => [
+              styles.applyDockButton,
+              { backgroundColor: accent },
+              pressed && !saving && styles.pressed,
+              saving && styles.applyDockButtonDisabled,
+            ]}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.applyDockButtonText}>Primijeni</Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
 
       {/* cloudSyncNoticeV1 */}
       <Modal
@@ -2009,6 +2158,11 @@ export function ThemePickerScreen() {
           </View>
         </View>
       </Modal>
+
+      <FirstRunTutorial
+        visible={tutorialVisible}
+        onClose={() => setTutorialVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -2162,7 +2316,54 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 16 }],
   },
   safeArea: { flex: 1, backgroundColor: colors.background },
-  content: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 20, paddingBottom: 48 },
+  content: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 20, paddingBottom: 32 },
+  applyDock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  applyDockInner: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  applyDockCopy: { flex: 1, minWidth: 0 },
+  applyDockEyebrow: {
+    color: colors.text,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.05,
+  },
+  applyDockHint: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 11.5,
+  },
+  applyDockButton: {
+    minWidth: 138,
+    minHeight: 49,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingHorizontal: 20,
+  },
+  applyDockButtonDisabled: { opacity: 0.55 },
+  applyDockButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.35,
+  },
   hero: { paddingHorizontal: 3, paddingBottom: 24 },
   eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
   heading: { color: colors.text, fontSize: 38, lineHeight: 45, fontWeight: '900', letterSpacing: -1, marginTop: 4 },
@@ -2177,6 +2378,18 @@ const styles = StyleSheet.create({
   skinGrid: { marginTop: 15, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   skinCard: { flexGrow: 1, flexBasis: 210, minHeight: 170, padding: 16, borderRadius: 18, backgroundColor: colors.fill, borderWidth: 1, borderColor: colors.separator },
   skinCardSelected: { borderWidth: 2, borderColor: colors.navy, backgroundColor: colors.surface },
+  // ljingleTutorialMartyAeroRestoreR1:settings
+  skinCardAero: {
+    overflow: 'hidden',
+    borderColor: '#A7DDF3',
+    backgroundColor: '#DDF5FF',
+    shadowColor: '#087CB8',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  skinCardAeroSelected: { borderWidth: 2, borderColor: '#0B88C8', backgroundColor: '#DDF5FF' },
   skinTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   skinCode: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   skinCodeSelected: { color: colors.navy },
@@ -2186,6 +2399,29 @@ const styles = StyleSheet.create({
   skinName: { marginTop: 13, color: colors.text, fontSize: 17, fontWeight: '900' },
   skinDescription: { marginTop: 5, color: colors.textMuted, fontSize: 11, lineHeight: 16 },
   skinStatus: { marginTop: 13, color: colors.navy, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  skinAeroCode: { color: '#39768C' },
+  skinAeroCodeSelected: { color: '#075F91' },
+  skinAeroRadio: { borderColor: '#63B5D5' },
+  skinAeroRadioSelected: { borderColor: '#0B88C8' },
+  skinAeroPreview: {
+    position: 'relative',
+    height: 82,
+    marginTop: 13,
+    overflow: 'hidden',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.96)',
+    backgroundColor: '#BDEAF7',
+  },
+  skinAeroSun: { position: 'absolute', top: 10, right: 13, width: 23, height: 23, borderRadius: 12, backgroundColor: '#FFF3A6' },
+  skinAeroBubbleOne: { position: 'absolute', top: 16, left: 18, width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: 'rgba(255,255,255,0.88)', backgroundColor: 'rgba(111,211,240,0.34)' },
+  skinAeroBubbleTwo: { position: 'absolute', top: 35, left: 51, width: 15, height: 15, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.92)', backgroundColor: 'rgba(255,255,255,0.18)' },
+  skinAeroHillBack: { position: 'absolute', left: -22, right: 35, bottom: -30, height: 65, borderRadius: 50, backgroundColor: '#9BDD7E' },
+  skinAeroHillFront: { position: 'absolute', left: 52, right: -32, bottom: -36, height: 72, borderRadius: 55, backgroundColor: '#65BF62' },
+  skinAeroPreviewText: { position: 'absolute', left: 12, bottom: 9, color: '#075F91', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  skinAeroName: { color: '#123F55' },
+  skinAeroDescription: { color: '#527386' },
+  skinAeroStatus: { color: '#087CB8' },
   aeroBackgroundGrid: { marginTop: 14, flexDirection: 'row', gap: 12 },
   aeroBackgroundCard: { flex: 1, overflow: 'hidden', borderRadius: 18, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.fill },
   aeroBackgroundCardSelected: { borderWidth: 2, backgroundColor: colors.surface },
@@ -2328,6 +2564,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.surface,
   },
+  dualPresetSwatches: {
+    width: 48,
+    height: 34,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.34)',
+  },
+  dualPresetSwatch: { flex: 1 },
   originalBackgroundSwatch: {
     width: 30,
     height: 30,
@@ -2618,6 +2864,54 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
   },
+  tutorialButton: {
+    minHeight: 74,
+    marginHorizontal: 0,
+    marginTop: 2,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.fill,
+  },
+  tutorialButtonMark: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.navy,
+    backgroundColor: colors.surface,
+  },
+  tutorialButtonMarkText: {
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  tutorialButtonCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 12,
+  },
+  tutorialButtonTitle: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  tutorialButtonHint: {
+    marginTop: 4,
+    color: colors.textMuted,
+    fontSize: 9.5,
+    lineHeight: 14,
+  },
+  tutorialButtonChevron: {
+    color: colors.navy,
+    fontSize: 24,
+  },
   importNote: { marginTop: 11, color: colors.textMuted, fontSize: 10.5, lineHeight: 16 },
   syncNoticeOverlay: {
     flex: 1,
@@ -2817,8 +3111,6 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
 });
-
-
 
 
 

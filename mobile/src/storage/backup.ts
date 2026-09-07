@@ -5,6 +5,45 @@ import { getDatabase } from './database';
 type Row = Record<string, unknown>;
 type Database = Awaited<ReturnType<typeof getDatabase>>;
 
+// checkpointRestoreDatabaseLockV1
+type SyncRestoreDatabase = {
+  execSync(source: string): void;
+  runSync(source: string, ...params: Array<unknown>): unknown;
+  getAllSync<T>(source: string, ...params: Array<unknown>): T[];
+  withExclusiveTransactionSync?: (task: (transaction: SyncRestoreDatabase) => void) => void;
+};
+
+function isSqliteLock(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /database is locked|database table is locked|SQLITE_BUSY|SQLITE_LOCKED/i.test(message);
+}
+
+function waitForRetry(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function retrySqliteLock<T>(task: () => T | Promise<T>, attempts = 5): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (!isSqliteLock(error) || attempt === attempts - 1) throw error;
+      await waitForRetry(250 * (attempt + 1));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('SQLite restore nije uspio.');
+}
+
+function syncTableColumns(database: SyncRestoreDatabase, table: string) {
+  const rows = database.getAllSync<{ name: string }>(
+    'PRAGMA table_info(' + quoteIdentifier(table) + ')',
+  );
+  return new Set(rows.map((row) => row.name));
+}
+
+
 export type BackupInspection = {
   version: number;
   exportedAt: string | null;
@@ -151,43 +190,80 @@ export async function importLocalData(text: string) {
     throw new Error('Backup nema nijednu tablicu koju ova verzija aplikacije može vratiti.');
   }
 
-  // Native SQLite can safely disable FK checks outside the transaction, perform the
-  // replacement atomically, validate the resulting graph, then re-enable them.
-  if (Platform.OS !== 'web') await database.execAsync('PRAGMA foreign_keys = OFF;');
+  const syncDatabase = database as unknown as SyncRestoreDatabase;
+  const restoreRowsSync = (transaction: SyncRestoreDatabase) => {
+    for (const table of [...targetTables].reverse()) {
+      transaction.runSync('DELETE FROM ' + quoteIdentifier(table));
+    }
 
-  try {
-    await atomic(database, async (transaction) => {
-      for (const table of [...targetTables].reverse()) {
-        await transaction.runAsync(`DELETE FROM ${quoteIdentifier(table)}`);
+    for (const table of targetTables) {
+      const allowed = syncTableColumns(transaction, table);
+      for (const row of backup.tables[table]!) {
+        const columns = Object.keys(row).filter((column) => allowed.has(column));
+        if (!columns.length) continue;
+        const sql =
+          'INSERT INTO ' + quoteIdentifier(table) + ' (' + columns.map(quoteIdentifier).join(', ') + ') ' +
+          'VALUES (' + columns.map(() => '?').join(', ') + ')';
+        transaction.runSync(sql, ...columns.map((column) => sqliteValue(row[column])));
       }
+    }
 
-      for (const table of targetTables) {
-        const allowed = await tableColumns(transaction, table);
-        for (const row of backup.tables[table]!) {
-          const columns = Object.keys(row).filter((column) => allowed.has(column));
-          if (!columns.length) continue;
-          const sql =
-            `INSERT INTO ${quoteIdentifier(table)} (${columns.map(quoteIdentifier).join(', ')}) ` +
-            `VALUES (${columns.map(() => '?').join(', ')})`;
-          await transaction.runAsync(
-            sql,
-            ...columns.map((column) => sqliteValue(row[column])),
-          );
-        }
-      }
+    const violations = transaction.getAllSync<Record<string, unknown>>('PRAGMA foreign_key_check;');
+    if (violations.length) {
+      throw new Error('Backup nije kompatibilan s trenutnom bazom (foreign-key provjera nije prošla). Ništa nije promijenjeno.');
+    }
+  };
 
-      if (Platform.OS !== 'web') {
-        const violations = await transaction.getAllAsync<Record<string, unknown>>(
-          'PRAGMA foreign_key_check;',
-        );
-        if (violations.length) {
-          throw new Error(
-            'Backup nije kompatibilan s trenutnom bazom (foreign-key provjera nije prošla). Ništa nije promijenjeno.',
-          );
-        }
+  const restoreRowsAsync = async (transaction: Database) => {
+    for (const table of [...targetTables].reverse()) {
+      await transaction.runAsync('DELETE FROM ' + quoteIdentifier(table));
+    }
+
+    for (const table of targetTables) {
+      const allowed = await tableColumns(transaction, table);
+      for (const row of backup.tables[table]!) {
+        const columns = Object.keys(row).filter((column) => allowed.has(column));
+        if (!columns.length) continue;
+        const sql =
+          'INSERT INTO ' + quoteIdentifier(table) + ' (' + columns.map(quoteIdentifier).join(', ') + ') ' +
+          'VALUES (' + columns.map(() => '?').join(', ') + ')';
+        await transaction.runAsync(sql, ...columns.map((column) => sqliteValue(row[column])));
       }
+    }
+
+    const violations = await transaction.getAllAsync<Record<string, unknown>>('PRAGMA foreign_key_check;');
+    if (violations.length) {
+      throw new Error('Backup nije kompatibilan s trenutnom bazom (foreign-key provjera nije prošla). Ništa nije promijenjeno.');
+    }
+  };
+
+  if (Platform.OS !== 'web' && typeof syncDatabase.withExclusiveTransactionSync === 'function') {
+    await retrySqliteLock(async () => {
+      syncDatabase.execSync('PRAGMA busy_timeout = 15000;');
+      syncDatabase.execSync('PRAGMA foreign_keys = OFF;');
+      let restoreError: unknown = null;
+      try {
+        syncDatabase.withExclusiveTransactionSync!(restoreRowsSync);
+      } catch (error) {
+        restoreError = error;
+      }
+      try {
+        syncDatabase.execSync('PRAGMA foreign_keys = ON;');
+      } catch (error) {
+        if (!restoreError) restoreError = error;
+      }
+      if (restoreError) throw restoreError;
     });
-  } finally {
-    if (Platform.OS !== 'web') await database.execAsync('PRAGMA foreign_keys = ON;');
+    return;
   }
+
+  await retrySqliteLock(async () => {
+    if (Platform.OS !== 'web') await database.execAsync('PRAGMA busy_timeout = 15000;');
+    if (Platform.OS !== 'web') await database.execAsync('PRAGMA foreign_keys = OFF;');
+    try {
+      await database.withExclusiveTransactionAsync(restoreRowsAsync);
+    } finally {
+      if (Platform.OS !== 'web') await database.execAsync('PRAGMA foreign_keys = ON;');
+    }
+  });
 }

@@ -38,6 +38,10 @@ export const topicApi = {
   getActivities: (topicId: string) =>
     apiRequest<TopicActivityResponse[]>(`/topics/${topicId}/activities`),
 
+  // settingsApplyNotesSpeedV1: full flat index for Entry labels; local and read-only.
+  getAllActivities: () =>
+    apiRequest<TopicActivityResponse[]>('/activities?all=1'),
+
   searchActivities: (query = '') =>
     apiRequest<TopicActivityResponse[]>(
       '/activities?query=' +

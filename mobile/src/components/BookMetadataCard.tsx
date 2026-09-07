@@ -9,8 +9,33 @@ type Props = {
   onPress: () => void;
 };
 
+// ljingleBookApiBrowseSynopsisR1
+function cleanApiBookDescription(value: string | null | undefined) {
+  if (!value) return '';
+
+  return value
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/p\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function BookMetadataCard({ candidate, onPress }: Props) {
   const isbn = candidate.isbn13 ?? candidate.isbn10;
+  const synopsis = cleanApiBookDescription(candidate.description);
+  const browseMeta = [
+    candidate.publisher,
+    candidate.pageCount ? candidate.pageCount + ' str.' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Pressable
@@ -43,13 +68,47 @@ export function BookMetadataCard({ candidate, onPress }: Props) {
             </View>
           ))}
         </View>
-      </View>
+      
+        {browseMeta ? (
+          <Text
+            numberOfLines={1}
+            style={styles.apiBrowseMetaR1}
+          >
+            {browseMeta}
+          </Text>
+        ) : null}
+
+        {synopsis ? (
+          <Text
+            ellipsizeMode="tail"
+            numberOfLines={4}
+            style={styles.apiBrowseSynopsisR1}
+          >
+            {synopsis}
+          </Text>
+        ) : null}
+</View>
       <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // ljingleBookApiBrowseSynopsisR1:styles
+  apiBrowseMetaR1: {
+    marginTop: 6,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  apiBrowseSynopsisR1: {
+    marginTop: 8,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

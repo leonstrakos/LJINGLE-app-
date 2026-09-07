@@ -46,6 +46,23 @@ import { semanticFeedback } from '../utils/semanticFeedback';
 import { isPaletteInteractionLocked } from '../utils/paletteInteractionLock';
 // forkLCollectionsMemoryBoxV2
 import { semanticSearch } from '../intelligence/semanticIndex';
+import {
+  archiveLeadExcerpt,
+  archiveMatchedExcerpt,
+  archiveSearchTerms,
+} from '../intelligence/archiveSearchExcerpt';
+import {
+  currentArchiveKeyFromRoute,
+  parseRelationalArchiveQuery,
+  resolveRelationalArchiveQuery,
+  type RelationalArchiveMatch,
+} from '../intelligence/relationalArchiveQuery';
+import {
+  buildBulkCollectionPreview,
+  executeBulkCollectionAdd,
+  parseBulkCollectionIntent,
+  type BulkCollectionPreview,
+} from '../intelligence/bulkCollectionMutation';
 import { rememberContextAlias } from '../intelligence/contextAliasMemory';
 import { planQuietSearch } from '../intelligence/quietIntent';
 import { activityApi } from '../services/activityApi';
@@ -121,7 +138,7 @@ import { celestial, celestialAlpha } from '../theme/celestial';
 // forkK12DiscourseMemoryV1
 
 // forkN1CelestialHomeCommandBellV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 // forkK14_1IntentFirstPaletteBrainUiV1
 // forkK14_1_1BrainPolishCommandOwnershipV1
@@ -133,15 +150,14 @@ import {
   type EntityPhrase,
 } from '../intelligence/deterministicMutation';
 import { saveBookReadingPageDirect } from '../services/sessionNotes';
+// jinglePortalNetworkV1
+import { socialApi } from '../services/socialApi';
+import type { SocialSearchResult } from '../types/social';
 
 
 import {
   setUiSoundEffectsEnabled,
 } from '../audio/uiSoundPreference';
-import {
-  sharePortableCollection,
-  sharePortableEntity,
-} from '../services/portableExport';
 
 // paletteEnterOwnershipFastIntentsV1_1
 
@@ -489,6 +505,21 @@ type Props = {
   openSignal?: number;
 };
 
+import {
+  emptySearchThreadFilter,
+  isSearchThreadFollowUpPrefix,
+  mergeSearchThreadFilter,
+  parseSearchThreadFollowUp,
+  searchThreadFilterIsActive,
+  searchThreadNameMatches,
+  shouldRememberSearchThreadBase,
+  type SearchThreadFilter,
+} from '../intelligence/searchFollowUpThread';
+import {
+  loadContextSpine as loadSearchThreadContextSpine,
+} from '../intelligence/contextSpine';
+
+// ljingleBrainSearchFollowUpR2:imports
 type SearchEntity = {
   key: string;
   kind: 'BOOK' | 'MEDIA' | 'GAME' | 'TOPIC' | 'ENTRY' | 'FREQUENCY';
@@ -497,6 +528,15 @@ type SearchEntity = {
   typeLabel: string;
   meta: string;
   favourite: boolean;
+};
+
+// ljingleBrainArchiveSearchR2:palette
+type SearchCollection = {
+  key: string;
+  id: string;
+  title: string;
+  typeLabel: 'Memory Box';
+  meta: string;
 };
 
 // forkCCommandSemanticLabelsV1
@@ -519,8 +559,16 @@ type PaletteItem =
       entity: SearchEntity;
     }
   | {
+      itemType: 'collection';
+      collection: SearchCollection;
+    }
+  | {
       itemType: 'online';
       result: PaletteOnlineResult;
+    }
+  | {
+      itemType: 'network';
+      result: SocialSearchResult;
     };
 
 function normalize(value: unknown) {
@@ -895,6 +943,165 @@ export function CommandPalette({
 
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
+  // ljingleBrainSearchFollowUpR2:state
+  const [searchThreadBase, setSearchThreadBase] =
+    useState<string | null>(null);
+  const [searchThreadFilter, setSearchThreadFilter] =
+    useState<SearchThreadFilter>(
+      emptySearchThreadFilter(),
+    );
+  const [searchThreadContextByKey, setSearchThreadContextByKey] =
+    useState(
+      new Map<
+        string,
+        Awaited<
+          ReturnType<
+            typeof loadSearchThreadContextSpine
+          >
+        > extends Map<string, infer Signal>
+          ? Signal
+          : never
+      >(),
+    );
+  const searchThreadBaseAtRef =
+    useRef(0);
+  const searchThreadRewriteRef =
+    useRef(false);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    if (
+      searchThreadRewriteRef.current
+    ) {
+      searchThreadRewriteRef.current =
+        false;
+      return;
+    }
+
+    const refinement =
+      parseSearchThreadFollowUp(
+        query,
+      );
+
+    const freshBase =
+      searchThreadBase &&
+      Date.now() -
+          searchThreadBaseAtRef.current <=
+        20 * 60 * 1000;
+
+    if (
+      refinement &&
+      freshBase
+    ) {
+      setSearchThreadFilter(
+        (current) =>
+          mergeSearchThreadFilter(
+            current,
+            refinement,
+          ),
+      );
+
+      searchThreadBaseAtRef.current =
+        Date.now();
+
+      if (
+        query !== searchThreadBase
+      ) {
+        searchThreadRewriteRef.current =
+          true;
+        setQuery(
+          searchThreadBase,
+        );
+      }
+
+      return;
+    }
+
+    if (
+      !query.trim() ||
+      isSearchThreadFollowUpPrefix(
+        query,
+      )
+    ) {
+      return;
+    }
+
+    if (
+      shouldRememberSearchThreadBase(
+        query,
+      )
+    ) {
+      setSearchThreadBase(
+        query,
+      );
+      setSearchThreadFilter(
+        emptySearchThreadFilter(),
+      );
+      searchThreadBaseAtRef.current =
+        Date.now();
+    }
+  }, [
+    query,
+    searchThreadBase,
+    visible,
+  ]);
+
+  useEffect(() => {
+    if (
+      !visible ||
+      !searchThreadFilterIsActive(
+        searchThreadFilter,
+      )
+    ) {
+      setSearchThreadContextByKey(
+        new Map(),
+      );
+      return;
+    }
+
+    const needsContext =
+      searchThreadFilter.fromBooks ||
+      Boolean(
+        searchThreadFilter.includeCollection,
+      ) ||
+      Boolean(
+        searchThreadFilter.excludeCollection,
+      );
+
+    if (!needsContext) {
+      setSearchThreadContextByKey(
+        new Map(),
+      );
+      return;
+    }
+
+    let cancelled = false;
+
+    void loadSearchThreadContextSpine()
+      .then((map) => {
+        if (!cancelled) {
+          setSearchThreadContextByKey(
+            map,
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchThreadContextByKey(
+            new Map(),
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchThreadFilter,
+    visible,
+  ]);
+
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
   const [books, setBooks] = useState<BookResponse[]>([]);
@@ -909,6 +1116,8 @@ export function CommandPalette({
   const [quickCommandBusy, setQuickCommandBusy] = useState(false);
   const [quickCommandError, setQuickCommandError] = useState<string | null>(null);
   const [jingleMode, setJingleMode] = useState(false);
+  const [networkResults, setNetworkResults] = useState<SocialSearchResult[]>([]);
+  const [networkLoading, setNetworkLoading] = useState(false);
 
   // forkHCommandPaletteV2
   const [onlineResults, setOnlineResults] =
@@ -919,6 +1128,33 @@ export function CommandPalette({
     useState(false);
   const [onlineError, setOnlineError] =
     useState<string | null>(null);
+
+  useEffect(() => {
+    const clean = query.trim();
+    if (!visible || clean.length < 2 || clean.startsWith(':')) {
+      setNetworkResults([]);
+      setNetworkLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setNetworkLoading(true);
+    const timer = setTimeout(() => {
+      void socialApi.search(clean, 12)
+        .then(({ results }) => {
+          if (!cancelled) setNetworkResults(results);
+        })
+        .catch(() => {
+          if (!cancelled) setNetworkResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setNetworkLoading(false);
+        });
+    }, 360);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, visible]);
 
   // brutusPaletteExtendedEntitiesV1
   useEffect(() => {
@@ -951,6 +1187,31 @@ export function CommandPalette({
     useState<SearchEntity[]>([]);
   const [quietSemanticEntities, setQuietSemanticEntities] =
     useState<SearchEntity[]>([]);
+  const [quietSemanticCollections, setQuietSemanticCollections] =
+    useState<SearchCollection[]>([]);
+  const [quietSemanticReasons, setQuietSemanticReasons] =
+    useState<Record<string, string[]>>({});
+  // ljingleBrainRelationalCurrentContextR2:palette
+  const [relationalMatches, setRelationalMatches] =
+    useState<RelationalArchiveMatch[]>([]);
+  // ljingleBrainBulkMemoryBoxActionsR1:palette
+  const [bulkPreview, setBulkPreview] =
+    useState<BulkCollectionPreview | null>(null);
+  const [bulkPreviewLoading, setBulkPreviewLoading] =
+    useState(false);
+
+  const relationalByKey = useMemo(
+    () =>
+      new Map(
+        relationalMatches.map(
+          (match) => [
+            match.key,
+            match,
+          ],
+        ),
+      ),
+    [relationalMatches],
+  );
   const [activeContext, setActiveContext] =
     useState<QuietActiveContext | null>(null);
   const [contextLinkTarget, setContextLinkTarget] =
@@ -1123,6 +1384,10 @@ const [localLanguagePlan, setLocalLanguagePlan] =
     setOnlineLoading(false);
     setOnlineSearched(false);
     setOnlineError(null);
+    setNetworkResults([]);
+    setNetworkLoading(false);
+    setBulkPreview(null);
+    setBulkPreviewLoading(false);
   };
 
   const navigate = (
@@ -2039,6 +2304,49 @@ const [localLanguagePlan, setLocalLanguagePlan] =
   };
 
 
+  const runBulkCollectionConfirm = async (
+    preview: Extract<
+      BulkCollectionPreview,
+      { status: 'READY' }
+    >,
+  ) => {
+    if (quickCommandBusy) return;
+
+    setQuickCommandBusy(true);
+    setQuickCommandError(null);
+
+    try {
+      const result =
+        await executeBulkCollectionAdd(
+          preview,
+        );
+
+      const nextCollections =
+        await collectionApi.getAll();
+
+      setCollections(nextCollections);
+
+      createdFeedback();
+
+      if (result.added === 0) {
+        setQuickCommandError(
+          'Sve stavke su već bile unutra · All matching entries were already in the Memory Box.',
+        );
+        return;
+      }
+
+      close();
+    } catch (caught) {
+      setQuickCommandError(
+        caught instanceof Error
+          ? caught.message
+          : 'Bulk dodavanje nije uspjelo · Bulk add failed.',
+      );
+    } finally {
+      setQuickCommandBusy(false);
+    }
+  };
+
   const commands = useMemo<PaletteCommand[]>(
     () => [
       {
@@ -2382,6 +2690,279 @@ const [localLanguagePlan, setLocalLanguagePlan] =
     [books, games, media, topics, entries, frequencies, jingleGraph],
   );
 
+  // ljingleSearchSnippetsBrainContextR2:palette
+  const archiveSourceTextByKey = useMemo(
+    () =>
+      new Map<string, string>([
+        ...books.map(
+          (book): [string, string] => [
+            'BOOK:' + book.bookId,
+            [
+              book.title,
+              book.author,
+              book.isbn,
+              book.publishedYear,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+        ...media.map(
+          (item): [string, string] => [
+            'MEDIA:' + item.mediaId,
+            [
+              item.title,
+              item.originalTitle,
+              item.overview,
+              item.releaseYear,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+        ...games.map(
+          (game): [string, string] => [
+            'GAME:' + game.gameId,
+            [
+              game.title,
+              game.platform,
+              game.developer,
+              game.releaseYear,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+        ...topics.map(
+          (topic): [string, string] => [
+            'TOPIC:' + topic.topicId,
+            [
+              topic.name,
+              topic.description,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+        ...entries.map(
+          (entry): [string, string] => [
+            'ENTRY:' + entry.entryId,
+            [
+              entry.title,
+              entry.customLabel,
+              entry.content,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+        ...frequencies.map(
+          (frequency): [string, string] => [
+            'FREQUENCY:' + frequency.trackId,
+            [
+              frequency.trackTitle,
+              frequency.artist,
+              'Memory Radio',
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+        ...collections.map(
+          (collection): [string, string] => [
+            'COLLECTION:' +
+              collection.collectionId,
+            [
+              collection.name,
+              collection.description,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          ],
+        ),
+      ]),
+    [
+      books,
+      collections,
+      entries,
+      frequencies,
+      games,
+      media,
+      topics,
+    ],
+  );
+
+  const relationalCandidates = useMemo(
+    () => [
+      ...entities.map((entity) => ({
+        key: entity.key,
+        kind: entity.kind,
+        title: entity.title,
+        sourceText:
+          archiveSourceTextByKey.get(
+            entity.key,
+          ) ?? entity.meta,
+      })),
+      ...collections.map(
+        (collection) => ({
+          key:
+            'COLLECTION:' +
+            collection.collectionId,
+          kind:
+            'COLLECTION' as const,
+          title:
+            collection.name,
+          sourceText:
+            archiveSourceTextByKey.get(
+              'COLLECTION:' +
+                collection.collectionId,
+            ) ??
+            [
+              collection.name,
+              collection.description,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+        }),
+      ),
+    ],
+    [
+      archiveSourceTextByKey,
+      collections,
+      entities,
+    ],
+  );
+
+  const currentArchiveKey =
+    visible
+      ? currentArchiveKeyFromRoute(
+          navigation?.getCurrentRoute?.(),
+        )
+      : null;
+
+  useEffect(() => {
+    const plan =
+      parseRelationalArchiveQuery(
+        query,
+      );
+
+    if (!visible || !plan) {
+      setRelationalMatches([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer =
+      setTimeout(() => {
+        void resolveRelationalArchiveQuery(
+          plan,
+          relationalCandidates,
+          currentArchiveKey,
+        )
+          .then((matches) => {
+            if (!cancelled) {
+              setRelationalMatches(
+                matches,
+              );
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setRelationalMatches(
+                [],
+              );
+            }
+          });
+      }, 110);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    currentArchiveKey,
+    query,
+    relationalCandidates,
+    visible,
+  ]);
+
+  const bulkIntent = useMemo(
+    () =>
+      parseBulkCollectionIntent(
+        query,
+      ),
+    [query],
+  );
+
+  const bulkEntryCandidates = useMemo(
+    () =>
+      entries.map((entry) => ({
+        entryId: entry.entryId,
+        title:
+          entry.title?.trim() ||
+          entry.content
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 64) ||
+          'Zapis',
+        sourceText:
+          archiveSourceTextByKey.get(
+            'ENTRY:' + entry.entryId,
+          ) ?? entry.content,
+      })),
+    [
+      archiveSourceTextByKey,
+      entries,
+    ],
+  );
+
+  useEffect(() => {
+    if (!visible || !bulkIntent) {
+      setBulkPreview(null);
+      setBulkPreviewLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    setBulkPreview(null);
+    setBulkPreviewLoading(true);
+
+    const timer = setTimeout(() => {
+      void buildBulkCollectionPreview(
+        bulkIntent,
+        bulkEntryCandidates,
+        collections,
+      )
+        .then((preview) => {
+          if (!cancelled) {
+            setBulkPreview(preview);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setBulkPreview(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setBulkPreviewLoading(false);
+          }
+        });
+    }, 140);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    bulkEntryCandidates,
+    bulkIntent,
+    collections,
+    visible,
+  ]);
+
   useEffect(() => {
     if (!visible || isLikelyCompoundLanguage(query) || !shouldAskLocalLanguageModel(query)) {
       setLocalLanguageIntent(null);
@@ -2650,6 +3231,8 @@ const [localLanguagePlan, setLocalLanguagePlan] =
   useEffect(() => {
     if (!visible) {
       setQuietSemanticEntities([]);
+      setQuietSemanticCollections([]);
+      setQuietSemanticReasons({});
       return;
     }
 
@@ -2659,9 +3242,24 @@ const [localLanguagePlan, setLocalLanguagePlan] =
         : localLanguageIntent?.action === 'SEARCH'
           ? localLanguageIntent.query
           : query;
+
+    if (
+      isCommandShapedInput(languageSearchQuery) &&
+      !isExplicitSearchInput(languageSearchQuery)
+    ) {
+      // Generic archive search is redundant here. Command referent resolution
+      // still uses resolveReferent(), which already performs semanticSearch().
+      setQuietSemanticEntities([]);
+      setQuietSemanticCollections([]);
+      setQuietSemanticReasons({});
+      return;
+    }
+
     const plan = planQuietSearch(languageSearchQuery);
     if (!plan) {
       setQuietSemanticEntities([]);
+      setQuietSemanticCollections([]);
+      setQuietSemanticReasons({});
       return;
     }
 
@@ -2674,23 +3272,74 @@ const [localLanguagePlan, setLocalLanguagePlan] =
       })
         .then((semantic) => {
           if (cancelled) return;
-          const byKey = new Map(entities.map((item) => [item.key, item]));
+
+          const byKey =
+            new Map(entities.map((item) => [item.key, item]));
+
+          const collectionByKey =
+            new Map(
+              collections.map((collection) => [
+                'COLLECTION:' + collection.collectionId,
+                {
+                  key: 'COLLECTION:' + collection.collectionId,
+                  id: collection.collectionId,
+                  title: collection.name,
+                  typeLabel: 'Memory Box' as const,
+                  meta:
+                    collection.description?.trim() ||
+                    (collection.itemCount === 1
+                      ? '1 stavka'
+                      : collection.itemCount + ' stavki'),
+                },
+              ]),
+            );
+
+          setQuietSemanticReasons(
+            Object.fromEntries(
+              semantic.map((item) => [
+                item.key,
+                item.reasons,
+              ]),
+            ),
+          );
+
           setQuietSemanticEntities(
             semantic
               .map((item) => byKey.get(item.key))
               .filter((item): item is SearchEntity => Boolean(item)),
           );
+
+          setQuietSemanticCollections(
+            semantic
+              .map((item) => collectionByKey.get(item.key))
+              .filter(
+                (item): item is SearchCollection =>
+                  Boolean(item),
+              ),
+          );
         })
         .catch(() => {
-          if (!cancelled) setQuietSemanticEntities([]);
+          if (!cancelled) {
+            setQuietSemanticEntities([]);
+            setQuietSemanticCollections([]);
+            setQuietSemanticReasons({});
+          }
         });
-    }, 160);
+    }, 240);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [entities, query, visible, localLanguageIntent]);
+  }, [
+    collections,
+    entities,
+    query,
+    visible,
+    localLanguageIntent,
+    localLanguageRaw,
+    localReferentResolution,
+  ]);
 
   const runCompoundLanguagePlan = async (plan: LocalLanguagePlanResult) => {
     if (quickCommandBusy || !plan.fullyValid || !compoundPlanCanExecute(plan.intents)) return;
@@ -3152,9 +3801,225 @@ const [localLanguagePlan, setLocalLanguagePlan] =
     }
   };
 
-  const items = useMemo<PaletteItem[]>(() => {
+  const searchThreadBaseItems = useMemo<PaletteItem[]>(() => {
     const utilityQuery =
       query.trim();
+
+    if (bulkIntent) {
+      const currentPreview =
+        bulkPreview?.intent.raw ===
+        bulkIntent.raw
+          ? bulkPreview
+          : null;
+
+      if (
+        bulkPreviewLoading ||
+        !currentPreview
+      ) {
+        return [{
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-loading:' +
+              bulkIntent.raw,
+            label:
+              'Pripremam pregled / Preparing preview…',
+            detail:
+              'Ništa se još ne mijenja · Nothing has changed yet',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        }];
+      }
+
+      if (
+        currentPreview.status ===
+          'NO_COLLECTION'
+      ) {
+        return [{
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-no-target:' +
+              bulkIntent.destinationQuery,
+            label:
+              'Memory Box nije pronađen / not found: #' +
+              bulkIntent.destinationQuery,
+            detail:
+              'Bulk R1 koristi samo postojeći Memory Box · Bulk R1 only uses an existing Memory Box',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        }];
+      }
+
+      if (
+        currentPreview.status ===
+          'AMBIGUOUS_COLLECTION'
+      ) {
+        return [{
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-ambiguous:' +
+              bulkIntent.destinationQuery,
+            label:
+              'Memory Box nije jednoznačan / is ambiguous',
+            detail:
+              'Upiši točniji naziv · Use a more exact Memory Box name',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        }];
+      }
+
+      if (
+        currentPreview.status ===
+          'NO_MATCHES'
+      ) {
+        return [{
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-no-matches:' +
+              bulkIntent.sourceQuery,
+            label:
+              'Nema sigurnih podudaranja / No confident matches',
+            detail:
+              'Ništa neće biti dodano · Nothing will be added',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        }];
+      }
+
+      if (
+        currentPreview.status ===
+          'TOO_MANY'
+      ) {
+        return [{
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-too-many:' +
+              bulkIntent.sourceQuery,
+            label:
+              'Previše rezultata / Too many results: ' +
+              currentPreview.matches.length,
+            detail:
+              'Suzi upit prije bulk akcije · Narrow the query before a bulk action',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        }];
+      }
+
+      if (
+        currentPreview.status ===
+          'ALREADY_PRESENT'
+      ) {
+        return [{
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-already:' +
+              (currentPreview.collectionId ?? ''),
+            label:
+              'Već unutra / Already in Memory Box: ' +
+              currentPreview.alreadyPresent,
+            detail:
+              '#' +
+              (currentPreview.collectionName ??
+                bulkIntent.destinationQuery) +
+              ' · ništa za promijeniti / nothing to change',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        }];
+      }
+
+      const titles =
+        currentPreview.addable
+          .slice(0, 3)
+          .map((item) => item.title)
+          .join(' · ');
+
+      const remaining =
+        Math.max(
+          0,
+          currentPreview.addable.length - 3,
+        );
+
+      const previewDetail =
+        titles +
+        (
+          remaining
+            ? ' · +' + remaining
+            : ''
+        ) +
+        (
+          currentPreview.alreadyPresent
+            ? ' · ' +
+              currentPreview.alreadyPresent +
+              ' već unutra / already there'
+            : ''
+        );
+
+      return [
+        {
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-preview:' +
+              currentPreview.collectionId +
+              ':' +
+              bulkIntent.sourceQuery,
+            label:
+              'Pregled / Preview: ' +
+              currentPreview.addable.length +
+              ' Zapisa / Entries → #' +
+              currentPreview.collectionName,
+            detail:
+              previewDetail ||
+              'Pregled spreman · Preview ready',
+            aliases: query,
+            kindLabel: 'PLAN',
+            action: () => undefined,
+          },
+        },
+        {
+          itemType: 'command',
+          command: {
+            key:
+              'bulk-memory-box-confirm:' +
+              currentPreview.collectionId +
+              ':' +
+              bulkIntent.sourceQuery,
+            label:
+              'POTVRDI / CONFIRM: dodaj ' +
+              currentPreview.addable.length +
+              ' / add ' +
+              currentPreview.addable.length +
+              ' → #' +
+              currentPreview.collectionName,
+            detail:
+              'Ništa se ne mijenja prije ovog tapa · Nothing changes before this tap',
+            aliases: query,
+            kindLabel: 'POTVRDA',
+            action: () =>
+              runBulkCollectionConfirm(
+                currentPreview,
+              ),
+          },
+        },
+      ];
+    }
 
     const soundMatch =
       utilityQuery.match(
@@ -3280,199 +4145,6 @@ const [localLanguagePlan, setLocalLanguagePlan] =
       }];
     }
 
-    const shareMatch =
-      utilityQuery.match(
-        /^:share(?:\s+([\s\S]+))?$/i,
-      );
-
-    if (shareMatch) {
-      const shareQuery =
-        (
-          shareMatch[1] ??
-          ''
-        ).trim();
-
-      if (!shareQuery) {
-        return [
-          {
-            itemType: 'command',
-            command: {
-              key:
-                'direct-share-help-entity',
-              label:
-                ':share <stvar>',
-              detail:
-                'Podijeli knjigu, film, igru, zapis ili frekvenciju',
-              aliases:
-                ':share',
-              kindLabel: 'KONTEKST',
-              action: () =>
-                setQuery(':share '),
-            },
-          },
-          {
-            itemType: 'command',
-            command: {
-              key:
-                'direct-share-help-topic',
-              label:
-                ':share @Tema',
-              detail:
-                'Podijeli temu',
-              aliases:
-                ':share @',
-              kindLabel: 'KONTEKST',
-              action: () =>
-                setQuery(':share @'),
-            },
-          },
-          {
-            itemType: 'command',
-            command: {
-              key:
-                'direct-share-help-collection',
-              label:
-                ':share #Kolekcija',
-              detail:
-                'Podijeli kolekciju / memory box',
-              aliases:
-                ':share #',
-              kindLabel: 'KONTEKST',
-              action: () =>
-                setQuery(':share #'),
-            },
-          },
-        ];
-      }
-
-      if (shareQuery.startsWith('#')) {
-        const collectionQuery =
-          shareQuery
-            .slice(1)
-            .trim();
-
-        const matches =
-          collections
-            .filter(
-              (collection) =>
-                fuzzyTextIncludes(
-                  collection.name,
-                  collectionQuery,
-                ),
-            )
-            .slice(0, 8);
-
-        return matches.map(
-          (collection): PaletteItem => ({
-            itemType: 'command',
-            command: {
-              key:
-                'direct-share-collection:' +
-                collection.collectionId,
-              label:
-                'Podijeli #' +
-                collection.name,
-              detail:
-                'Portable LJingle kolekcija',
-              aliases:
-                ':share #' +
-                collection.name,
-              kindLabel: 'AKCIJA',
-              action: async () => {
-                setQuickCommandBusy(true);
-                setQuickCommandError(null);
-
-                try {
-                  await sharePortableCollection(
-                    collection.collectionId,
-                  );
-                } catch (caught) {
-                  setQuickCommandError(
-                    caught instanceof Error
-                      ? caught.message
-                      : 'Dijeljenje nije uspjelo.',
-                  );
-                } finally {
-                  setQuickCommandBusy(false);
-                }
-              },
-            },
-          }),
-        );
-      }
-
-      const topicOnly =
-        shareQuery.startsWith('@');
-
-      const cleanShareQuery =
-        topicOnly
-          ? shareQuery.slice(1).trim()
-          : shareQuery;
-
-      const matches =
-        entities
-          .filter(
-            (entity) =>
-              (
-                !topicOnly ||
-                entity.kind === 'TOPIC'
-              ) &&
-              fuzzyTextIncludes(
-                [
-                  entity.title,
-                  entity.meta,
-                  entity.typeLabel,
-                ].join(' '),
-                cleanShareQuery,
-              ),
-          )
-          .slice(0, 8);
-
-      return matches.map(
-        (entity): PaletteItem => ({
-          itemType: 'command',
-          command: {
-            key:
-              'direct-share-entity:' +
-              entity.key,
-            label:
-              'Podijeli ' +
-              entity.title,
-            detail:
-              entity.typeLabel +
-              (
-                entity.meta
-                  ? ' · ' +
-                    entity.meta
-                  : ''
-              ),
-            aliases:
-              ':share ' +
-              entity.title,
-            kindLabel: 'AKCIJA',
-            action: async () => {
-              setQuickCommandBusy(true);
-              setQuickCommandError(null);
-
-              try {
-                await sharePortableEntity(
-                  entity.kind,
-                  entity.id,
-                );
-              } catch (caught) {
-                setQuickCommandError(
-                  caught instanceof Error
-                    ? caught.message
-                    : 'Dijeljenje nije uspjelo.',
-                );
-              } finally {
-                setQuickCommandBusy(false);
-              }
-            },
-          },
-        }),
-      );
-    }
 
 
     const grammarQuery =
@@ -3611,11 +4283,11 @@ const [localLanguagePlan, setLocalLanguagePlan] =
             key:
               'palette-help-tools',
             label:
-              ':sound · :share · :year',
+              ':sound · :year',
             detail:
-              ':sound off · :share dune · :year 2025',
+              ':sound off · :year 2025',
             aliases:
-              ':sound :share :year tools',
+              ':sound :year tools',
             kindLabel: 'KONTEKST',
             action: () =>
               setQuery(':'),
@@ -4190,8 +4862,24 @@ const [localLanguagePlan, setLocalLanguagePlan] =
         : routedIntent?.action === 'SEARCH'
           ? routedIntent.query
           : query;
-    const quietPlan = planQuietSearch(contextSearchQuery);
-    const normalizedQuery = normalize(quietPlan?.query ?? contextSearchQuery.trim());
+    const relationalPlan =
+      parseRelationalArchiveQuery(
+        query,
+      );
+
+    const quietPlan =
+      relationalPlan
+        ? null
+        : planQuietSearch(
+            contextSearchQuery,
+          );
+
+    const normalizedQuery = normalize(
+      relationalPlan
+        ? relationalPlan.baseQuery
+        : quietPlan?.query ??
+            contextSearchQuery.trim(),
+    );
     const actionCommand = parsePaletteActionCommand(query);
     const quickCreate = parseQuickCreateCommand(query);
     const naturalNote = parseNaturalPaletteNote(query);
@@ -5051,9 +5739,9 @@ const [localLanguagePlan, setLocalLanguagePlan] =
           command: {
             key: 'palette-starter',
             label:
-              ':movie · :tv · :book · :game',
-            detail:
               'Online katalog · upiši : za sve naredbe',
+            detail:
+              ':movie · :tv · :book · :game',
             aliases:
               'movie tv book game online',
             kindLabel: 'AKCIJA',
@@ -5091,14 +5779,37 @@ const [localLanguagePlan, setLocalLanguagePlan] =
               : false;
           });
 
-    const allowedEntityKinds = quietPlan?.entityTypes
-      ? new Set(quietPlan.entityTypes)
-      : null;
+    const allowedEntityKinds =
+      relationalPlan?.entityTypes
+        ? new Set(
+            relationalPlan.entityTypes,
+          )
+        : quietPlan?.entityTypes
+          ? new Set(
+              quietPlan.entityTypes,
+            )
+          : null;
 
     // aeroSearchQuoteTimerHygieneV3:SearchRanking
-    const entityMatchRank = (
-      entity: SearchEntity,
+    const archiveMatchRank = (
+      entity: {
+        key: string;
+        title: string;
+        typeLabel: string;
+        meta: string;
+      },
     ) => {
+      if (relationalPlan) {
+        const relation =
+          relationalByKey.get(
+            entity.key,
+          );
+
+        return relation
+          ? -relation.score
+          : null;
+      }
+
       if (
         textTerms.length === 0
       ) {
@@ -5114,6 +5825,9 @@ const [localLanguagePlan, setLocalLanguagePlan] =
             entity.title,
             entity.typeLabel,
             entity.meta,
+            archiveSourceTextByKey.get(
+              entity.key,
+            ),
           ].join(' '),
         );
 
@@ -5211,9 +5925,7 @@ const [localLanguagePlan, setLocalLanguagePlan] =
           entity,
           index,
           rank:
-            entityMatchRank(
-              entity,
-            ),
+            archiveMatchRank(entity),
         }))
         .filter(
           (
@@ -5239,8 +5951,70 @@ const [localLanguagePlan, setLocalLanguagePlan] =
         (row) => row.entity,
       );
 
-    const lexicalKeys = new Set(entityResults.map((item) => item.key));
+    const collectionMatches =
+      !jingleMode &&
+      !jingleOnly &&
+      (
+        !allowedEntityKinds ||
+        allowedEntityKinds.has('COLLECTION')
+      )
+        ? collections
+            .map((collection, index) => {
+              const result: SearchCollection = {
+                key:
+                  'COLLECTION:' +
+                  collection.collectionId,
+                id: collection.collectionId,
+                title: collection.name,
+                typeLabel: 'Memory Box',
+                meta:
+                  collection.description?.trim() ||
+                  (collection.itemCount === 1
+                    ? '1 stavka'
+                    : collection.itemCount + ' stavki'),
+              };
+
+              return {
+                collection: result,
+                index,
+                rank: archiveMatchRank(result),
+              };
+            })
+            .filter(
+              (
+                row,
+              ): row is {
+                collection: SearchCollection;
+                index: number;
+                rank: number;
+              } =>
+                row.rank !== null,
+            )
+            .sort(
+              (left, right) =>
+                left.rank -
+                  right.rank ||
+                left.index -
+                  right.index,
+            )
+            .slice(0, 20)
+        : [];
+
+    const lexicalKeys =
+      new Set([
+        ...entityResults.map((item) => item.key),
+        ...collectionMatches.map(
+          (row) => row.collection.key,
+        ),
+      ]);
     const semanticFallback = quietSemanticEntities
+      .filter(
+        (entity) =>
+          !relationalPlan ||
+          relationalByKey.has(
+            entity.key,
+          ),
+      )
       .filter((entity) => !lexicalKeys.has(entity.key))
       .filter((entity) => !allowedEntityKinds || allowedEntityKinds.has(entity.kind))
       .filter((entity) => !jingleOnly || entity.favourite)
@@ -5250,7 +6024,45 @@ const [localLanguagePlan, setLocalLanguagePlan] =
         entity.kind === 'MEDIA' ||
         entity.kind === 'GAME',
       )
-      .slice(0, Math.max(0, 20 - entityResults.length));
+      .slice(
+        0,
+        Math.max(
+          0,
+          20 -
+            entityResults.length -
+            collectionMatches.length,
+        ),
+      );
+
+    const semanticCollectionFallback =
+      !jingleMode &&
+      !jingleOnly &&
+      (
+        !allowedEntityKinds ||
+        allowedEntityKinds.has('COLLECTION')
+      )
+        ? quietSemanticCollections
+            .filter(
+              (collection) =>
+                (
+                  !relationalPlan ||
+                  relationalByKey.has(
+                    collection.key,
+                  )
+                ) &&
+                !lexicalKeys.has(collection.key),
+            )
+            .slice(
+              0,
+              Math.max(
+                0,
+                20 -
+                  entityResults.length -
+                  collectionMatches.length -
+                  semanticFallback.length,
+              ),
+            )
+        : [];
 
     const commandItems =
       commandResults.map(
@@ -5268,6 +6080,14 @@ const [localLanguagePlan, setLocalLanguagePlan] =
         }),
       );
 
+    const collectionItems =
+      collectionMatches.map(
+        ({ collection }): PaletteItem => ({
+          itemType: 'collection',
+          collection,
+        }),
+      );
+
     const semanticItems =
       semanticFallback.map(
         (entity): PaletteItem => ({
@@ -5276,18 +6096,36 @@ const [localLanguagePlan, setLocalLanguagePlan] =
         }),
       );
 
+    const semanticCollectionItems =
+      semanticCollectionFallback.map(
+        (collection): PaletteItem => ({
+          itemType: 'collection',
+          collection,
+        }),
+      );
+
     const catalogueHitFirst =
-      entityMatches.length > 0;
+      entityMatches.length > 0 ||
+      collectionMatches.length > 0;
+
+    const networkItems = networkResults.map(
+      (result): PaletteItem => ({ itemType: 'network', result }),
+    );
 
     return catalogueHitFirst
       ? [
           ...entityItems,
+          ...collectionItems,
           ...semanticItems,
+          ...semanticCollectionItems,
+          ...networkItems,
           ...commandItems,
         ]
       : [
           ...commandItems,
           ...semanticItems,
+          ...semanticCollectionItems,
+          ...networkItems,
         ];
   }, [
     commands,
@@ -5302,6 +6140,10 @@ const [localLanguagePlan, setLocalLanguagePlan] =
     onlineResults,
     onlineSearched,
     quietSemanticEntities,
+    quietSemanticCollections,
+    quietSemanticReasons,
+    archiveSourceTextByKey,
+    relationalByKey,
     activeContext,
     contextLinkTarget,
     contextualTarget,
@@ -5314,7 +6156,137 @@ const [localLanguagePlan, setLocalLanguagePlan] =
     k15MutationSourceResolution,
     k15MutationTargetResolution,
     topics,
+    networkResults,
+    bulkIntent,
+    bulkPreview,
+    bulkPreviewLoading,
   ]);
+
+  // ljingleBrainSearchFollowUpR2:filter
+  const items = useMemo(
+    () => {
+      if (
+        !searchThreadFilterIsActive(
+          searchThreadFilter,
+        )
+      ) {
+        return searchThreadBaseItems;
+      }
+
+      const normalizedKinds =
+        searchThreadFilter.kinds
+          ? new Set(
+              searchThreadFilter.kinds,
+            )
+          : null;
+
+      return searchThreadBaseItems.filter(
+        (item) => {
+          if (
+            item.itemType !== 'entity' &&
+            item.itemType !== 'collection'
+          ) {
+            return false;
+          }
+
+          const key =
+            item.itemType === 'entity'
+              ? item.entity.key
+              : item.collection.key;
+
+          const kind =
+            item.itemType === 'entity'
+              ? item.entity.kind
+              : 'COLLECTION';
+
+          if (
+            normalizedKinds &&
+            !normalizedKinds.has(kind)
+          ) {
+            return false;
+          }
+
+          const signal =
+            searchThreadContextByKey.get(
+              key,
+            );
+
+          if (
+            searchThreadFilter.fromBooks
+          ) {
+            const fromBook =
+              kind === 'BOOK' ||
+              Boolean(
+                signal?.relatedBooks?.length,
+              ) ||
+              Boolean(
+                signal?.readerSources?.length,
+              );
+
+            if (!fromBook) {
+              return false;
+            }
+          }
+
+          if (
+            searchThreadFilter.includeCollection
+          ) {
+            const collectionMatch =
+              item.itemType === 'collection'
+                ? searchThreadNameMatches(
+                    searchThreadFilter.includeCollection,
+                    item.collection.title,
+                  )
+                : Boolean(
+                    signal?.collections?.some(
+                      (name) =>
+                        searchThreadNameMatches(
+                          searchThreadFilter.includeCollection!,
+                          name,
+                        ),
+                    ),
+                  );
+
+            if (!collectionMatch) {
+              return false;
+            }
+          }
+
+          if (
+            searchThreadFilter.excludeCollection
+          ) {
+            const collectionMatch =
+              item.itemType === 'collection'
+                ? searchThreadNameMatches(
+                    searchThreadFilter.excludeCollection,
+                    item.collection.title,
+                  )
+                : Boolean(
+                    signal?.collections?.some(
+                      (name) =>
+                        searchThreadNameMatches(
+                          searchThreadFilter.excludeCollection!,
+                          name,
+                        ),
+                    ),
+                  );
+
+            if (collectionMatch) {
+              return false;
+            }
+          }
+
+          return true;
+        },
+      );
+    },
+    [
+      searchThreadBaseItems,
+      searchThreadContextByKey,
+      searchThreadFilter,
+    ],
+  );
+
 
   useEffect(() => {
     // paletteEnterOwnershipFastIntentsV1_1
@@ -5480,7 +6452,7 @@ const [localLanguagePlan, setLocalLanguagePlan] =
                 void executable[0]!.command.action();
               }}
               returnKeyType="go"
-              placeholder=":help · @tema · #kolekcija · traži…"
+              placeholder=":LJingle Brain, for help type : "
               placeholderTextColor={colors.textMuted}
               style={styles.input}
               value={query}
@@ -5563,6 +6535,9 @@ const [localLanguagePlan, setLocalLanguagePlan] =
             ) : null}
             {onlineError ? (
               <Text style={styles.onlineError}>{onlineError}</Text>
+            ) : null}
+            {networkLoading && query.trim().length >= 2 ? (
+              <Text style={styles.networkLoading}>Tražim stvari ...</Text>
             ) : null}
             {quickCommandBusy ? (
               <View style={styles.loadingRow}>
@@ -5713,6 +6688,174 @@ const [localLanguagePlan, setLocalLanguagePlan] =
                   );
                 }
 
+                if (item.itemType === 'network') {
+                  const username = item.result.kind === 'PERSON'
+                    ? item.result.profile.username
+                    : item.result.owner.username;
+                  // ljinglePortalCleanMineSharedEntriesR1
+                  const title = item.result.kind === 'PERSON'
+                    ? item.result.profile.displayName
+                    : item.result.kind === 'REMOTE_ENTITY'
+                      ? item.result.entity.title
+                      : item.result.kind === 'REMOTE_ENTRY'
+                        ? (item.result.entry.title || item.result.entry.content.slice(0, 80) || 'Zapis')
+                        : item.result.collection.name;
+                  const meta = item.result.kind === 'PERSON'
+                    ? '@' + username
+                    : item.result.kind === 'REMOTE_ENTITY'
+                      ? item.result.entity.kind + ' · @' + username
+                      : item.result.kind === 'REMOTE_ENTRY'
+                        ? 'ZAPIS · @' + username
+                        : 'KOLEKCIJA · @' + username;
+                  return (
+                    <Pressable
+                      key={'network:' + item.result.key}
+                      accessibilityRole="button"
+                      onPress={() => navigate('JingleProfile', { username })}
+                      onHoverIn={() => setSelectedIndex(index)}
+                      style={[styles.row, styles.networkRow, selected && styles.rowSelected]}
+                    >
+                      <View style={styles.networkMark}>
+                        <Text style={styles.networkMarkText}>
+                          {item.result.kind === 'PERSON' ? '@' : '⌁'}
+                        </Text>
+                      </View>
+                      <View style={styles.copy}>
+                        <Text numberOfLines={1} style={styles.title}>{title}</Text>
+                        <Text numberOfLines={1} style={styles.meta}>{meta}</Text>
+                      </View>
+                      <Text style={styles.networkKind}>PORTAL</Text>
+                    </Pressable>
+                  );
+                }
+
+                if (item.itemType === 'collection') {
+                  const collectionSource =
+                    archiveSourceTextByKey.get(
+                      item.collection.key,
+                    ) ?? item.collection.meta;
+
+                  const collectionReason =
+                    relationalByKey.get(
+                      item.collection.key,
+                    )?.reasons[0] ??
+                    quietSemanticReasons[
+                      item.collection.key
+                    ]?.find(
+                      (reason) =>
+                        reason !== 'Sličan sadržaj',
+                    ) ??
+                    null;
+
+                  const collectionExcerpt =
+                    archiveMatchedExcerpt(
+                      collectionSource,
+                      archiveSearchTerms(query),
+                      166,
+                    );
+
+                  const collectionDetail =
+                    collectionExcerpt &&
+                    collectionReason
+                      ? collectionExcerpt +
+                        ' · ' +
+                        collectionReason
+                      : collectionExcerpt ||
+                        collectionReason ||
+                    item.collection.meta ||
+                    item.collection.typeLabel;
+
+                  return (
+                    <Pressable
+                      key={item.collection.key}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        rememberSearch(query);
+                        navigate('CollectionDetails', {
+                          collectionId:
+                            item.collection.id,
+                        });
+                      }}
+                      onHoverIn={() =>
+                        setSelectedIndex(index)
+                      }
+                      style={[
+                        styles.row,
+                        selected && styles.rowSelected,
+                      ]}
+                    >
+                      <View style={styles.copy}>
+                        <Text
+                          numberOfLines={1}
+                          style={styles.title}
+                        >
+                          {item.collection.title}
+                        </Text>
+
+                        <Text
+                          numberOfLines={2}
+                          style={styles.meta}
+                        >
+                          {collectionDetail}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.kind}>
+                        MEMORY BOX
+                      </Text>
+                    </Pressable>
+                  );
+                }
+
+                const sourceText =
+                  archiveSourceTextByKey.get(
+                    item.entity.key,
+                  ) ?? item.entity.meta;
+
+                const matchedExcerpt =
+                  archiveMatchedExcerpt(
+                    sourceText,
+                    archiveSearchTerms(query),
+                    166,
+                  );
+
+                const relationalReason =
+                  relationalByKey.get(
+                    item.entity.key,
+                  )?.reasons[0] ??
+                  null;
+
+                const contextualReason =
+                  quietSemanticReasons[
+                    item.entity.key
+                  ]?.find(
+                    (reason) =>
+                      reason !== 'Sličan sadržaj',
+                  ) ?? null;
+
+                const evidenceReason =
+                  relationalReason ||
+                  contextualReason;
+
+                const resultDetail =
+                  matchedExcerpt &&
+                  evidenceReason
+                    ? matchedExcerpt +
+                      ' · ' +
+                      evidenceReason
+                    : matchedExcerpt ||
+                      evidenceReason ||
+                  (
+                    item.entity.kind === 'ENTRY'
+                      ? archiveLeadExcerpt(
+                          sourceText,
+                          166,
+                        )
+                      : null
+                  ) ||
+                  item.entity.meta ||
+                  item.entity.typeLabel;
+
                 return (
                   <Pressable
                     key={item.entity.key}
@@ -5749,8 +6892,7 @@ const [localLanguagePlan, setLocalLanguagePlan] =
                         numberOfLines={1}
                         style={styles.meta}
                       >
-                        {item.entity.meta ||
-                          item.entity.typeLabel}
+                        {resultDetail}
                       </Text>
                     </View>
 
@@ -5794,6 +6936,39 @@ const [localLanguagePlan, setLocalLanguagePlan] =
 }
 
 const styles = StyleSheet.create({
+  networkLoading: {
+    color: '#B88A32',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  networkRow: {
+    backgroundColor: 'rgba(200,154,61,0.055)',
+  },
+  networkMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: 'rgba(200,154,61,0.58)',
+    backgroundColor: '#13264A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+  networkMarkText: {
+    color: '#F5D98B',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  networkKind: {
+    color: '#B88A32',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
   // forkN1CelestialHomeCommandBellV1
   celestialPaletteN1: {
     position: 'relative',
@@ -5884,7 +7059,7 @@ const styles = StyleSheet.create({
   },
 
   onlineMarkText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 21,
     lineHeight: 24,
     fontWeight: '700',

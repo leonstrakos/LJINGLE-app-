@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "LJingle",
+    "slug": "moja-knjiznica",
+    "version": "1.3.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "web": {
+      "bundler": "metro"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "hr.leon.mojaknjiznica",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "package": "hr.leon.mojaknjiznica",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1ae16f8b-9189-470e-81e0-7d66bf3e8c3c"
+      }
+    },
+    "icon": "./assets/logo.png",
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-asset",
+      "onnxruntime-react-native",
+      "expo-secure-store"
+    ],
+    "owner": "lekistras-team"
+  }
+}

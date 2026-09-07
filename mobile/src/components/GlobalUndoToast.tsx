@@ -23,7 +23,7 @@ import { activeVisualSkinId } from '../theme/visualSkins';
 import { semanticFeedback } from '../utils/semanticFeedback';
 
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 import { semanticSpring, semanticTiming } from '../utils/semanticMotion';
 
 import {

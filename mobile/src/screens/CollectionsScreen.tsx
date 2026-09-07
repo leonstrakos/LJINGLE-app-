@@ -1,4 +1,9 @@
+// ljingleContrastTargetedR3
 // forkLCollectionsMemoryBoxV2
+// collectionBigBoxesV1
+// memoryCapsuleBoxedV1
+// boxedThemeSafeR4
+// collectionsCtaVisualPolishR1
 import {
   useCallback,
   useEffect,
@@ -14,16 +19,32 @@ import {
   Text,
   View,
   LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { CollectionEditorForm } from '../components/CollectionEditorForm';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { CollectionMemoryBoxCard } from '../components/CollectionMemoryBoxCard';
+import { CollectionMemoryBoxGlyph } from '../components/CollectionMemoryBoxGlyph';
+import { CollectionBigBoxCard } from '../components/CollectionBigBoxCard';
+import { CollectionBigBoxEditorModal } from '../components/CollectionBigBoxEditorModal';
+import { MemoryCapsuleCard } from '../components/MemoryCapsuleCard';
+import { MemoryCapsuleEditorModal } from '../components/MemoryCapsuleEditorModal';
 import { collectionApi } from '../services/collectionApi';
-import { colors } from '../theme/colors';
+import {
+  getCollectionBigBoxes,
+  moveCollectionToBigBox,
+  reorderCollectionBigBox,
+  type CollectionBigBox,
+} from '../services/collectionBigBoxes';
+import { getMemoryCapsules } from '../services/memoryCapsules';
+import type { MemoryCapsule } from '../types/memoryCapsule';
+import { activeAccentColor, colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import type { CollectionSummary } from '../types/collection';
 import type { RootStackParamList } from '../types/navigation';
@@ -32,13 +53,27 @@ import { setPaletteInteractionLock } from '../utils/paletteInteractionLock';
 import { DEFAULT_COLLECTION_SYMBOL } from '../utils/collectionSymbols';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
+import { CelestialMotionLayer } from '../components/CelestialMotionLayer';
+import { updateCelestialParallax } from '../motion/celestialParallax';
 type Props = NativeStackScreenProps<RootStackParamList, 'Collections'>;
 
 // forkN2CelestialCollectionsTopicsV2
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const CELESTIAL_GOLD = celestial.gold;
 
 const STAR_GOLD = '#D3A11B';
+
+// collectionReorderEngineV1: let the real keyed rows animate their slot changes on Android.
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
+
+const REORDER_LAYOUT_ANIMATION = {
+  duration: 145,
+  update: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+};
 
 function moveItem<T>(items: T[], fromIndex: number, toIndex: number) {
   if (
@@ -58,6 +93,58 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number) {
   return next;
 }
 
+function collectionsForView(
+  collections: CollectionSummary[],
+  boxes: CollectionBigBox[],
+  activeBigBoxId: string | null,
+) {
+  if (activeBigBoxId) {
+    const box = boxes.find(
+      (candidate) => candidate.bigBoxId === activeBigBoxId,
+    );
+    if (!box) return [];
+
+    const byId = new Map(
+      collections.map((collection) => [
+        collection.collectionId,
+        collection,
+      ]),
+    );
+
+    return box.collectionIds
+      .map((collectionId) => byId.get(collectionId))
+      .filter(
+        (collection): collection is CollectionSummary =>
+          Boolean(collection),
+      );
+  }
+
+  const boxedIds = new Set(
+    boxes.flatMap((box) => box.collectionIds),
+  );
+
+  return collections.filter(
+    (collection) => !boxedIds.has(collection.collectionId),
+  );
+}
+
+function mergeVisibleOrder(
+  allCollections: CollectionSummary[],
+  visibleCollections: CollectionSummary[],
+) {
+  const visibleIds = new Set(
+    visibleCollections.map((item) => item.collectionId),
+  );
+  let visibleIndex = 0;
+
+  return allCollections.map((item) => {
+    if (!visibleIds.has(item.collectionId)) return item;
+    const replacement = visibleCollections[visibleIndex];
+    visibleIndex += 1;
+    return replacement || item;
+  });
+}
+
 export function CollectionsScreen({ navigation }: Props) {
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
   const collectionsRef = useRef<CollectionSummary[]>([]);
@@ -70,23 +157,72 @@ export function CollectionsScreen({ navigation }: Props) {
   const [symbol, setSymbol] = useState(DEFAULT_COLLECTION_SYMBOL);
   const [saving, setSaving] = useState(false);
 
+  const [capsules, setCapsules] = useState<MemoryCapsule[]>([]);
+  const [memoryCapsuleEditorVisible, setMemoryCapsuleEditorVisible] =
+    useState(false);
+
+  const [bigBoxes, setBigBoxes] = useState<CollectionBigBox[]>([]);
+  const bigBoxesRef = useRef<CollectionBigBox[]>([]);
+  bigBoxesRef.current = bigBoxes;
+  const [activeBigBoxId, setActiveBigBoxId] =
+    useState<string | null>(null);
+  const activeBigBoxIdRef = useRef<string | null>(null);
+  activeBigBoxIdRef.current = activeBigBoxId;
+  const [bigBoxEditorVisible, setBigBoxEditorVisible] =
+    useState(false);
+  const [editingBigBox, setEditingBigBox] =
+    useState<CollectionBigBox | null>(null);
+
+  const activeBigBox =
+    bigBoxes.find((box) => box.bigBoxId === activeBigBoxId) ||
+    null;
+  const capsuleBackingIds = new Set(
+    capsules.map((capsule) => capsule.backingCollectionId),
+  );
+  const visibleCollections = collectionsForView(
+    collections,
+    bigBoxes,
+    activeBigBoxId,
+  ).filter(
+    (collection) =>
+      !capsuleBackingIds.has(collection.collectionId),
+  );
+
   const [reorderMode, setReorderMode] = useState(false);
   const [reorderSaving, setReorderSaving] = useState(false);
-  const [reorderDirty, setReorderDirty] = useState(false);
+  const reorderSavingRef = useRef(false);
+  const reorderDirtyRef = useRef(false);
   const [dragging, setDragging] = useState(false);
-  // forkN51FinalMotionRadioProfileV1
-  const [dragPreview, setDragPreview] = useState<{
-    fromIndex: number;
-    targetIndex: number;
-  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      setCollections(await collectionApi.getAll());
-      setReorderDirty(false);
+      const [loaded, loadedBoxes, loadedCapsules] =
+        await Promise.all([
+          collectionApi.getAll(),
+          getCollectionBigBoxes(),
+          getMemoryCapsules(),
+        ]);
+
+      collectionsRef.current = loaded;
+      setCollections(loaded);
+      bigBoxesRef.current = loadedBoxes;
+      setBigBoxes(loadedBoxes);
+      setCapsules(loadedCapsules);
+
+      if (
+        activeBigBoxIdRef.current &&
+        !loadedBoxes.some(
+          (box) => box.bigBoxId === activeBigBoxIdRef.current,
+        )
+      ) {
+        activeBigBoxIdRef.current = null;
+        setActiveBigBoxId(null);
+      }
+
+      reorderDirtyRef.current = false;
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -133,6 +269,15 @@ export function CollectionsScreen({ navigation }: Props) {
 
       createdFeedback();
 
+      if (activeBigBoxIdRef.current) {
+        const nextBoxes = await moveCollectionToBigBox(
+          created.collectionId,
+          activeBigBoxIdRef.current,
+        );
+        bigBoxesRef.current = nextBoxes;
+        setBigBoxes(nextBoxes);
+      }
+
       setCollections((current) =>
         [...current, created].sort(
           (left, right) => left.position - right.position,
@@ -158,82 +303,128 @@ export function CollectionsScreen({ navigation }: Props) {
     }
   };
 
-  const persistOrder = useCallback(
-    async (nextCollections?: CollectionSummary[]) => {
-      const source = nextCollections ?? collectionsRef.current;
+  const persistOrder = useCallback(async () => {
+    if (reorderSavingRef.current) return false;
 
-      if (reorderSaving || source.length === 0) return false;
+    reorderSavingRef.current = true;
+    setReorderSaving(true);
+    setError(null);
 
-      setReorderSaving(true);
-      setError(null);
+    try {
+      const activeId = activeBigBoxIdRef.current;
 
-      try {
+      if (activeId) {
+        const box = bigBoxesRef.current.find(
+          (candidate) => candidate.bigBoxId === activeId,
+        );
+        if (!box) return false;
+
+        const savedBoxes = await reorderCollectionBigBox(
+          activeId,
+          box.collectionIds,
+        );
+        bigBoxesRef.current = savedBoxes;
+        setBigBoxes(savedBoxes);
+      } else {
+        const source = collectionsRef.current;
+        if (source.length === 0) return false;
+
         const saved = await collectionApi.reorder(
           source.map((item) => item.collectionId),
         );
-
+        collectionsRef.current = saved;
         setCollections(saved);
-        setReorderDirty(false);
-        return true;
-      } catch (caught) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : 'Redoslijed nije spremljen.',
-        );
-        return false;
-      } finally {
-        setReorderSaving(false);
       }
-    },
-    [reorderSaving],
-  );
+
+      reorderDirtyRef.current = false;
+      return true;
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Redoslijed nije spremljen.',
+      );
+      return false;
+    } finally {
+      reorderSavingRef.current = false;
+      setReorderSaving(false);
+    }
+  }, []);
+
+  const markOrderDirty = () => {
+    reorderDirtyRef.current = true;
+  };
 
   const moveDuringDrag = (fromIndex: number, toIndex: number) => {
-    // forkN51FinalMotionRadioProfileV1: during the gesture siblings are already visually occupying
-    // their future slots. Commit the real array exactly once after the dragged
-    // card lands; no second LayoutAnimation is needed here.
-    const next = moveItem(
-      collectionsRef.current,
-      fromIndex,
-      toIndex,
-    );
+    const activeId = activeBigBoxIdRef.current;
 
-    if (next === collectionsRef.current) {
-      setDragPreview(null);
+    LayoutAnimation.configureNext(REORDER_LAYOUT_ANIMATION);
+
+    if (activeId) {
+      const boxes = bigBoxesRef.current;
+      const boxIndex = boxes.findIndex(
+        (candidate) => candidate.bigBoxId === activeId,
+      );
+      if (boxIndex < 0) return;
+
+      const box = boxes[boxIndex]!;
+      const movedIds = moveItem(
+        box.collectionIds,
+        fromIndex,
+        toIndex,
+      );
+      if (movedIds === box.collectionIds) return;
+
+      const nextBoxes = [...boxes];
+      nextBoxes[boxIndex] = {
+        ...box,
+        collectionIds: movedIds,
+      };
+      bigBoxesRef.current = nextBoxes;
+      setBigBoxes(nextBoxes);
+      markOrderDirty();
       return;
     }
 
-    setCollections(next);
-    setDragPreview(null);
-    setReorderDirty(true);
+    const all = collectionsRef.current;
+    const visible = collectionsForView(
+      all,
+      bigBoxesRef.current,
+      null,
+    );
+    const movedVisible = moveItem(
+      visible,
+      fromIndex,
+      toIndex,
+    );
+    if (movedVisible === visible) return;
 
-    // Persist the exact committed order instead of waiting for a render/ref tick.
-    void persistOrder(next);
+    const next = mergeVisibleOrder(all, movedVisible);
+    collectionsRef.current = next;
+    setCollections(next);
+    markOrderDirty();
+  };
+
+  const finishDrag = (moved: boolean) => {
+    if (!moved || !reorderDirtyRef.current) return;
+    void persistOrder();
   };
 
   const moveWithButton = (fromIndex: number, toIndex: number) => {
-    const next = moveItem(collections, fromIndex, toIndex);
-    if (next === collections) return;
-
-    LayoutAnimation.configureNext(
-      LayoutAnimation.Presets.easeInEaseOut,
-    );
-
-    setCollections(next);
-    setReorderDirty(true);
-    void persistOrder(next);
+    moveDuringDrag(fromIndex, toIndex);
+    if (reorderDirtyRef.current) {
+      void persistOrder();
+    }
   };
 
   const finishReorder = async () => {
-    if (dragging || reorderSaving) return;
+    if (dragging || reorderSavingRef.current) return;
 
-    if (reorderDirty) {
+    if (reorderDirtyRef.current) {
       const saved = await persistOrder();
       if (!saved) return;
     }
 
-    setDragPreview(null);
     setReorderMode(false);
   };
 
@@ -242,15 +433,19 @@ export function CollectionsScreen({ navigation }: Props) {
       style={styles.safeArea}
       edges={['left', 'right', 'bottom']}
     >
+      <AeroAtmosphere variant="collections" />
       <FlatList
-        data={collections}
+        data={visibleCollections}
         keyExtractor={(item) => item.collectionId}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!dragging}
+        removeClippedSubviews={false}
         ListHeaderComponent={
           <>
             <View style={[styles.hero, celestialMode && styles.heroCelestial]}>
+              {/* ljingleCelestialMotionLanguageR1:collections */}
+              <CelestialMotionLayer preset="collections" />
               {celestialMode ? <CelestialAtmosphere variant="collections" /> : null}
               <View style={styles.starRail}>
                 <Text style={styles.star}>✦</Text>
@@ -263,12 +458,16 @@ export function CollectionsScreen({ navigation }: Props) {
               <View style={styles.heroTitleRow}>
                 <View style={styles.heroCopy}>
                   <Text style={[styles.eyebrow, celestialMode && styles.eyebrowCelestial]}>
-                    LJINGLE · MEMORY BOXES
+                    {activeBigBox
+                      ? 'LJINGLE · BIG BOX'
+                      : 'LJINGLE · MEMORY BOXES'}
                   </Text>
-                  <Text style={[styles.heading, celestialMode && styles.headingCelestial]}>Kolekcije</Text>
+                  <Text style={[styles.heading, celestialMode && styles.headingCelestial]}>
+                    {activeBigBox ? activeBigBox.name : 'Kolekcije'}
+                  </Text>
                 </View>
 
-                {collections.length > 1 ? (
+                {visibleCollections.length > 1 ? (
                   <Pressable
                     accessibilityRole="button"
                     disabled={reorderSaving || dragging}
@@ -310,13 +509,20 @@ export function CollectionsScreen({ navigation }: Props) {
               </View>
 
               <Text style={[styles.intro, celestialMode && styles.introCelestial]}>
-                Playliste, scrapbookovi, police i mali arhivi.
+                {activeBigBox
+                  ? activeBigBox.collectionIds.length +
+                    (activeBigBox.collectionIds.length === 1
+                      ? ' kolekcija u ovoj većoj kutiji.'
+                      : ' kolekcije u ovoj većoj kutiji.')
+                  : 'Playliste, scrapbookovi, police i mali arhivi.'}
               </Text>
 
               <View style={styles.definition}>
                 <Text style={styles.definitionStar}>✧</Text>
                 <Text style={styles.definitionText}>
-                  Collection = što pripada zajedno.
+                  {activeBigBox
+                    ? 'Big Box = kolekcije koje pripadaju zajedno.'
+                    : 'Collection = što pripada zajedno.'}
                 </Text>
               </View>
             </View>
@@ -329,35 +535,236 @@ export function CollectionsScreen({ navigation }: Props) {
                     Uredi redoslijed
                   </Text>
                   <Text style={styles.reorderNoticeText}>
-                    Povuci ručku ili koristi strelice. Command Palette
-                    je privremeno zaključan dok uređuješ.
+                    {activeBigBox
+                      ? 'Povuci kolekcije unutar ovog Big Boxa.'
+                      : 'Povuci ručku ili koristi strelice. Big Box kolekcije ostaju skrivene na rootu.'}
                   </Text>
                 </View>
               </View>
             ) : (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setCreateVisible(true)}
-                style={({ pressed }) => [
-                  styles.createCard,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.createMark}>
-                  {celestialMode ? <Text pointerEvents="none" style={styles.createStar}>✦</Text> : null}
-              <Text style={[styles.createPlus, celestialMode && styles.createPlusCelestial]}>＋</Text>
-                  <Text style={styles.createStar}>✦</Text>
-                </View>
+              <>
+                {activeBigBox ? (
+                  <View style={styles.bigBoxToolbar}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setActiveBigBoxId(null);
+                        activeBigBoxIdRef.current = null;
+                        setReorderMode(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.bigBoxToolbarButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.bigBoxToolbarText}>
+                        ‹ Svi Big Boxevi
+                      </Text>
+                    </Pressable>
 
-                <View style={styles.createCopy}>
-                  <Text style={styles.createTitle}>Nova Memory Box</Text>
-                  <Text style={styles.createSubtitle}>
-                    Playlist, scrapbook, research packet ili sezona
-                  </Text>
-                </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setEditingBigBox(activeBigBox);
+                        setBigBoxEditorVisible(true);
+                      }}
+                      style={({ pressed }) => [
+                        styles.bigBoxToolbarButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.bigBoxToolbarText}>
+                        Uredi Big Box
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
 
-                <Text style={styles.createArrow}>›</Text>
-              </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setCreateVisible(true)}
+                  style={({ pressed }) => [
+                    styles.createCard,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.createMark}>
+                    {celestialMode ? (
+                      <Text pointerEvents="none" style={styles.createStar}>
+                        ✦
+                      </Text>
+                    ) : null}
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.createPlus, styles.createPlusContrastR1]}
+                    >
+                      ＋
+                    </Text>
+                    <Text style={styles.createStar}>✦</Text>
+                  </View>
+
+                  <View style={styles.createCopy}>
+                    <Text style={styles.createTitle}>
+                      Nova Memory Box
+                    </Text>
+                    <Text style={styles.createSubtitle}>
+                      {activeBigBox
+                        ? 'Nova kolekcija ide direktno u ' +
+                          activeBigBox.name
+                        : 'Playlist, scrapbook, research packet ili sezona'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.createArrow}>›</Text>
+                </Pressable>
+
+                {!activeBigBox ? (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        setMemoryCapsuleEditorVisible(true)
+                      }
+                      style={({ pressed }) => [
+                        styles.memoryCapsuleCreateCard,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View style={styles.memoryCapsuleCreateIcon}>
+                        {/* ljingleCelestialMotionLanguageR1:capsule-cta */}
+                        <CelestialMotionLayer preset="capsule" />
+                        <View style={styles.memoryCapsuleClockBadge}>
+                          <View style={styles.memoryCapsuleClockCrown} />
+                          <View style={styles.memoryCapsuleClockFace}>
+                            <View style={styles.memoryCapsuleClockCenter} />
+                            <View style={styles.memoryCapsuleClockHandLong} />
+                            <View style={styles.memoryCapsuleClockHandShort} />
+                          </View>
+                        </View>
+                        <CollectionMemoryBoxGlyph
+                          color={activeAccentColor}
+                          size={34}
+                        />
+                      </View>
+                      <View style={styles.createCopy}>
+                        <Text style={styles.memoryCapsuleCreateTitle}>
+                          Nova Memory Capsule
+                        </Text>
+                        <Text style={styles.memoryCapsuleCreateSubtitle}>
+                          Zapakiraj stvari sada · otvori ih kasnije
+                        </Text>
+                      </View>
+                      <Text style={styles.bigBoxCreateArrow}>›</Text>
+                    </Pressable>
+
+                    {capsules.length > 0 ? (
+                      <View style={styles.memoryCapsuleSection}>
+                        <View style={styles.bigBoxSectionHeading}>
+                          <Text style={styles.bigBoxSectionLabel}>
+                            MEMORY CAPSULES
+                          </Text>
+                          <Text style={styles.bigBoxSectionCount}>
+                            {capsules.length}
+                          </Text>
+                        </View>
+
+                        {capsules.map((capsule) => (
+                          <MemoryCapsuleCard
+                            key={capsule.capsuleId}
+                            capsule={capsule}
+                            onPress={() =>
+                              navigation.navigate('MemoryCapsule', {
+                                capsuleId: capsule.capsuleId,
+                              })
+                            }
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setEditingBigBox(null);
+                        setBigBoxEditorVisible(true);
+                      }}
+                      style={({ pressed }) => [
+                        styles.bigBoxCreateCard,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View style={styles.bigBoxCreateGlyph}>
+                        <Text
+                          allowFontScaling={false}
+                          style={styles.bigBoxParcelEmoji}
+                        >
+                          {'\u{1F4E6}'}
+                        </Text>
+                      </View>
+                      <View style={styles.createCopy}>
+                        <Text style={styles.bigBoxCreateTitle}>
+                          Novi Big Box
+                        </Text>
+                        <Text style={styles.bigBoxCreateSubtitle}>
+                          Spremi više Memory Boxeva u jednu veću kutiju
+                        </Text>
+                      </View>
+                      <Text style={styles.bigBoxCreateArrow}>›</Text>
+                    </Pressable>
+
+                    {bigBoxes.length > 0 ? (
+                      <View style={styles.bigBoxSection}>
+                        <View style={styles.bigBoxSectionHeading}>
+                          <Text style={styles.bigBoxSectionLabel}>
+                            BIG BOXES
+                          </Text>
+                          <Text style={styles.bigBoxSectionCount}>
+                            {bigBoxes.length}
+                          </Text>
+                        </View>
+
+                        {bigBoxes.map((box) => {
+                          const byId = new Map(
+                            collections.map((collection) => [
+                              collection.collectionId,
+                              collection.name,
+                            ]),
+                          );
+
+                          return (
+                            <CollectionBigBoxCard
+                              key={box.bigBoxId}
+                              box={box}
+                              childNames={box.collectionIds
+                                .map((collectionId) => byId.get(collectionId))
+                                .filter(
+                                  (value): value is string =>
+                                    Boolean(value),
+                                )}
+                              onOpen={() => {
+                                setActiveBigBoxId(box.bigBoxId);
+                                activeBigBoxIdRef.current = box.bigBoxId;
+                                setReorderMode(false);
+                              }}
+                              onEdit={() => {
+                                setEditingBigBox(box);
+                                setBigBoxEditorVisible(true);
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+                    ) : null}
+
+                    {bigBoxes.length > 0 &&
+                    visibleCollections.length > 0 ? (
+                      <Text style={styles.unboxedLabel}>
+                        NEPOSPREMLJENE KOLEKCIJE
+                      </Text>
+                    ) : null}
+                  </>
+                ) : null}
+              </>
             )}
 
             {error ? (
@@ -381,10 +788,19 @@ export function CollectionsScreen({ navigation }: Props) {
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyMark}>✧</Text>
-              <Text style={styles.emptyTitle}>Nema Memory Boxeva</Text>
+              <Text style={styles.emptyTitle}>
+                {activeBigBox
+                  ? 'Big Box je prazan'
+                  : bigBoxes.length > 0 || capsules.length > 0
+                    ? 'Sve je pospremljeno'
+                    : 'Nema Memory Boxeva'}
+              </Text>
               <Text style={styles.emptyText}>
-                Napravi prvu kutiju i u nju složi stvari koje
-                prirodno pripadaju zajedno.
+                {activeBigBox
+                  ? 'Dodaj postojeće kolekcije kroz Uredi Big Box ili napravi novu ovdje.'
+                  : bigBoxes.length > 0 || capsules.length > 0
+                    ? 'Sve tvoje kolekcije su trenutno pospremljene u Big Boxeve ili Memory Capsules.'
+                    : 'Napravi prvu kutiju i u nju složi stvari koje prirodno pripadaju zajedno.'}
               </Text>
             </View>
           )
@@ -393,32 +809,26 @@ export function CollectionsScreen({ navigation }: Props) {
           <CollectionMemoryBoxCard
             collection={item}
             index={index}
-            count={collections.length}
+            count={visibleCollections.length}
             reorderMode={reorderMode}
-            previewFromIndex={dragPreview?.fromIndex ?? null}
-            previewTargetIndex={dragPreview?.targetIndex ?? null}
+            reorderBusy={reorderSaving}
             onOpen={() =>
               navigation.navigate('CollectionDetails', {
                 collectionId: item.collectionId,
               })
             }
             onMove={moveDuringDrag}
-            onDrop={() => {
-              // Drag commits persist inside moveDuringDrag with the exact order.
-            }}
-            onPreviewMove={(fromIndex, targetIndex) => {
-              setDragPreview({
-                fromIndex,
-                targetIndex,
-              });
-            }}
-            onPreviewClear={() => {
-              setDragPreview(null);
-            }}
+            onDrop={finishDrag}
             onMoveButton={moveWithButton}
             onDragStateChange={setDragging}
           />
         )}
+      
+        onScroll={(event) => {
+          // ljingleSemanticAliveR1:scroll-collections
+          updateCelestialParallax(event.nativeEvent.contentOffset.y);
+        }}
+        scrollEventThrottle={16}
       />
 
       <Modal
@@ -461,6 +871,52 @@ export function CollectionsScreen({ navigation }: Props) {
           />
         </ModalSafeAreaView>
       </Modal>
+
+      <MemoryCapsuleEditorModal
+        visible={memoryCapsuleEditorVisible}
+        onClose={() => setMemoryCapsuleEditorVisible(false)}
+        onSaved={(saved) => {
+          setCapsules((current) => [
+            saved,
+            ...current.filter(
+              (capsule) =>
+                capsule.capsuleId !== saved.capsuleId,
+            ),
+          ]);
+          navigation.navigate('MemoryCapsule', {
+            capsuleId: saved.capsuleId,
+          });
+        }}
+      />
+
+      <CollectionBigBoxEditorModal
+        visible={bigBoxEditorVisible}
+        box={editingBigBox}
+        allBoxes={bigBoxes}
+        collections={collections.filter(
+          (collection) =>
+            !capsuleBackingIds.has(collection.collectionId),
+        )}
+        onClose={() => {
+          setBigBoxEditorVisible(false);
+          setEditingBigBox(null);
+        }}
+        onSaved={(nextBoxes) => {
+          bigBoxesRef.current = nextBoxes;
+          setBigBoxes(nextBoxes);
+
+          if (
+            activeBigBoxIdRef.current &&
+            !nextBoxes.some(
+              (box) =>
+                box.bigBoxId === activeBigBoxIdRef.current,
+            )
+          ) {
+            activeBigBoxIdRef.current = null;
+            setActiveBigBoxId(null);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -602,7 +1058,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   createPlus: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 30,
     textAlign: 'center',
   },
@@ -610,23 +1066,273 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
-    color: STAR_GOLD,
+    color: colors.onAccent,
     fontSize: 11,
   },
   createCopy: { flex: 1, minWidth: 0, marginLeft: 7 },
-  createTitle: { color: colors.white, fontSize: 17, fontWeight: '900' },
+  createTitle: { color: colors.onAccent, fontSize: 17, fontWeight: '900' },
   createSubtitle: {
     marginTop: 3,
-    color: '#C7C7CC',
+    color: colors.onAccent,
     fontSize: 11,
     lineHeight: 15,
   },
   createArrow: {
     marginLeft: 10,
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 30,
     fontWeight: '300',
-    opacity: 0.75,
+    opacity: 1,
+  },
+  memoryCapsuleCreateCard: {
+    minHeight: 88,
+    marginTop: -6,
+    marginBottom: 13,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: activeAccentColor,
+    backgroundColor: colors.surface,
+  },
+  memoryCapsuleCreateIcon: {
+    width: 58,
+    height: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.fillStrong,
+    overflow: 'visible',
+  },
+  memoryCapsuleClockBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -2,
+    width: 17,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    overflow: 'visible',
+  },
+  memoryCapsuleClockCrown: {
+    position: 'absolute',
+    top: 0,
+    left: 6.5,
+    width: 4,
+    height: 3,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: activeAccentColor,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  memoryCapsuleClockFace: {
+    width: 13,
+    height: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6.5,
+    borderWidth: 1,
+    borderColor: activeAccentColor,
+    backgroundColor: colors.fillStrong,
+  },
+  memoryCapsuleClockCenter: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: activeAccentColor,
+  },
+  memoryCapsuleClockHandLong: {
+    position: 'absolute',
+    width: 1.5,
+    height: 4.5,
+    borderRadius: 1,
+    backgroundColor: activeAccentColor,
+    transform: [{ translateY: -1.5 }],
+  },
+  memoryCapsuleClockHandShort: {
+    position: 'absolute',
+    width: 3.5,
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: activeAccentColor,
+    transform: [{ translateX: 1.5 }],
+  },
+  memoryCapsuleCreateTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  memoryCapsuleCreateSubtitle: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 10.5,
+    lineHeight: 14,
+  },
+  memoryCapsuleSection: {
+    marginBottom: 15,
+  },
+  bigBoxToolbar: {
+    marginBottom: 13,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  bigBoxToolbarButton: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.surface,
+  },
+  bigBoxToolbarText: {
+    color: colors.text,
+    fontSize: 10.5,
+    fontWeight: '900',
+  },
+  createPlusContrastR1: {
+    color: colors.onAccent,
+    opacity: 1,
+    zIndex: 2,
+  },
+  bigBoxCreateCard: {
+    minHeight: 92,
+    marginTop: -6,
+    marginBottom: 22,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.surface,
+  },
+  bigBoxCreateGlyph: {
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    backgroundColor: colors.fillStrong,
+    overflow: 'visible',
+  },
+  bigBoxParcelEmoji: {
+    fontSize: 43,
+    lineHeight: 52,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  bigBoxParcel: {
+    width: 38,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bigBoxParcelBody: {
+    position: 'relative',
+    width: 34,
+    height: 30,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: activeAccentColor,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  bigBoxParcelTape: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 12,
+    width: 10,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: activeAccentColor,
+    backgroundColor: colors.fillStrong,
+  },
+  bigBoxParcelTopLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 9,
+    height: 1.5,
+    backgroundColor: activeAccentColor,
+  },
+  bigBoxParcelFoldLeft: {
+    position: 'absolute',
+    left: -2,
+    top: 4,
+    width: 21,
+    height: 1.5,
+    backgroundColor: activeAccentColor,
+    transform: [{ rotate: '27deg' }],
+  },
+  bigBoxParcelFoldRight: {
+    position: 'absolute',
+    right: -2,
+    top: 4,
+    width: 21,
+    height: 1.5,
+    backgroundColor: activeAccentColor,
+    transform: [{ rotate: '-27deg' }],
+  },
+  bigBoxCreateGlyphText: {
+    color: activeAccentColor,
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  bigBoxCreateTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  bigBoxCreateSubtitle: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 10.5,
+    lineHeight: 14,
+  },
+  bigBoxCreateArrow: {
+    marginLeft: 10,
+    color: colors.textMuted,
+    fontSize: 28,
+    fontWeight: '300',
+  },
+  bigBoxSection: {
+    marginBottom: 7,
+  },
+  bigBoxSectionHeading: {
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  bigBoxSectionLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  bigBoxSectionCount: {
+    color: activeAccentColor,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  unboxedLabel: {
+    marginTop: 7,
+    marginBottom: 12,
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.35,
   },
   errorBanner: {
     marginBottom: 15,

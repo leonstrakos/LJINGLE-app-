@@ -5,7 +5,7 @@ import { activeVisualSkinId } from '../theme/visualSkins';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 type Props = {
   type: 'loading' | 'error' | 'empty';
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   retryLabel: {
-    color: colors.white,
+    color: colors.onAccent,
     fontWeight: '700',
   },
   celestialContainer: {
@@ -105,5 +105,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: celestialAlpha(celestial.gold, 0.62),
   },
-  celestialRetryText: { color: celestial.gold, letterSpacing: 0.55 },
+  celestialRetryText: { color: colors.onAccent, letterSpacing: 0.55 },
 });

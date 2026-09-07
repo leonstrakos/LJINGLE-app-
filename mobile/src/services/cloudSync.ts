@@ -79,6 +79,9 @@ let running:
   | Promise<CloudSyncResult>
   | null = null;
 
+// checkpointRestoreDatabaseLockV1
+let restoring: Promise<{ state: CloudSyncState; recoveryUri: string | null }> | null = null;
+
 function freshState(): CloudSyncState {
   return {
     deviceId: '',
@@ -722,11 +725,14 @@ export function runCloudSync(
     return running;
   }
 
-  running = run(
-    options?.reason ?? 'MANUAL',
-    options?.automatic ?? false,
-    options?.forceUpload ?? false,
-  ).finally(() => {
+  running = (async () => {
+    if (restoring) await restoring;
+    return run(
+      options?.reason ?? 'MANUAL',
+      options?.automatic ?? false,
+      options?.forceUpload ?? false,
+    );
+  })().finally(() => {
     running = null;
   });
 
@@ -836,8 +842,15 @@ async function saveBeforeRestoreBackup(
 export async function restoreCloudSnapshot(
   revision?: number,
 ) {
-  const before =
-    await exportLocalData();
+  if (restoring) return restoring;
+
+  const task = (async () => {
+    // Finish any in-flight upload/manifest comparison before taking the local
+    // safety export. No cloud operation may overlap the destructive restore.
+    if (running) await running.catch(() => undefined);
+
+    const before =
+      await exportLocalData();
 
   const recoveryUri =
     await saveBeforeRestoreBackup(
@@ -886,4 +899,10 @@ export async function restoreCloudSnapshot(
     state: updated,
     recoveryUri,
   };
+  })();
+  const gate = task.finally(() => {
+    if (restoring === gate) restoring = null;
+  });
+  restoring = gate;
+  return gate;
 }

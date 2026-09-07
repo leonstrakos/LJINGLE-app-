@@ -1806,6 +1806,28 @@ export function portableVisualPng(
     1,
   );
 
+  // authVisualCardCelestialV1: celestial archive frame from the canonical LJingle visual language.
+  const stars = [
+    [56, 64], [115, 104], [178, 58], [548, 74], [622, 118], [671, 62],
+    [64, 774], [130, 820], [586, 808], [658, 764],
+  ] as Array<[number, number]>;
+  stars.forEach(([x, y], index) => {
+    fillCircle(pixels, width, height, x, y, index % 3 === 0 ? 3 : 2, PALETTE.gold);
+  });
+  drawLine(pixels, width, height, 56, 64, 115, 104, PALETTE.gold, 1);
+  drawLine(pixels, width, height, 115, 104, 178, 58, PALETTE.gold, 1);
+  drawLine(pixels, width, height, 548, 74, 622, 118, PALETTE.gold, 1);
+  drawLine(pixels, width, height, 622, 118, 671, 62, PALETTE.gold, 1);
+
+  // Bell seal: loop, crown, body, rim, clapper and central star.
+  strokeCircle(pixels, width, height, 360, 55, 11, 2, PALETTE.navy, PALETTE.paper);
+  strokeCircle(pixels, width, height, 360, 88, 29, 2, PALETTE.navy, PALETTE.paper);
+  drawLine(pixels, width, height, 329, 84, 391, 84, PALETTE.navy, 2);
+  drawLine(pixels, width, height, 352, 116, 368, 116, PALETTE.navy, 2);
+  fillCircle(pixels, width, height, 360, 119, 4, PALETTE.gold);
+  drawLine(pixels, width, height, 354, 88, 366, 88, PALETTE.gold, 2);
+  drawLine(pixels, width, height, 360, 82, 360, 94, PALETTE.gold, 2);
+
   const root =
     rootObject(pack);
 
@@ -1814,22 +1836,17 @@ export function portableVisualPng(
       .slice(0, 6);
 
   drawText(
-    pixels,
-    width,
-    height,
-    (
-      root
-        ? entityLabel(root)
-        : pack.kind
-    ) +
-      '  MEMORY GRAPH',
-    54,
-    48,
-    2,
-    PALETTE.navy,
-    {
-      maxChars: 38,
-    },
+    pixels, width, height, 'LJINGLE', 360, 135, 3, PALETTE.navy,
+    { center: true, maxChars: 12 },
+  );
+  drawLine(pixels, width, height, 300, 164, 344, 164, PALETTE.gold, 1);
+  fillCircle(pixels, width, height, 360, 164, 4, PALETTE.gold);
+  drawLine(pixels, width, height, 376, 164, 420, 164, PALETTE.gold, 1);
+  drawText(
+    pixels, width, height,
+    (root ? entityLabel(root) : pack.kind) + '  MEMORY GRAPH',
+    360, 184, 1, PALETTE.gold,
+    { center: true, maxChars: 38 },
   );
 
   const titleLines =
@@ -1851,12 +1868,13 @@ export function portableVisualPng(
         width,
         height,
         line,
-        54,
-        86 +
+        360,
+        214 +
           index * 34,
         4,
         PALETTE.navy,
         {
+          center: true,
           maxChars: 28,
         },
       ),
@@ -1872,11 +1890,12 @@ export function portableVisualPng(
       ' RELATIONS  ' +
       pack.assets.length +
       ' ASSETS',
-    54,
-    168,
+    360,
+    294,
     2,
     PALETTE.navy,
     {
+      center: true,
       maxChars: 48,
     },
   );

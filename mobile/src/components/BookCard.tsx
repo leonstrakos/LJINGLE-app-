@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from './BookCover';
 import { CatalogueCoverDisplay } from './CatalogueCoverOverride';
@@ -9,29 +9,74 @@ import { useCatalogueDisplayMode } from '../theme/catalogueDisplayMode';
 import { readingStatusLabels, type BookResponse } from '../types/book';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
+import { ReaderBookmarkMark } from './ReaderBookmarkMark';
+import { AnimatedPressable } from './AnimatedPressable';
+import { FreshItemShimmer } from './FreshItemShimmer';
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+const aeroMode = activeVisualSkinId === 'aero';
 
 type Props = {
   book: BookResponse;
   onPress: () => void;
-};
+  coverOnly?: boolean;
+}; // catalogueBooksGamesCoversV2
 
-export function BookCard({ book, onPress }: Props) {
+export function BookCard({ book, onPress, coverOnly = false }: Props) {
   const compactMode = useCatalogueDisplayMode() === 'compact';
 
+  if (coverOnly && !compactMode) {
+    return (
+      <AnimatedPressable
+      idleBreath
+      cue="tap"
+        accessibilityRole="button"
+        accessibilityLabel={`Otvori detalje knjige ${book.title}`}
+        onPress={onPress}
+        style={({ pressed }) => [styles.coverOnlyCard, pressed && styles.pressed]}
+      >
+      {/* ljingleSemanticAliveR21Exact:card */}
+      <FreshItemShimmer
+        entityKey={'BOOK:' + book.bookId}
+        createdAt={
+          (book as any).createdAt ??
+          (book as any).addedAt ??
+          (book as any).modifiedAt ??
+          null
+        }
+      />
+        <CatalogueCoverDisplay entityType="BOOK" entityId={book.bookId} imageStyle={styles.coverOnlyImage}>
+          <BookCover author={book.author} isbn={book.isbn} title={book.title} size="M" style={styles.coverOnlyImage} />
+        </CatalogueCoverDisplay>
+        {/* ljingleCompletionSealReaderBookmarksR1:BookCard */}
+      </AnimatedPressable>
+    );
+  }
+
   return (
-    <Pressable
+    <AnimatedPressable
+      idleBreath
+      cue="tap"
       accessibilityRole="button"
       accessibilityLabel={`Otvori detalje knjige ${book.title}`}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.card,
+        styles.card, aeroMode && styles.aeroCard,
         celestialMode && styles.celestialCard,
         compactMode && styles.cardCompact,
         pressed && styles.pressed,
       ]}
     >
+      {/* ljingleSemanticAliveR21Exact:card */}
+      <FreshItemShimmer
+        entityKey={'BOOK:' + book.bookId}
+        createdAt={
+          (book as any).createdAt ??
+          (book as any).addedAt ??
+          (book as any).modifiedAt ??
+          null
+        }
+      />
       {!compactMode ? (
       <CatalogueCoverDisplay
         entityType="BOOK"
@@ -81,12 +126,19 @@ export function BookCard({ book, onPress }: Props) {
         </View>
       </View>
 
-      <Text style={[styles.arrow, celestialMode && styles.celestialArrow]}>✦</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  coverOnlyCard: {
+    flex: 1,
+    aspectRatio: 0.66,
+    overflow: 'hidden',
+    borderRadius: 14,
+    backgroundColor: colors.fillStrong,
+  },
+  coverOnlyImage: { width: '100%', height: '100%' },
   cardCompact: { minHeight: 76, paddingVertical: 11 },
   contentCompact: { paddingLeft: 0 },
   card: {
@@ -167,6 +219,14 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginLeft: 10,
   },
+  aeroCard: {
+    borderColor: 'rgba(255,255,255,0.94)',
+    shadowColor: colors.navySoft,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 4,
+  },
   celestialCard: {
     backgroundColor: celestial.night,
     borderColor: celestialAlpha(celestial.gold, 0.42),
@@ -193,4 +253,23 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 
+  // ljingleCompletionSealReaderBookmarksR1:BookCardStyles
+  coverOnlyBookmarkMark: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+  },
+  cardBookmarkMark: {
+    position: 'absolute',
+    left: 50,
+    top: 17,
+    zIndex: 3,
+  },
+
 });
+
+// ljingleCompletionSealRemovalFilterSpacingR2:BookCard
+
+// ljingleTargetedGlyphDeclutterR2:book-card
+
+// ljingleBookCardTrailingGlyphCleanR1

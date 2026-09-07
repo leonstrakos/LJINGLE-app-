@@ -1,3 +1,4 @@
+// ljingleContrastTargetedR3
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { FeedbackView } from '../components/FeedbackView';
 import { TopicCard } from '../components/TopicCard';
@@ -25,8 +27,10 @@ import { createdFeedback } from '../utils/crudFeedback';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
+import { CelestialMotionLayer } from '../components/CelestialMotionLayer';
+import { updateCelestialParallax } from '../motion/celestialParallax';
 // forkN2CelestialCollectionsTopicsV2
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const CELESTIAL_GOLD = celestial.gold;
 
 export type TopicListScreenProps = {
@@ -105,21 +109,64 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
 
   const header = (
     <>
-      <View style={[styles.hero, celestialMode && styles.heroCelestial]}>
+      <View
+        style={[
+          styles.hero,
+          celestialMode && styles.heroCelestial,
+          celestialMode && styles.topicsEntriesHeroR1,
+        ]}
+      >
+        {/* ljingleCelestialMotionLanguageR1:topics */}
+        <CelestialMotionLayer preset="topics" />
         <CelestialAtmosphere variant="topics" />
-        <Text style={[styles.eyebrow, celestialMode && styles.eyebrowCelestial]}></Text>
-        <Text style={[styles.heading, celestialMode && styles.headingCelestial]}>Teme</Text>
+        <Text
+          style={[
+            styles.eyebrow,
+            celestialMode && styles.eyebrowCelestial,
+            celestialMode && styles.topicsEntriesEyebrowR1,
+          ]}
+        ></Text>
+        <Text
+          style={[
+            styles.heading,
+            celestialMode && styles.headingCelestial,
+            celestialMode && styles.topicsEntriesHeadingR1,
+          ]}
+        >
+          Teme
+        </Text>
         <Text style={[styles.intro, celestialMode && styles.introCelestial]}>
           Okupi aktivnosti, katalog i vrijeme oko onoga što ti je doista važno.
         </Text>
 
-        {celestialMode ? <Text style={styles.topicIndexSeal}></Text> : null}
-
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryNumber, celestialMode && styles.summaryNumberCelestial]}>
-            <Text style={styles.summaryValue}>{topics.length}</Text>
+        <View
+          style={[
+            styles.summaryRow,
+            celestialMode && styles.topicsEntriesSummaryRowR1,
+          ]}
+        >
+          <View
+            style={[
+              styles.summaryNumber,
+              celestialMode && styles.summaryNumberCelestial,
+              celestialMode && styles.topicsEntriesSummaryNumberR1,
+            ]}
+          >
+            <Text
+              style={[
+                styles.summaryValue,
+                celestialMode && styles.topicsEntriesSummaryValueR1,
+              ]}
+            >
+              {topics.length}
+            </Text>
           </View>
-          <Text style={styles.summaryLabel}>
+          <Text
+            style={[
+              styles.summaryLabel,
+              celestialMode && styles.topicsEntriesSummaryLabelR1,
+            ]}
+          >
             {topicCountLabel(topics.length)}
           </Text>
         </View>
@@ -160,9 +207,21 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
         </Pressable>
       )}
 
-      <View style={[styles.sectionHeading, celestialMode && styles.sectionHeadingCelestial]}>
-        <Text style={[styles.sectionTitle, celestialMode && styles.sectionTitleCelestial]}>
-          {celestialMode ? '✦  ' : ''}Sve teme
+      <View
+        style={[
+          styles.sectionHeading,
+          celestialMode && styles.sectionHeadingCelestial,
+          celestialMode && styles.topicsEntriesSectionHeadingR1,
+        ]}
+      >
+        <Text
+          style={[
+            styles.sectionTitle,
+            celestialMode && styles.sectionTitleCelestial,
+            celestialMode && styles.topicsEntriesSectionTitleR1,
+          ]}
+        >
+          Sve teme
         </Text>
         {refreshing ? <Text style={styles.syncText}>Osvježavanje…</Text> : null}
       </View>
@@ -183,6 +242,7 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
   if (loading && topics.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="topics" />
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={colors.black} />
           <Text style={styles.loadingText}>Slažemo tvoj indeks tema…</Text>
@@ -197,6 +257,7 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="topics" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -232,6 +293,12 @@ export function TopicListScreen({ navigation }: TopicListScreenProps) {
             />
           }
           showsVerticalScrollIndicator={false}
+        
+          onScroll={(event) => {
+            // ljingleSemanticAliveR1:scroll-topics
+            updateCelestialParallax(event.nativeEvent.contentOffset.y);
+          }}
+          scrollEventThrottle={16}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -304,7 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   summaryValue: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -332,10 +399,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: colors.white,
+    backgroundColor: celestialMode ? 'transparent' : colors.white,
   },
   addIconText: {
-    color: colors.black,
+    color: celestialMode ? colors.onAccent : colors.black,
     fontSize: 25,
     lineHeight: 28,
     fontWeight: '400',
@@ -345,17 +412,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
   },
   addTitle: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: '800',
   },
   addSubtitle: {
     marginTop: 3,
-    color: '#AEAEB2',
+    color: colors.onAccent,
     fontSize: 12,
   },
   addArrow: {
-    color: '#AEAEB2',
+    color: colors.onAccent,
     fontSize: 27,
   },
   sectionHeading: {
@@ -468,10 +535,10 @@ const styles = StyleSheet.create({
   addIconCelestial: {
     borderWidth: 1,
     borderColor: celestialAlpha(celestial.gold, 0.72),
-    backgroundColor: celestialAlpha(celestial.ivory, 0.96),
+    backgroundColor: 'transparent',
   },
   addIconTextCelestial: {
-    color: CELESTIAL_GOLD,
+    color: colors.onAccent,
   },
   sectionHeadingCelestial: {
     paddingTop: 4,
@@ -485,4 +552,67 @@ const styles = StyleSheet.create({
     borderColor: celestialAlpha(celestial.gold, 0.38),
     backgroundColor: colors.surface,
   },
+  // ljingleTopicsEntriesUiParityR1
+  topicsEntriesHeroR1: {
+    marginTop: 0,
+    marginBottom: 0,
+    paddingTop: 24,
+    paddingHorizontal: 3,
+    paddingBottom: 20,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    overflow: 'visible',
+  },
+  topicsEntriesEyebrowR1: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  topicsEntriesHeadingR1: {
+    marginTop: 5,
+    fontSize: 36,
+    lineHeight: 43,
+    fontWeight: '800',
+    letterSpacing: -1.1,
+  },
+  topicsEntriesSummaryRowR1: {
+    marginTop: 18,
+    alignItems: 'baseline',
+  },
+  topicsEntriesSummaryNumberR1: {
+    minWidth: 0,
+    height: 34,
+    paddingHorizontal: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  topicsEntriesSummaryValueR1: {
+    color: colors.text,
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: '800',
+  },
+  topicsEntriesSummaryLabelR1: {
+    marginLeft: 8,
+    fontSize: 13,
+  },
+  topicsEntriesSectionHeadingR1: {
+    paddingTop: 0,
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
+  },
+  topicsEntriesSectionTitleR1: {
+    letterSpacing: 0,
+  },
+
 });

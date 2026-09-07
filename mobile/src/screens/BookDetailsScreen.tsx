@@ -1,9 +1,10 @@
 // jingleReasonV1
 import { JingleReasonCard } from '../components/JingleReasonCard';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { CatalogueCoverDisplay, CatalogueCoverOverrideControls } from '../components/CatalogueCoverOverride';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
@@ -19,14 +20,22 @@ import { FeedbackView } from '../components/FeedbackView';
 import { BookCover } from '../components/BookCover';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ReadingTimerCard } from '../components/ReadingTimerCard';
+import { BookReaderModal } from '../components/BookReaderModal';
 import { activityApi } from '../services/activityApi';
 import { bookApi } from '../services/bookApi';
+import {
+  getBookDocument,
+  getReaderBookmarks,
+  pickAndAttachBookDocument,
+  removeBookDocument,
+} from '../services/bookReaderRepository';
 import { deleteCatalogueCoverOverride } from '../services/catalogueCoverOverrides';
 import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import type { ActivityTimerResponse } from '../types/activity';
 import { enjoymentLabels, readingStatusLabels, type BookResponse } from '../types/book';
+import type { BookDocument, ReaderBookmark } from '../types/reader';
 import type { RootStackParamList } from '../types/navigation';
 import { deletedFeedback } from '../utils/crudFeedback';
 import { TimerMotionView } from '../components/TimerMotionView';
@@ -34,10 +43,11 @@ import { semanticFeedback } from '../utils/semanticFeedback';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 import { JingleBellIcon } from '../components/JingleBellIcon';
+import { ReaderBookmarkGlyph } from '../components/ReaderBookmarkGlyph';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookDetails'>;
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 type DetailRowProps = {
   label: string;
@@ -65,17 +75,30 @@ export function BookDetailsScreen({ route, navigation }: Props) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [jingleBusy, setJingleBusy] = useState(false);
+  const [readerDocument, setReaderDocument] = useState<BookDocument | null>(null);
+  // ljingleCompletionSealReaderBookmarksR1:BookDetails
+  const [readerBookmarks, setReaderBookmarks] = useState<ReaderBookmark[]>([]);
+  const [readerJumpPage, setReaderJumpPage] = useState<number | null>(null);
+  const [readerJumpLocator, setReaderJumpLocator] = useState<string | null>(null);
+  const [readerVisible, setReaderVisible] = useState(false);
+  const [readerBusy, setReaderBusy] = useState(false);
+  const [readerError, setReaderError] = useState<string | null>(null);
+  const handledReaderRoute = useRef(false);
 
   const loadBook = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [loadedBook, loadedTimer] = await Promise.all([
+      const [loadedBook, loadedTimer, loadedDocument, loadedBookmarks] = await Promise.all([
         bookApi.getById(bookId),
         activityApi.getReadingTimer(bookId),
+        getBookDocument(bookId).catch(() => null),
+        getReaderBookmarks(bookId).catch(() => [] as ReaderBookmark[]),
       ]);
       setBook(loadedBook);
       setReadingTimer(loadedTimer);
+      setReaderDocument(loadedDocument);
+      setReaderBookmarks(loadedBookmarks);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Dohvat knjige nije uspio.');
     } finally {
@@ -89,6 +112,84 @@ export function BookDetailsScreen({ route, navigation }: Props) {
       void loadBook();
     });
   }, [loadBook, navigation]);
+
+  useEffect(() => {
+    if (
+      route.params.openReader &&
+      readerDocument &&
+      !handledReaderRoute.current
+    ) {
+      handledReaderRoute.current = true;
+      setReaderVisible(true);
+    }
+  }, [readerDocument, route.params.openReader]);
+
+  const attachReaderDocument = async () => {
+    if (readerBusy) return;
+    setReaderBusy(true);
+    setReaderError(null);
+    try {
+      const attached = await pickAndAttachBookDocument(bookId);
+      if (!attached) return;
+      setReaderDocument(attached);
+      setReaderBookmarks(await getReaderBookmarks(bookId).catch(() => []));
+      setReaderJumpPage(null);
+      setReaderJumpLocator(null);
+      setReaderVisible(true);
+    } catch (caught) {
+      setReaderError(
+        caught instanceof Error ? caught.message : 'Dokument se nije mogao spremiti.',
+      );
+    } finally {
+      setReaderBusy(false);
+    }
+  };
+
+  const confirmRemoveReaderDocument = () => {
+    if (!readerDocument || readerBusy) return;
+    Alert.alert(
+      'Ukloniti dokument?',
+      'PDF/EPUB će se ukloniti s uređaja. Postojeći LJingle zapisi ostaju uz knjigu.',
+      [
+        { text: 'Odustani', style: 'cancel' },
+        {
+          text: 'Ukloni',
+          style: 'destructive',
+          onPress: () => {
+            setReaderBusy(true);
+            setReaderError(null);
+            void removeBookDocument(bookId)
+              .then(() => {
+                setReaderVisible(false);
+                setReaderDocument(null);
+                setReaderBookmarks([]);
+              })
+              .catch((caught) => {
+                setReaderError(
+                  caught instanceof Error
+                    ? caught.message
+                    : 'Dokument se nije mogao ukloniti.',
+                );
+              })
+              .finally(() => setReaderBusy(false));
+          },
+        },
+      ],
+    );
+  };
+
+  const openReaderNormally = () => {
+    setReaderJumpPage(null);
+    setReaderJumpLocator(null);
+    setReaderVisible(true);
+  };
+
+  const openReaderAtBookmark = (bookmark: ReaderBookmark) => {
+    if (!readerDocument) return;
+    setReaderJumpPage(bookmark.page);
+    setReaderJumpLocator(bookmark.epubLocator);
+    setReaderVisible(true);
+  };
 
   const toggleJingle = async () => {
     if (
@@ -197,6 +298,7 @@ export function BookDetailsScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="books" />
       <ScrollView contentContainerStyle={styles.content}>
         {/* bookDetailCoverParityV1 */}
         <View style={[styles.hero, celestialMode && styles.celestialHero]}>
@@ -232,6 +334,7 @@ export function BookDetailsScreen({ route, navigation }: Props) {
               <Text style={styles.year}>{book.publishedYear}</Text>
             ) : null}
 
+            {/* finalPrebuildUiV1: larger bell remains beside the status tag. */}
             <View style={styles.heroStatusRow}>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>
@@ -290,6 +393,100 @@ export function BookDetailsScreen({ route, navigation }: Props) {
             <View style={[styles.progressFill, celestialMode && styles.celestialProgressFill, { width: `${book.progress}%` }]} />
           </View>
         </View>
+
+        <View style={[styles.readerCard, celestialMode && styles.celestialCard]}>
+          <View style={styles.readerCardHeader}>
+            <View style={styles.readerIcon}>
+              <Text style={styles.readerIconText}>⌑</Text>
+            </View>
+            <View style={styles.readerCardCopy}>
+              <Text style={styles.readerEyebrow}>LJINGLE READER</Text>
+              <Text style={styles.readerCardTitle}>
+                {readerDocument ? 'Nastavi čitati' : 'Čitaj u aplikaciji'}
+              </Text>
+              <Text numberOfLines={2} style={styles.readerCardSubtitle}>
+                {readerDocument
+                  ? `${readerDocument.fileName} · ${readerDocument.progress}%`
+                  : 'Dodaj lokalni PDF ili EPUB ovoj knjizi.'}
+              </Text>
+            </View>
+          </View>
+
+          {readerError ? <Text style={styles.readerCardError}>{readerError}</Text> : null}
+
+          <View style={styles.readerActions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={readerBusy}
+              onPress={() => {
+                if (readerDocument) openReaderNormally();
+                else void attachReaderDocument();
+              }}
+              style={({ pressed }) => [
+                styles.readerPrimaryButton,
+                readerBusy && styles.readerDisabled,
+                pressed && styles.readerPressed,
+              ]}
+            >
+              <Text style={styles.readerPrimaryText}>
+                {readerBusy
+                  ? 'Spremamo…'
+                  : readerDocument
+                    ? 'Otvori reader'
+                    : 'Dodaj PDF / EPUB'}
+              </Text>
+            </Pressable>
+
+            {readerDocument ? (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={readerBusy}
+                  onPress={() => void attachReaderDocument()}
+                  style={({ pressed }) => [
+                    styles.readerSecondaryButton,
+                    pressed && styles.readerPressed,
+                  ]}
+                >
+                  <Text style={styles.readerSecondaryText}>Zamijeni</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={readerBusy}
+                  onPress={confirmRemoveReaderDocument}
+                  style={({ pressed }) => [
+                    styles.readerRemoveButton,
+                    pressed && styles.readerPressed,
+                  ]}
+                >
+                  <Text style={styles.readerRemoveText}>Ukloni</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </View>
+
+        {readerDocument && readerBookmarks.length > 0 ? (
+          <View style={[styles.bookmarksCard, celestialMode && styles.celestialCard]}>
+            <Text style={styles.bookmarksEyebrow}>BOOKMARKS</Text>
+            {readerBookmarks.map((bookmark) => (
+              <Pressable
+                accessibilityRole="button"
+                key={bookmark.bookmarkId}
+                onPress={() => openReaderAtBookmark(bookmark)}
+                style={({ pressed }) => [styles.bookmarkRow, pressed && styles.readerPressed]}
+              >
+                <ReaderBookmarkGlyph active size={18} />
+                <Text style={styles.bookmarkLabel}>
+                  {bookmark.format === 'PDF' && bookmark.page
+                    ? `Stranica ${bookmark.page}`
+                    : 'Spremljeno mjesto u EPUB-u'}
+                </Text>
+                <Text style={styles.bookmarkArrow}>›</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {readingTimer ? (
           <TimerMotionView active={readingTimer.running}>
@@ -361,6 +558,29 @@ export function BookDetailsScreen({ route, navigation }: Props) {
         errorMessage={deleteError}
         onCancel={cancelDelete}
         onConfirm={() => void deleteBook()}
+      />
+
+      <BookReaderModal
+        bookId={bookId}
+        bookTitle={book.title}
+        document={readerDocument}
+        initialLocator={readerJumpLocator ?? route.params.readerLocator}
+        initialPage={readerJumpPage ?? route.params.readerPage}
+        initialSelectionRects={route.params.readerSelectionRects}
+        onClose={() => {
+          setReaderVisible(false);
+          void loadBook();
+        }}
+        onOpenEntry={(entryId) => {
+          setReaderVisible(false);
+          // ljingleReaderEntriesHighlightRadioR1: show the saved card, do not open edit mode
+          navigation.navigate('Entries', { focusEntryId: entryId });
+        }}
+        onProgressSaved={() => undefined}
+        onToggleTimer={() => void toggleReadingTimer()}
+        readingTimer={readingTimer}
+        timerLoading={timerLoading}
+        visible={readerVisible}
       />
     </SafeAreaView>
   );
@@ -471,8 +691,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   heroJingle: {
-    width: 29,
-    height: 35,
+    width: 44,
+    height: 53,
   },
   pageProgress: {
     color: colors.text,
@@ -515,6 +735,66 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
     borderRadius: 4,
   },
+  readerCard: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    padding: 16,
+  },
+  readerCardHeader: { flexDirection: 'row', alignItems: 'center' },
+  readerIcon: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: colors.goldSoft,
+  },
+  readerIconText: { color: colors.text, fontSize: 27, fontWeight: '800' },
+  readerCardCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  readerEyebrow: {
+    color: colors.gold,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  readerCardTitle: { marginTop: 3, color: colors.text, fontSize: 17, fontWeight: '800' },
+  readerCardSubtitle: { marginTop: 4, color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  readerCardError: { marginTop: 11, color: colors.danger, fontSize: 12, lineHeight: 17 },
+  readerActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  readerPrimaryButton: {
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.black,
+    paddingHorizontal: 15,
+  },
+  readerPrimaryText: { color: colors.onAccent, fontSize: 12, fontWeight: '800' },
+  readerSecondaryButton: {
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 13,
+    backgroundColor: colors.fill,
+    paddingHorizontal: 14,
+  },
+  readerSecondaryText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  readerRemoveButton: {
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.dangerSoft,
+    paddingHorizontal: 14,
+  },
+  readerRemoveText: { color: colors.danger, fontSize: 12, fontWeight: '700' },
+  readerDisabled: { opacity: 0.45 },
+  readerPressed: { opacity: 0.72 },
   detailsCard: {
     marginTop: 18,
     paddingHorizontal: 18,
@@ -568,6 +848,44 @@ const styles = StyleSheet.create({
     backgroundColor: celestial.gold,
   },
 
+  // ljingleCompletionSealReaderBookmarksR1:BookDetailsStyles
+  bookmarksCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.separator,
+  },
+  bookmarksEyebrow: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.35,
+    marginBottom: 5,
+  },
+  bookmarkRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+  },
+  bookmarkLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bookmarkArrow: {
+    color: colors.textMuted,
+    fontSize: 22,
+    lineHeight: 24,
+  },
+
 });
 
 // catalogueJingleProgressSemanticsV1
+
+// ljingleCompletionSealRemovalFilterSpacingR2:BookDetails

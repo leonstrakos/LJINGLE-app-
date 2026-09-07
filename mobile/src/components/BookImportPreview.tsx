@@ -27,6 +27,27 @@ const fieldLabels: Record<string, string> = {
   timeHistory: 'povijest vremena',
 };
 
+// ljingleBookSynopsisPreviewR1
+function cleanBookSynopsis(value: string | null | undefined) {
+  if (!value) return '';
+
+  return value
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/p\s*>/gi, '\n\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 export function BookImportPreview({
   preview,
   loading = false,
@@ -34,6 +55,16 @@ export function BookImportPreview({
   onCancel,
 }: Props) {
   const [confirmed, setConfirmed] = useState(false);
+
+  const synopsis = cleanBookSynopsis(preview.candidate.description);
+  const bookMeta = [
+    preview.candidate.publisher,
+    preview.candidate.pageCount
+      ? preview.candidate.pageCount + ' str.'
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   useEffect(() => {
     setConfirmed(false);
@@ -49,6 +80,27 @@ export function BookImportPreview({
       <Text style={styles.eyebrow}>PREGLED UVOZA</Text>
       <Text style={styles.title}>{preview.candidate.title}</Text>
       <Text style={styles.author}>{preview.candidate.authors.join(', ')}</Text>
+
+      {bookMeta ? (
+        <Text style={styles.bookSynopsisPreviewR1Meta}>
+          {bookMeta}
+        </Text>
+      ) : null}
+
+      {synopsis ? (
+        <View style={styles.bookSynopsisPreviewR1Block}>
+          <Text style={styles.bookSynopsisPreviewR1Label}>
+            O KNJIZI
+          </Text>
+          <Text
+            ellipsizeMode="tail"
+            numberOfLines={7}
+            style={styles.bookSynopsisPreviewR1Text}
+          >
+            {synopsis}
+          </Text>
+        </View>
+      ) : null}
 
       {preview.existingBook ? (
         <View style={styles.notice}>
@@ -115,6 +167,36 @@ export function BookImportPreview({
 }
 
 const styles = StyleSheet.create({
+  // ljingleBookSynopsisPreviewR1:styles
+  bookSynopsisPreviewR1Meta: {
+    marginTop: 6,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  bookSynopsisPreviewR1Block: {
+    marginTop: 18,
+    padding: 15,
+    borderRadius: 16,
+    backgroundColor: colors.fill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.separator,
+  },
+  bookSynopsisPreviewR1Label: {
+    color: colors.textMuted,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+  },
+  bookSynopsisPreviewR1Text: {
+    marginTop: 8,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
   panel: {
     backgroundColor: colors.surface,
     borderRadius: 22,

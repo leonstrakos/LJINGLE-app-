@@ -1,13 +1,16 @@
 import { Platform } from 'react-native';
 import { activeVisualSkinId } from './visualSkins';
+import { activeAeroBackgroundId } from './aeroBackground';
 import { getDatabaseConnection } from '../storage/databaseConnection';
 
+import { resolveContrastPalette } from './contrast';
 const ACCENT_STORAGE_KEY = 'tracking_app_accent';
 const BACKGROUND_STORAGE_KEY = 'tracking_app_background';
 // forkN4CelestialDefaultPaletteV12
 // forkLCelestialThemeBindingV1
-const DEFAULT_ACCENT = '#D4AF55';
-const DEFAULT_BACKGROUND = '#0B0F16';
+// ljingleMidnightDefaultColorsR1: fresh-install Midnight palette
+const DEFAULT_ACCENT = '#E8B42B';
+const DEFAULT_BACKGROUND = '#10264C';
 
 export type RgbColor = { red: number; green: number; blue: number };
 
@@ -170,6 +173,17 @@ export const activeAccentColor = readStoredAccent();
 export const activeBackgroundColor = readStoredBackground();
 const pixelMode = activeVisualSkinId === 'pixel';
 const aeroMode = activeVisualSkinId === 'aero';
+// ljingleSparkleChromeSurfaceContrastR1
+const celestialContrastMode =
+  activeVisualSkinId === 'classic' ||
+  activeVisualSkinId === 'classic-ljingle';
+
+const celestialContrast =
+  resolveContrastPalette(
+    activeBackgroundColor,
+    activeAccentColor,
+  );
+const meadowAeroMode = aeroMode && activeAeroBackgroundId === 'meadow'; // MEADOW_GLASS_MAX_UI_V1
 const backgroundRgb = hexToRgb(activeBackgroundColor);
 // forkKDarkBackgroundContrastV1
 export const backgroundLuminance =
@@ -177,88 +191,195 @@ export const backgroundLuminance =
     backgroundRgb.green * 0.7152 +
     backgroundRgb.blue * 0.0722) / 255;
 
+// FRUTIGER_AERO_MAX_UI_V2
 export const DARK_BACKGROUND_LUMINANCE_THRESHOLD = 0.48;
+// ljingleCelestialContrastEngineR1
 export const isDarkBackground =
   !pixelMode &&
-  backgroundLuminance < DARK_BACKGROUND_LUMINANCE_THRESHOLD;
+  !aeroMode &&
+  (
+    celestialContrastMode
+      ? celestialContrast.prefersLightForeground
+      : backgroundLuminance <
+          DARK_BACKGROUND_LUMINANCE_THRESHOLD
+  );
 
-const darkBackground = isDarkBackground;
+const darkBackground =
+  isDarkBackground;
 
-const background = pixelMode ? '#F7F7F2' : activeBackgroundColor;
+// The Aero skin is authored rather than derived from the user's Classic accent.
+// This keeps every screen coherent: bright sky, aquatic cyan, optimistic green,
+// dark teal text, glossy white panels. Classic/Pixel retain their old behavior.
+const oceanAeroPalette = {
+  background: '#BDEAF7',
+  surface: 'rgba(255,255,255,0.62)',
+  fill: 'rgba(225,247,252,0.60)',
+  fillStrong: 'rgba(190,231,243,0.70)',
+  border: 'rgba(255,255,255,0.94)',
+  separator: 'rgba(38,126,163,0.24)',
+  blue: '#0B88C8',
+  blueDeep: '#075F91',
+  blueSoft: 'rgba(111,211,240,0.38)',
+  green: '#49AF4E',
+  greenDeep: '#2B8740',
+  greenSoft: 'rgba(184,236,157,0.52)',
+  text: '#123F55',
+  textMuted: '#527386',
+  danger: '#D94B67',
+  dangerSoft: 'rgba(255,235,240,0.78)',
+} as const;
+
+// MEADOW_SILVER_GLASS_FIX_V1
+// Meadow = photographic world + NEUTRAL frosted silver glass.
+// No green typography, no sage panels, no moss chrome. The wallpaper supplies
+// the nature; the UI itself stays white/silver/graphite like the empty-timer card.
+const meadowAeroPalette = {
+  background: '#D7DBDC',
+  surface: 'rgba(244,246,246,0.50)',
+  fill: 'rgba(232,235,235,0.40)',
+  fillStrong: 'rgba(205,210,211,0.50)',
+  border: 'rgba(255,255,255,0.90)',
+  separator: 'rgba(76,82,88,0.20)',
+  blue: '#666D74',
+  blueDeep: '#444A50',
+  blueSoft: 'rgba(255,255,255,0.24)',
+  green: '#646B71',
+  greenDeep: '#4B5157',
+  greenSoft: 'rgba(255,255,255,0.28)',
+  text: '#4B5056',
+  textMuted: '#747980',
+  danger: '#A94B5B',
+  dangerSoft: 'rgba(255,242,244,0.48)',
+} as const;
+
+const aeroPalette = meadowAeroMode ? meadowAeroPalette : oceanAeroPalette;
+
+const background = pixelMode
+  ? '#F7F7F2'
+  : aeroMode
+    ? aeroPalette.background
+    : activeBackgroundColor;
 
 const surface = pixelMode
   ? '#FFFFFF'
-  : darkBackground
-    ? mixHex(activeBackgroundColor, '#FFFFFF', 0.08)
-    : mixHex(activeBackgroundColor, '#FFFFFF', 0.72);
+  : aeroMode
+    ? aeroPalette.surface
+    : darkBackground
+      ? mixHex(activeBackgroundColor, '#FFFFFF', 0.08)
+      : mixHex(activeBackgroundColor, '#FFFFFF', 0.72);
 
 const fill = pixelMode
   ? '#ECECE5'
-  : darkBackground
-    ? mixHex(activeBackgroundColor, '#FFFFFF', 0.12)
-    : mixHex(activeBackgroundColor, '#FFFFFF', 0.48);
+  : aeroMode
+    ? aeroPalette.fill
+    : darkBackground
+      ? mixHex(activeBackgroundColor, '#FFFFFF', 0.12)
+      : mixHex(activeBackgroundColor, '#FFFFFF', 0.48);
 
 const fillStrong = pixelMode
   ? '#D8D8D0'
-  : darkBackground
-    ? mixHex(activeBackgroundColor, '#FFFFFF', 0.18)
-    : mixHex(activeBackgroundColor, '#FFFFFF', 0.30);
+  : aeroMode
+    ? aeroPalette.fillStrong
+    : darkBackground
+      ? mixHex(activeBackgroundColor, '#FFFFFF', 0.18)
+      : mixHex(activeBackgroundColor, '#FFFFFF', 0.30);
 
 const border = pixelMode
   ? '#111111'
-  : darkBackground
-    ? mixHex(activeBackgroundColor, '#FFFFFF', 0.24)
-    : mixHex(activeBackgroundColor, '#000000', 0.11);
+  : aeroMode
+    ? aeroPalette.border
+    : darkBackground
+      ? mixHex(activeBackgroundColor, '#FFFFFF', 0.24)
+      : mixHex(activeBackgroundColor, '#000000', 0.11);
 
 const accentSoft = pixelMode
   ? '#D8D8D0'
-  : darkBackground
-    ? mixHex(activeAccentColor, activeBackgroundColor, 0.72)
-    : mixHex(activeAccentColor, '#FFFFFF', 0.82);
+  : aeroMode
+    ? aeroPalette.greenSoft
+    : darkBackground
+      ? mixHex(activeAccentColor, activeBackgroundColor, 0.72)
+      : mixHex(activeAccentColor, '#FFFFFF', 0.82);
 
-const text = pixelMode ? '#111111' : darkBackground ? '#F5F5F7' : activeAccentColor;
+const text = pixelMode
+  ? '#111111'
+  : aeroMode
+    ? aeroPalette.text
+    : celestialContrastMode
+      ? celestialContrast.text
+      : darkBackground
+      ? '#F5F5F7'
+      : activeAccentColor;
+
 const textMuted = pixelMode
   ? '#3A3A3A'
-  : darkBackground
-    ? '#A8A8AE'
-    : '#6E6E73';
+  : aeroMode
+    ? aeroPalette.textMuted
+    : celestialContrastMode
+      ? celestialContrast.textMuted
+      : darkBackground
+      ? '#A8A8AE'
+      : '#6E6E73';
 
 export const colors = {
   background,
   surface,
-  navy: pixelMode ? '#111111' : activeAccentColor,
-  navySoft: pixelMode ? '#111111' : activeAccentColor,
-  gold: pixelMode ? '#111111' : activeAccentColor,
+  navy: pixelMode ? '#111111' : aeroMode ? aeroPalette.blueDeep : activeAccentColor,
+  navySoft: pixelMode ? '#111111' : aeroMode ? aeroPalette.blue : activeAccentColor,
+  gold: pixelMode ? '#111111' : aeroMode ? aeroPalette.green : activeAccentColor,
   goldSoft: accentSoft,
   cream: surface,
   text,
   textMuted,
   border,
-  success: pixelMode ? '#111111' : activeAccentColor,
-  successSoft: accentSoft,
-  danger: pixelMode ? '#111111' : '#D70015',
-  dangerSoft: pixelMode ? '#ECECE5' : '#FFF0F1',
+  success: pixelMode ? '#111111' : aeroMode ? aeroPalette.green : activeAccentColor,
+  successSoft: aeroMode ? aeroPalette.greenSoft : accentSoft,
+  danger: pixelMode ? '#111111' : aeroMode ? aeroPalette.danger : '#D70015',
+  dangerSoft: pixelMode ? '#ECECE5' : aeroMode ? aeroPalette.dangerSoft : '#FFF0F1',
   white: '#FFFFFF',
-  black: pixelMode ? '#111111' : activeAccentColor,
+  // ljingleCelestialAccentSurfaceContrastR1
+  onAccent:
+    celestialContrastMode
+      ? celestialContrast.onAccent
+      : '#FFFFFF',
+
+  black: pixelMode ? '#111111' : aeroMode ? aeroPalette.blueDeep : activeAccentColor,
   fill,
   fillStrong,
-  separator: border,
+  separator: aeroMode ? aeroPalette.separator : border,
 };
 
-const activityAccent = pixelMode
-  ? { background: '#ECECE5', foreground: '#111111' }
-  : aeroMode
-    ? { background: 'rgba(232,250,255,0.82)', foreground: '#087D99' }
-    : { background: accentSoft, foreground: activeAccentColor };
+const classicActivityAccent = { background: accentSoft, foreground: activeAccentColor };
+const pixelActivityAccent = { background: '#ECECE5', foreground: '#111111' };
+
+const meadowActivityAccents = {
+  READING: { background: 'rgba(255,255,255,0.34)', foreground: '#50565C' },
+  WATCHING: { background: 'rgba(225,230,232,0.38)', foreground: '#555B61' },
+  STUDYING: { background: 'rgba(214,219,221,0.38)', foreground: '#5B6066' },
+  PLAYING: { background: 'rgba(246,247,247,0.32)', foreground: '#4E545A' },
+  RESEARCH: { background: 'rgba(232,235,236,0.36)', foreground: '#52585E' },
+  WORK: { background: 'rgba(205,211,214,0.38)', foreground: '#555B61' },
+  EXERCISE: { background: 'rgba(238,231,232,0.36)', foreground: '#62575B' },
+  CUSTOM: { background: 'rgba(225,228,230,0.36)', foreground: '#565C62' },
+  GLOBAL: { background: 'rgba(255,255,255,0.34)', foreground: '#50565C' },
+} as const;
 
 export const activityAccents = {
-  READING: activityAccent,
-  WATCHING: activityAccent,
-  STUDYING: activityAccent,
-  PLAYING: activityAccent,
-  RESEARCH: activityAccent,
-  WORK: activityAccent,
-  EXERCISE: activityAccent,
-  CUSTOM: activityAccent,
-  GLOBAL: activityAccent,
+  READING: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.READING : aeroMode
+    ? { background: 'rgba(204,242,175,0.78)', foreground: '#2B8740' } : classicActivityAccent,
+  WATCHING: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.WATCHING : aeroMode
+    ? { background: 'rgba(181,231,250,0.82)', foreground: '#087CB8' } : classicActivityAccent,
+  STUDYING: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.STUDYING : aeroMode
+    ? { background: 'rgba(222,215,250,0.78)', foreground: '#6555A8' } : classicActivityAccent,
+  PLAYING: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.PLAYING : aeroMode
+    ? { background: 'rgba(255,227,171,0.80)', foreground: '#A56B12' } : classicActivityAccent,
+  RESEARCH: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.RESEARCH : aeroMode
+    ? { background: 'rgba(187,242,228,0.82)', foreground: '#21806B' } : classicActivityAccent,
+  WORK: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.WORK : aeroMode
+    ? { background: 'rgba(205,229,250,0.82)', foreground: '#3A6E9B' } : classicActivityAccent,
+  EXERCISE: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.EXERCISE : aeroMode
+    ? { background: 'rgba(255,205,204,0.80)', foreground: '#B34B4B' } : classicActivityAccent,
+  CUSTOM: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.CUSTOM : aeroMode
+    ? { background: 'rgba(224,242,247,0.82)', foreground: '#39768C' } : classicActivityAccent,
+  GLOBAL: pixelMode ? pixelActivityAccent : meadowAeroMode ? meadowActivityAccents.GLOBAL : aeroMode
+    ? { background: 'rgba(181,231,250,0.82)', foreground: '#087CB8' } : classicActivityAccent,
 } as const;

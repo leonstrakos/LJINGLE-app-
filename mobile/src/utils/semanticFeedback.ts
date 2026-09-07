@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { playUiCue, playUiSound } from '../audio/uiFeedback';
+import { emitSemanticAlive } from '../motion/semanticAlive';
 
 // semanticFeedbackV1
 //
@@ -124,6 +125,8 @@ export const semanticFeedback = {
   jingle: (active = true) => {
 
     if (active) {
+    // ljingleSemanticAliveR1:jingle-event
+    emitSemanticAlive({ type: 'JINGLE' });
 
       void playUiSound('jingle');
 

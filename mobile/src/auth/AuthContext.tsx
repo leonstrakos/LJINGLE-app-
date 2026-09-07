@@ -8,11 +8,14 @@ import {
   useState,
 } from 'react';
 
-import { authApi } from '../services/authApi';
+import { authApi, LjingleAuthError } from '../services/authApi';
+
+// authOfflineLocalFirstV1
 import {
   claimInstallOwner,
   restoreAuthCache,
   setAuthToken,
+  setAuthUser,
 } from './sessionStore';
 import type {
   LjingleRegistration,
@@ -58,21 +61,53 @@ export function AuthProvider({
           return;
         }
 
-        const current =
-          await authApi.me();
+        const offlineUser: LjingleUser | null =
+          stored.user &&
+          (!stored.installOwnerId || stored.user.id === stored.installOwnerId)
+            ? stored.user
+            : stored.installOwnerId
+              ? {
+                  id: stored.installOwnerId,
+                  email: '',
+                  username: 'LJingle',
+                }
+              : null;
 
-        await claimInstallOwner(
-          current.id,
-        );
-
-        if (!cancelled) {
-          setUser(current);
+        // Local-first: a previously authenticated installation opens immediately.
+        if (offlineUser && !cancelled) {
+          setUser(offlineUser);
         }
-      } catch {
-        await setAuthToken(null);
 
-        if (!cancelled) {
-          setUser(null);
+        try {
+          const current = await authApi.me();
+
+          await claimInstallOwner(current.id);
+          await setAuthUser(current);
+
+          if (!cancelled) {
+            setUser(current);
+          }
+        } catch (error) {
+          const rejected =
+            error instanceof LjingleAuthError &&
+            (error.status === 401 || error.status === 403);
+
+          if (rejected) {
+            await Promise.all([
+              setAuthToken(null),
+              setAuthUser(null),
+            ]);
+
+            if (!cancelled) {
+              setUser(null);
+            }
+          } else if (!offlineUser) {
+            // No cached identity exists yet. Keep the token intact; a later online
+            // launch can validate it instead of destroying a good session.
+            if (!cancelled) {
+              setUser(null);
+            }
+          }
         }
       } finally {
         if (!cancelled) {
@@ -101,9 +136,10 @@ export function AuthProvider({
             session.user.id,
           );
 
-          await setAuthToken(
-            session.token,
-          );
+          await Promise.all([
+            setAuthToken(session.token),
+            setAuthUser(session.user),
+          ]);
 
           setUser(session.user);
         } catch (error) {
@@ -155,7 +191,10 @@ export function AuthProvider({
         // Local logout still wins if VPS is unavailable.
       }
 
-      await setAuthToken(null);
+      await Promise.all([
+        setAuthToken(null),
+        setAuthUser(null),
+      ]);
       setUser(null);
     }, []);
 

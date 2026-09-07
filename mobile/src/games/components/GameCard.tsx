@@ -1,6 +1,8 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CatalogueCoverDisplay } from '../../components/CatalogueCoverOverride';
+import { ApiArtworkImage } from '../../components/ApiArtworkImage';
+// ljingleCoverAssetsMobileR2
 import { colors } from '../../theme/colors';
 import { activeVisualSkinId } from '../../theme/visualSkins';
 // catalogueQuietModeV1
@@ -8,18 +10,53 @@ import { useCatalogueDisplayMode } from '../../theme/catalogueDisplayMode';
 import { gameStatusLabels, type GameResponse } from '../types/game';
 
 import { celestial, celestialAlpha } from '../../theme/celestial';
+import { AnimatedPressable } from '../../components/AnimatedPressable';
+import { FreshItemShimmer } from '../../components/FreshItemShimmer';
 type Props = {
   game: GameResponse;
   onPress: () => void;
-};
+  coverOnly?: boolean;
+}; // catalogueBooksGamesCoversV2
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
-export function GameCard({ game, onPress }: Props) {
+export function GameCard({ game, onPress, coverOnly = false }: Props) {
   const compactMode = useCatalogueDisplayMode() === 'compact';
 
+  if (coverOnly && !compactMode) {
+    return (
+      <AnimatedPressable
+      idleBreath
+      cue="tap"
+        accessibilityRole="button"
+        accessibilityLabel={`Otvori igru ${game.title}`}
+        onPress={onPress}
+        style={({ pressed }) => [styles.coverOnlyCard, pressed && styles.pressed]}
+      >
+      {/* ljingleSemanticAliveR21Exact:card */}
+      <FreshItemShimmer
+        entityKey={'GAME:' + game.gameId}
+        createdAt={
+          (game as any).createdAt ??
+          (game as any).addedAt ??
+          (game as any).modifiedAt ??
+          null
+        }
+      />
+        <CatalogueCoverDisplay entityType="GAME" entityId={game.gameId} imageStyle={styles.coverOnlyImage}>
+          {game.coverUrl ? <ApiArtworkImage 
+              cacheKey={'igdb:cover:' + game.coverUrl}
+              sourceUrl={game.coverUrl} resizeMode="cover" style={styles.coverOnlyImage} /> : <View style={styles.coverOnlyPlaceholder}><Text style={styles.missingCoverTitle}>{game.title}</Text></View>}
+        </CatalogueCoverDisplay>
+        {/* ljingleCompletionSealReaderBookmarksR1:GameCard */}
+      </AnimatedPressable>
+    );
+  }
+
   return (
-    <Pressable
+    <AnimatedPressable
+      idleBreath
+      cue="tap"
       accessibilityRole="button"
       accessibilityLabel={`Otvori igru ${game.title}`}
       onPress={onPress}
@@ -30,6 +67,16 @@ export function GameCard({ game, onPress }: Props) {
         pressed && styles.pressed,
       ]}
     >
+      {/* ljingleSemanticAliveR21Exact:card */}
+      <FreshItemShimmer
+        entityKey={'GAME:' + game.gameId}
+        createdAt={
+          (game as any).createdAt ??
+          (game as any).addedAt ??
+          (game as any).modifiedAt ??
+          null
+        }
+      />
       {!compactMode ? (
         <CatalogueCoverDisplay
           entityType="GAME"
@@ -37,25 +84,25 @@ export function GameCard({ game, onPress }: Props) {
           imageStyle={styles.cover}
         >
           {game.coverUrl ? (
-            <Image
-              source={{ uri: game.coverUrl }}
+            <ApiArtworkImage
+              
+              cacheKey={'igdb:cover:' + game.coverUrl}
+              sourceUrl={game.coverUrl}
               resizeMode="cover"
               style={styles.cover}
             />
           ) : (
             <View style={styles.placeholder}>
-              <Text style={styles.placeholderMark}>G</Text>
+              <Text style={styles.missingCoverTitle}>{game.title}</Text>
             </View>
           )}
         </CatalogueCoverDisplay>
       ) : null}
-
       <View style={[styles.copy, compactMode && styles.copyCompact]}>
         <View style={styles.titleRow}>
           <Text numberOfLines={compactMode ? 1 : 2} style={styles.title}>
             {game.title}{game.dnf ? ' *' : ''}
           </Text>
-          {celestialMode ? <Text style={styles.celestialStar}>✦</Text> : null}
         </View>
         <Text numberOfLines={1} style={styles.meta}>
           {[game.developer, game.releaseYear].filter(Boolean).join(' · ') || 'Podaci nisu uneseni'}
@@ -78,11 +125,14 @@ export function GameCard({ game, onPress }: Props) {
           </>
         ) : null}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  coverOnlyCard: { flex: 1, aspectRatio: 0.66, overflow: 'hidden', borderRadius: 14, backgroundColor: colors.fillStrong },
+  coverOnlyImage: { width: '100%', height: '100%' },
+  coverOnlyPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.black },
   cardCompact: { minHeight: 0 },
   copyCompact: { paddingVertical: 12, paddingHorizontal: 14 },
   card: {
@@ -111,6 +161,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.black,
   },
+  missingCoverTitle: {
+    color: colors.onAccent,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  }, // gridTitlesMediaSwitchV31
   placeholderMark: {
     color: colors.white,
     fontSize: 54,
@@ -199,4 +257,10 @@ const styles = StyleSheet.create({
     backgroundColor: celestial.gold,
   },
 
+  // ljingleCompletionSealReaderBookmarksR1:GameCardStyles
+
 });
+
+// ljingleCompletionSealRemovalFilterSpacingR2:GameCard
+
+// ljingleTargetedGlyphDeclutterR2:game-card

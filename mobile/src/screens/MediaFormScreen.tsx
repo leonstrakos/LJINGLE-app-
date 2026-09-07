@@ -13,12 +13,12 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { MediaFeedbackView } from '../components/MediaFeedbackView';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { mediaApi } from '../services/mediaApi';
 import { colors } from '../theme/colors';
-import { semanticFeedback } from '../utils/semanticFeedback';
 import {
   mediaEnjoymentLabels,
   mediaEnjoymentOptions,
@@ -33,6 +33,8 @@ import {
 } from '../types/media';
 import type { MediaStackParamList } from '../types/mediaNavigation';
 import { createdFeedback } from '../utils/crudFeedback';
+import { triggerCompletionCelebration } from '../services/completionCelebration';
+// completionCelebrationR1:media-form
 
 import {
   seriesApi,
@@ -176,12 +178,15 @@ export function MediaFormScreen({ route, navigation }: Props) {
   const [backdropPath, setBackdropPath] = useState<string | null>(draft?.backdropPath ?? null);
   const [releaseYear, setReleaseYear] = useState(draft?.releaseYear ? String(draft.releaseYear) : '');
   const [watchStatus, setWatchStatus] = useState<WatchStatus>('WATCHLIST');
+  const [initialWatchStatus, setInitialWatchStatus] = useState<WatchStatus | null>(null);
   // // catalogueJingleProgressSemanticsV1:MediaProgress
   // Hidden legacy/derived value only. Movies use status; series use episodes.
   const [progress, setProgress] = useState('0');
   const [episodeDraft, setEpisodeDraft] = useState('');
+  const [episodeEditorExpanded, setEpisodeEditorExpanded] = useState(!editing); // catalogueFinalPolishV1
   const [enjoyment, setEnjoyment] = useState<MediaEnjoyment | null>(null);
   const [favourite, setFavourite] = useState(false);
+  const [ignored, setIgnored] = useState(false);
   const [startedOn, setStartedOn] = useState('');
   const [completedOn, setCompletedOn] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -204,11 +209,14 @@ export function MediaFormScreen({ route, navigation }: Props) {
         setBackdropPath(item.backdropPath);
         setReleaseYear(item.releaseYear ? String(item.releaseYear) : '');
         setWatchStatus(item.watchStatus);
+        setInitialWatchStatus(item.watchStatus);
         setProgress(String(item.progress));
         setEnjoyment(item.enjoyment);
         setFavourite(item.favourite);
         setStartedOn(item.startedOn ?? '');
         setCompletedOn(item.completedOn ?? '');
+        const ignoredState = await mediaApi.isIgnored(item.mediaId).catch(() => ({ ignored: false }));
+        setIgnored(ignoredState.ignored);
 
         if (item.mediaType === 'SERIES') {
           const seriesProgress =
@@ -292,6 +300,7 @@ export function MediaFormScreen({ route, navigation }: Props) {
         episodes:
           parsedEpisodes.error!,
       }));
+      setEpisodeEditorExpanded(true);
       return;
     }
 
@@ -299,6 +308,7 @@ export function MediaFormScreen({ route, navigation }: Props) {
     try {
       if (mediaId) {
         await mediaApi.update(mediaId, payload);
+        await mediaApi.setIgnored(mediaId, ignored);
 
         if (
           mediaType === 'SERIES' &&
@@ -310,9 +320,21 @@ export function MediaFormScreen({ route, navigation }: Props) {
           );
         }
 
+        if (
+          initialWatchStatus !== null &&
+          initialWatchStatus !== 'COMPLETED' &&
+          payload.watchStatus === 'COMPLETED'
+        ) {
+          triggerCompletionCelebration({
+            kind: mediaType === 'SERIES' ? 'SERIES' : 'MOVIE',
+            title: payload.title,
+          });
+        }
+
         navigation.goBack();
       } else {
         const created = await mediaApi.create(payload);
+        await mediaApi.setIgnored(created.mediaId, ignored);
 
         if (
           mediaType === 'SERIES' &&
@@ -339,6 +361,7 @@ export function MediaFormScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="media" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <Text style={styles.eyebrow}>{editing ? 'Uređivanje' : draft ? 'Online rezultat' : 'Ručni unos'}</Text>
@@ -358,59 +381,76 @@ export function MediaFormScreen({ route, navigation }: Props) {
             <FormField label="Godina izdanja" value={releaseYear} onChangeText={(value) => setReleaseYear(value.replace(/[^0-9]/g, ''))} placeholder="npr. 1999" keyboardType="number-pad" error={errors.releaseYear} />
             <Text style={styles.fieldLabel}>Opis</Text>
             <TextInput value={overview} onChangeText={setOverview} placeholder="Kratak opis" placeholderTextColor="#98989D" multiline style={[styles.input, styles.multiline]} />
-            {tmdbId ? <Text style={styles.tmdbNote}>Izvor #{tmdbId} · metapodaci ostaju odvojeni od osobnog praćenja.</Text> : null}
           </View>
 
           <Section label="Status gledanja">
             <ChipRow>
               {watchStatuses.map((value) => (
                 <ChoiceChip key={value} label={watchStatusLabels[value]} active={watchStatus === value} onPress={() => {
-                  if (value === 'COMPLETED' && watchStatus !== 'COMPLETED') {
-                    // semanticCompletionFeedbackV1
-                    void semanticFeedback.complete();
-                  }
-                  setWatchStatus(value);
+setWatchStatus(value);
                 }} />
               ))}
+              <ChoiceChip
+                label="Nebitno"
+                active={ignored}
+                onPress={() => setIgnored((value) => !value)}
+              />
             </ChipRow>
           </Section>
 
-          <View style={styles.card}>
+          <View style={[styles.card, styles.scheduleCard]}>
+            {/* ljingleMorningFixesV1:mediaSpacing */}
             {mediaType === 'SERIES' ? (
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>
-                  Epizode (ručno)
-                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={episodeEditorExpanded ? 'Sakrij uređivanje epizoda' : 'Prikaži uređivanje epizoda'}
+                  onPress={() => setEpisodeEditorExpanded((value) => !value)}
+                  style={styles.episodeEditorHeader}
+                >
+                  <View>
+                    <Text style={styles.fieldLabel}>Epizode (ručno)</Text>
+                    <Text style={styles.episodeCollapsedMeta}>
+                      {episodeDraft.split(/\r?\n/).filter((line) => line.trim()).length} epizoda
+                    </Text>
+                  </View>
+                  <Text style={styles.episodeEditorToggle}>{episodeEditorExpanded ? '−' : '+'}</Text>
+                </Pressable>
 
-                <TextInput
-                  value={episodeDraft}
-                  onChangeText={(value) => {
-                    setEpisodeDraft(value);
-                    setErrors((current) => ({
-                      ...current,
-                      episodes: '',
-                    }));
-                  }}
-                  placeholder={'S01E01 | Naziv epizode\nS01E02 | Naziv epizode'}
-                  placeholderTextColor="#98989D"
-                  multiline
-                  autoCapitalize="sentences"
-                  style={[
-                    styles.input,
-                    styles.episodeInput,
-                    errors.episodes && styles.inputError,
-                  ]}
-                />
+                {episodeEditorExpanded ? (
+                  <>
+                    <TextInput
+                      value={episodeDraft}
+                      onChangeText={(value) => {
+                        setEpisodeDraft(value);
+                        setErrors((current) => ({
+                          ...current,
+                          episodes: '',
+                        }));
+                      }}
+                      placeholder={'S01E01 | Naziv epizode\nS01E02 | Naziv epizode'}
+                      placeholderTextColor="#98989D"
+                      multiline
+                      scrollEnabled
+                      autoCapitalize="sentences"
+                      style={[
+                        styles.input,
+                        styles.episodeInput,
+                        errors.episodes && styles.inputError,
+                      ]}
+                    />
 
-                {errors.episodes ? (
-                  <Text style={styles.error}>
-                    {errors.episodes}
-                  </Text>
+                    {errors.episodes ? (
+                      <Text style={styles.error}>
+                        {errors.episodes}
+                      </Text>
+                    ) : null}
+
+                    <Text style={styles.episodeHint}>
+                      Jedan red = jedna epizoda. Polje se pomiče unutar sebe i više ne raste s popisom.
+                    </Text>
+                  </>
                 ) : null}
-
-                <Text style={styles.episodeHint}>
-                  Jedan red = jedna epizoda. Broj i postotak računaju se iz popisa i oznaka gledano.
-                </Text>
               </View>
             ) : null}
 
@@ -477,14 +517,33 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 45 },
   eyebrow: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
   heading: { color: colors.text, fontSize: 31, lineHeight: 37, fontWeight: '900', letterSpacing: -0.6, marginTop: 3, marginBottom: 18 },
+  scheduleCard: { marginTop: 6, marginBottom: 10 },
   card: { padding: 17, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
   field: { marginBottom: 16 },
   fieldLabel: { color: colors.text, fontSize: 13, fontWeight: '800', marginBottom: 7 },
   input: { minHeight: 49, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 15 },
   multiline: { minHeight: 110, paddingTop: 13, textAlignVertical: 'top' },
   // // catalogueJingleProgressSemanticsV1:EpisodeEditor
+  episodeEditorHeader: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  episodeCollapsedMeta: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: -2,
+  },
+  episodeEditorToggle: {
+    color: colors.textMuted,
+    fontSize: 26,
+    fontWeight: '500',
+  },
   episodeInput: {
-    minHeight: 180,
+    height: 260,
+    minHeight: 260,
+    maxHeight: 260,
     paddingTop: 13,
     textAlignVertical: 'top',
   },
@@ -504,7 +563,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.black, borderColor: colors.black },
   chipDisabled: { opacity: 0.72 },
   chipText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  chipTextActive: { color: colors.white },
+  chipTextActive: { color: colors.onAccent },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 3 },
   switchTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   switchSubtitle: { color: colors.textMuted, fontSize: 12, marginTop: 3 },

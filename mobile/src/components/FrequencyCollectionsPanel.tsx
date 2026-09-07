@@ -16,6 +16,7 @@ type Props = {
   memories: MemoryTrack[];
   onPlay: (
     memory: MemoryTrack,
+    queue: MemoryTrack[],
   ) => void | Promise<void>;
 };
 
@@ -34,6 +35,7 @@ export function FrequencyCollectionsPanel({
   memories,
   onPlay,
 }: Props) {
+  // ljingleOnboardingPlayerV1: a Collection's Frequency order is its queue.
   const [groups, setGroups] =
     useState<PlaylistGroup[]>([]);
   const [busyKey, setBusyKey] =
@@ -189,7 +191,10 @@ export function FrequencyCollectionsPanel({
                     <Pressable
                       accessibilityRole="button"
                       onPress={() =>
-                        void onPlay(memory)
+                        void onPlay(
+                          memory,
+                          group.items.map((item) => item.memory),
+                        )
                       }
                       style={({ pressed }) => [
                         styles.open,

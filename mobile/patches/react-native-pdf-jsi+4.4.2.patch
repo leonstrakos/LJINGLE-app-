@@ -1,0 +1,696 @@
+diff --git a/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfManager.java b/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfManager.java
+index 4fe1132..f3118df 100644
+--- a/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfManager.java
++++ b/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfManager.java
+@@ -74,6 +74,11 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
+         pdfView.setPdfId(pdfId);
+     }
+ 
++    @ReactProp(name = "enableTextSelection")
++    public void setEnableTextSelection(PdfView pdfView, boolean value) {
++        pdfView.setEnableTextSelection(value);
++    }
++
+     @ReactProp(name = "highlightRects")
+     public void setHighlightRects(PdfView pdfView, ReadableArray highlightRects) {
+         pdfView.setHighlightRects(highlightRects);
+diff --git a/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfView.java b/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfView.java
+index 85d69a4..447707d 100644
+--- a/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfView.java
++++ b/node_modules/react-native-pdf-jsi/android/src/main/java/org/wonday/pdf/PdfView.java
+@@ -19,6 +19,9 @@ import android.util.Log;
+ import android.net.Uri;
+ import android.util.AttributeSet;
+ import android.view.MotionEvent;
++import android.graphics.Matrix;
++import android.graphics.RectF;
++import android.os.ParcelFileDescriptor;
+ import android.graphics.Canvas;
+ import android.graphics.Color;
+ import android.graphics.Paint;
+@@ -60,9 +63,17 @@ import com.facebook.react.uimanager.events.RCTEventEmitter;
+ import static java.lang.String.format;
+ 
+ import java.io.FileNotFoundException;
++import java.io.IOException;
+ import java.io.InputStream;
+ import java.util.ArrayList;
+ import java.util.List;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++
++import io.legere.pdfiumandroid.PdfiumCore;
++import io.legere.pdfiumandroid.PdfDocument;
++import io.legere.pdfiumandroid.PdfPage;
++import io.legere.pdfiumandroid.PdfTextPage;
+ 
+ import com.google.gson.Gson;
+ 
+@@ -118,8 +129,31 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+ 
+     /** Search highlight rects: list of { page (1-based), rect "left,top,right,bottom" in PDF points } */
+     private List<HighlightRect> highlightRects = new ArrayList<>();
+-    private static final int HIGHLIGHT_COLOR = Color.argb(80, 255, 255, 0);
++    private static final int HIGHLIGHT_COLOR = Color.argb(153, 255, 255, 0);
+     private final Paint highlightPaint = new Paint();
++    // ljingleAccentPdfHighlightV1
++    private static int highlightColorAt60(String value) {
++        if (value == null || value.trim().isEmpty()) return HIGHLIGHT_COLOR;
++        try {
++            int parsed = Color.parseColor(value.trim());
++            return Color.argb(153, Color.red(parsed), Color.green(parsed), Color.blue(parsed));
++        } catch (Exception ignored) {
++            return HIGHLIGHT_COLOR;
++        }
++    }
++
++    // ljingleNativePdfSelectionBridgeAndroidV1
++    // ljinglePdfSelectionR6
++    private boolean enableTextSelection = true;
++    private boolean suppressNextTap = false;
++    private ExecutorService selectionExecutor;
++    private volatile long selectionGeneration = 0;
++    private long lastSelectionMove = 0;
++    private float selectionMaxWidth = 0, selectionMaxHeight = 0;
++    private final java.util.Set<Integer> pendingHighlightSizes = new java.util.HashSet<>();
++    private SelectionTarget selectionStart;
++    private final Matrix selectionCanvasBase = new Matrix();
++    private final List<PageTransform> visiblePageTransforms = new ArrayList<>();
+ 
+     public PdfView(Context context, AttributeSet set){
+         super(context, set);
+@@ -128,17 +162,269 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+         highlightPaint.setStyle(Paint.Style.FILL);
+     }
+ 
++    private void beginTextSelection(MotionEvent event) {
++        if (!enableTextSelection) return;
++        selectionStart = selectionTargetAt(event.getX(), event.getY());
++        if (selectionStart == null) {
++            dispatchSelectionEvent("textSelectionError|Dodir nije mapiran na učitanu stranicu. Pokušaj ponovno.", selectionGeneration);
++            return;
++        }
++        suppressNextTap = true;
++        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
++        MotionEvent cancel = MotionEvent.obtain(event);
++        cancel.setAction(MotionEvent.ACTION_CANCEL);
++        super.dispatchTouchEvent(cancel);
++        cancel.recycle();
++        dispatchTextSelection(selectionStart, selectionStart);
++    }
++
++    @Override
++    public boolean dispatchTouchEvent(MotionEvent event) {
++        int action = event.getActionMasked();
++        if (action == MotionEvent.ACTION_DOWN) {
++            selectionStart = null;
++            suppressNextTap = false;
++            selectionGeneration++;
++            dispatchSelectionEvent("textSelectionReady|R6", selectionGeneration);
++        }
++        if (event.getPointerCount() > 1 || !enableTextSelection) {
++            selectionStart = null;
++            selectionGeneration++;
++            if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
++        }
++        if (selectionStart != null) {
++            if (action == MotionEvent.ACTION_MOVE || action == MotionEvent.ACTION_UP) {
++                long now = android.os.SystemClock.uptimeMillis();
++                if (action == MotionEvent.ACTION_UP || now - lastSelectionMove >= 120) {
++                    SelectionTarget end = selectionTargetAt(event.getX(), event.getY());
++                    if (end != null && end.pageIndex == selectionStart.pageIndex) {
++                        lastSelectionMove = now;
++                        dispatchTextSelection(selectionStart, end);
++                    }
++                }
++            }
++            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
++                selectionStart = null;
++                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
++                if (action == MotionEvent.ACTION_CANCEL) selectionGeneration++;
++            }
++            return true;
++        }
++        if (action == MotionEvent.ACTION_CANCEL) selectionGeneration++;
++        return super.dispatchTouchEvent(event);
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        // Store only this frame's page transforms, relative to this View, not the window.
++        canvas.getMatrix(selectionCanvasBase);
++        synchronized (visiblePageTransforms) { visiblePageTransforms.clear(); }
++        super.onDraw(canvas);
++    }
++
++    private static final class PageTransform {
++        final int pageIndex;
++        final Matrix inverse;
++        final float width, height;
++        PageTransform(int pageIndex, Matrix inverse, float width, float height) {
++            this.pageIndex = pageIndex; this.inverse = inverse;
++            this.width = width; this.height = height;
++        }
++    }
++    private static final class SelectionTarget {
++        final int pageIndex;
++        final float x, y;
++        SelectionTarget(PageTransform page, float x, float y) {
++            this.pageIndex = page.pageIndex;
++            this.x = x / page.width; this.y = y / page.height;
++        }
++    }
++    private void rememberPageTransform(Canvas canvas, float width, float height, int pageIndex) {
++        if (!enableTextSelection || width <= 0 || height <= 0) return;
++        ensureHighlightPageSize(pageIndex);
++        Matrix matrix = new Matrix();
++        Matrix inverse = new Matrix();
++        canvas.getMatrix(matrix);
++        if (!matrix.invert(inverse)) return;
++        Matrix local = new Matrix();
++        local.setConcat(inverse, selectionCanvasBase);
++        synchronized (visiblePageTransforms) {
++            visiblePageTransforms.add(new PageTransform(pageIndex, local, width, height));
++        }
++    }
++    private void alignSelectionPage(Canvas canvas, float width, float height, int pageIndex) {
++        // AndroidPdfViewer centers narrower pages in the strip, but its draw callback
++        // only applies the primary-axis offset. Match the bitmap's secondary offset.
++        if (selectionMaxWidth <= 0 || selectionMaxHeight <= 0) {
++            for (int i = 0; i < getPageCount(); i++) {
++                SizeF size = getPageSize(i);
++                selectionMaxWidth = Math.max(selectionMaxWidth, size.getWidth());
++                selectionMaxHeight = Math.max(selectionMaxHeight, size.getHeight());
++            }
++        }
++        SizeF size = getPageSize(pageIndex);
++        if (size.getWidth() <= 0 || size.getHeight() <= 0) return;
++        if (horizontal) canvas.translate(0, (selectionMaxHeight - size.getHeight()) * height / size.getHeight() / 2);
++        else canvas.translate((selectionMaxWidth - size.getWidth()) * width / size.getWidth() / 2, 0);
++    }
++    private void ensureHighlightPageSize(final int pageIndex) {
++        if (pdfId == null || SearchRegistry.getPageSizePoints(pdfId, pageIndex) != null || pendingHighlightSizes.contains(pageIndex)) return;
++        boolean needed = false;
++        for (HighlightRect rect : highlightRects) if (rect.page == pageIndex + 1) { needed = true; break; }
++        if (!needed) return;
++        pendingHighlightSizes.add(pageIndex);
++        final String source = path, documentId = pdfId, documentPassword = password;
++        if (selectionExecutor == null || selectionExecutor.isShutdown()) selectionExecutor = Executors.newSingleThreadExecutor();
++        selectionExecutor.execute(() -> {
++            ParcelFileDescriptor descriptor = null;
++            PdfDocument document = null;
++            PdfPage page = null;
++            try {
++                descriptor = openSelectionDescriptor(source);
++                if (descriptor == null) return;
++                document = new PdfiumCore().newDocument(descriptor, documentPassword);
++                page = document.openPage(pageIndex);
++                if (page == null) return;
++                final float width = page.getPageWidthPoint(), height = page.getPageHeightPoint();
++                mainHandler.post(() -> {
++                    if (!java.util.Objects.equals(source, path) || !java.util.Objects.equals(documentId, pdfId)) return;
++                    SearchRegistry.registerPageSizePoints(documentId, pageIndex, width, height);
++                    invalidate();
++                });
++            } catch (Exception error) { showLog("Highlight size error: " + error); }
++            finally {
++                if (page != null) try { page.close(); } catch (Exception ignored) { }
++                if (document != null) try { document.close(); } catch (Exception ignored) { }
++                if (descriptor != null) try { descriptor.close(); } catch (IOException ignored) { }
++            }
++        });
++    }
++    private SelectionTarget selectionTargetAt(float x, float y) {
++        synchronized (visiblePageTransforms) {
++            for (int i = visiblePageTransforms.size() - 1; i >= 0; i--) {
++                PageTransform page = visiblePageTransforms.get(i);
++                float[] point = new float[] {x, y};
++                page.inverse.mapPoints(point);
++                if (point[0] >= 0 && point[0] <= page.width && point[1] >= 0 && point[1] <= page.height)
++                    return new SelectionTarget(page, point[0], point[1]);
++            }
++        }
++        return null;
++    }
++    private ParcelFileDescriptor openSelectionDescriptor(String source) throws IOException {
++        if (source == null || source.isEmpty()) return null;
++        if (source.startsWith("content://")) return getContext().getContentResolver().openFileDescriptor(Uri.parse(source), "r");
++        File pdf = new File(source.startsWith("file://") ? Uri.parse(source).getPath() : source);
++        return pdf.exists() && pdf.canRead() ? ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY) : null;
++    }
++    private void dispatchSelectionEvent(final String message, final long generation) {
++        mainHandler.post(() -> {
++            if (generation != selectionGeneration || !enableTextSelection) return;
++            ThemedReactContext context = (ThemedReactContext) getContext();
++            EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, getId());
++            if (dispatcher == null) return;
++            WritableMap event = Arguments.createMap();
++            event.putString("message", message);
++            dispatcher.dispatchEvent(new TopChangeEvent(UIManagerHelper.getSurfaceId(this), getId(), event));
++        });
++    }
++    private static boolean wordBoundary(char value) { return Character.isWhitespace(value); }
++
++    private void dispatchTextSelection(final SelectionTarget startTarget, final SelectionTarget endTarget) {
++        final long generation = ++selectionGeneration;
++        final String source = path;
++        final String documentId = pdfId;
++        final String documentPassword = password;
++        // PDFView.recycle() is also invoked by load(). Recreate lazily after each recycle.
++        if (selectionExecutor == null || selectionExecutor.isShutdown())
++            selectionExecutor = Executors.newSingleThreadExecutor();
++        selectionExecutor.execute(() -> {
++            if (generation != selectionGeneration) return;
++            ParcelFileDescriptor descriptor = null;
++            PdfDocument document = null;
++            PdfPage pdfPage = null;
++            PdfTextPage textPage = null;
++            try {
++                descriptor = openSelectionDescriptor(source);
++                if (descriptor == null) throw new IOException("PDF nije dostupan.");
++                document = new PdfiumCore().newDocument(descriptor, documentPassword);
++                pdfPage = document.openPage(startTarget.pageIndex);
++                if (pdfPage == null) throw new IOException("Stranica nije dostupna.");
++                float width = pdfPage.getPageWidthPoint(), height = pdfPage.getPageHeightPoint();
++                if (width <= 0 || height <= 0) throw new IOException("Neispravna veličina stranice.");
++                mainHandler.post(() -> {
++                    if (generation == selectionGeneration && java.util.Objects.equals(source, path)) {
++                        SearchRegistry.registerPageSizePoints(documentId, startTarget.pageIndex, width, height);
++                        invalidate();
++                    }
++                });
++                textPage = pdfPage.openTextPage();
++                int count = textPage == null ? 0 : textPage.textPageCountChars();
++                if (count <= 0) {
++                    dispatchSelectionEvent("textSelectionUnavailable|" + (startTarget.pageIndex + 1), generation);
++                    return;
++                }
++                int first = textPage.textPageGetCharIndexAtPos(startTarget.x * width, (1 - startTarget.y) * height, 12, 12);
++                int last = textPage.textPageGetCharIndexAtPos(endTarget.x * width, (1 - endTarget.y) * height, 12, 12);
++                if (first < 0 || first >= count) {
++                    dispatchSelectionEvent("textSelectionError|Drži izravno na slovima teksta.", generation);
++                    return;
++                }
++                if (last < 0 || last >= count) last = first;
++                int start = Math.min(first, last), end = Math.max(first, last) + 1;
++                // Use PDF character indices for both text and boxes (not Java UTF-16 offsets).
++                while (start > 0) {
++                    String previous = textPage.textPageGetText(start - 1, 1);
++                    if (previous == null || previous.isEmpty() || wordBoundary(previous.charAt(0))) break;
++                    start--;
++                }
++                while (end < count) {
++                    String next = textPage.textPageGetText(end, 1);
++                    if (next == null || next.isEmpty() || wordBoundary(next.charAt(0))) break;
++                    end++;
++                }
++                String text = textPage.textPageGetText(start, end - start);
++                if (text == null || text.trim().isEmpty()) {
++                    dispatchSelectionEvent("textSelectionError|Drži izravno na slovima teksta.", generation);
++                    return;
++                }
++                java.util.ArrayList<java.util.Map<String, Object>> rects = new java.util.ArrayList<>();
++                int rectCount = textPage.textPageCountRects(start, end - start);
++                for (int i = 0; i < rectCount; i++) {
++                    RectF rect = textPage.textPageGetRect(i);
++                    if (rect == null) continue;
++                    java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
++                    item.put("page", startTarget.pageIndex + 1);
++                    item.put("rect", Math.min(rect.left, rect.right) + "," + Math.max(rect.top, rect.bottom) + "," + Math.max(rect.left, rect.right) + "," + Math.min(rect.top, rect.bottom));
++                    rects.add(item);
++                }
++                if (rects.isEmpty()) {
++                    dispatchSelectionEvent("textSelectionError|PDF vraća tekst bez koordinata za označavanje.", generation);
++                    return;
++                }
++                java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
++                payload.put("page", startTarget.pageIndex + 1);
++                payload.put("text", text.trim()); payload.put("rects", rects);
++                dispatchSelectionEvent("textSelection|" + new Gson().toJson(payload), generation);
++            } catch (Exception error) {
++                showLog("Text selection error: " + error);
++                dispatchSelectionEvent("textSelectionError|Označavanje nije uspjelo. Zatvori i ponovno otvori PDF.", generation);
++            } finally {
++                if (textPage != null) try { textPage.close(); } catch (Exception ignored) { }
++                if (pdfPage != null) try { pdfPage.close(); } catch (Exception ignored) { }
++                if (document != null) try { document.close(); } catch (Exception ignored) { }
++                if (descriptor != null) try { descriptor.close(); } catch (IOException ignored) { }
++            }
++        });
++    }
++
+     /** Entry for one highlight: page (1-based) and rect in PDF points "left,top,right,bottom". */
+     private static class HighlightRect {
+-        final int page;
++        final int page, color;
+         final float left, top, right, bottom;
+-
+-        HighlightRect(int page, float left, float top, float right, float bottom) {
+-            this.page = page;
+-            this.left = left;
+-            this.top = top;
+-            this.right = right;
+-            this.bottom = bottom;
++        HighlightRect(int page, float left, float top, float right, float bottom, int color) {
++            this.page = page; this.left = left; this.top = top;
++            this.right = right; this.bottom = bottom; this.color = color;
+         }
+     }
+ 
+@@ -204,6 +490,8 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+     // to set the dimensions to zero after first measurement.
+     @Override
+     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
++        selectionMaxWidth = 0; selectionMaxHeight = 0;
++        selectionGeneration++;
+         if ((w > 0 && h > 0) || this.oldW > 0 || this.oldH > 0) {
+             super.onSizeChanged(w, h, this.oldW, this.oldH);
+             this.oldW = w;
+@@ -213,6 +501,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+ 
+     @Override
+     public void loadComplete(int numberOfPages) {
++        dispatchSelectionEvent("textSelectionReady|R6", selectionGeneration);
+         // Prevent duplicate calls - if already dispatched, skip
+         if (loadCompleteDispatched) {
+             showLog("loadComplete: Already dispatched, skipping duplicate call");
+@@ -335,6 +624,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+ 
+     @Override
+     public boolean onTap(MotionEvent e){
++        if (suppressNextTap) { suppressNextTap = false; return true; }
+ 
+         // maybe change by other instance, restore zoom setting
+         //Constants.Pinch.MINIMUM_ZOOM = this.minScale;
+@@ -366,6 +656,9 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+ 
+     @Override
+     public void onLayerDrawn(Canvas canvas, float pageWidth, float pageHeight, int displayedPage){
++        canvas.save();
++        alignSelectionPage(canvas, pageWidth, pageHeight, displayedPage);
++        rememberPageTransform(canvas, pageWidth, pageHeight, displayedPage);
+         if (originalWidth == 0) {
+             originalWidth = pageWidth;
+         }
+@@ -406,13 +699,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+                     pdfW = sizePt[0];
+                     pdfH = sizePt[1];
+                 }
+-                if (pdfW <= 0 || pdfH <= 0) {
+-                    SizeF fallback = getPageSize(displayedPage);
+-                    if (fallback != null) {
+-                        pdfW = fallback.getWidth();
+-                        pdfH = fallback.getHeight();
+-                    }
+-                }
++                // Wait for real PDF point dimensions; display pixels are not PDF points.
+                 if (pdfW > 0 && pdfH > 0) {
+                     float scaleX = pageWidth / pdfW;
+                     float scaleY = pageHeight / pdfH;
+@@ -425,6 +712,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+                         // PDF coords: origin bottom-left, so top > bottom. Canvas: origin top-left.
+                         float canvasTop = pageHeight - top;
+                         float canvasBottom = pageHeight - bottom;
++                        highlightPaint.setColor(hr.color);
+                         canvas.drawRect(left, canvasTop, right, canvasBottom, highlightPaint);
+                     }
+                 }
+@@ -432,6 +720,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+                 showLog("Highlight draw error: " + e.getMessage());
+             }
+         }
++        canvas.restore();
+     }
+ 
+     @Override
+@@ -449,12 +738,20 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+      */
+     @Override
+     protected void onDetachedFromWindow() {
++        selectionGeneration++;
++        if (selectionExecutor != null) { selectionExecutor.shutdownNow(); selectionExecutor = null; }
+         // Intentionally skip super to prevent barteksc PDFView's recycle() which destroys
+         // the PDF on navigation. We only recycle when PdfManager.onDropViewInstance is called.
+     }
+ 
+     @Override
+     public void recycle() {
++        selectionGeneration++;
++        selectionStart = null;
++        selectionMaxWidth = 0; selectionMaxHeight = 0;
++        if (pendingHighlightSizes != null) pendingHighlightSizes.clear();
++        if (visiblePageTransforms != null) synchronized (visiblePageTransforms) { visiblePageTransforms.clear(); }
++        if (selectionExecutor != null) { selectionExecutor.shutdownNow(); selectionExecutor = null; }
+         if (pdfId != null) {
+             SearchRegistry.unregisterPath(pdfId);
+         }
+@@ -511,7 +808,8 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+                 .onPageChange(this)
+                 .onLoad(this)
+                 .onError(this)
+-                .onDraw(this)
++                .onDrawAll(this)
++                .onLongPress(this::beginTextSelection)
+                 .onPageScroll(this)
+                 .spacing(this.spacing)
+                 .password(this.password)
+@@ -565,25 +863,33 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+ 
+     public void setHighlightRects(ReadableArray arr) {
+         highlightRects.clear();
+-        if (arr == null) return;
+-        for (int i = 0; i < arr.size(); i++) {
+-            ReadableMap map = arr.getMap(i);
+-            if (map == null || !map.hasKey("page") || !map.hasKey("rect")) continue;
+-            int page = map.getInt("page");
+-            String rectStr = map.getString("rect");
+-            if (rectStr == null || rectStr.equals("{}")) continue;
+-            String[] parts = rectStr.split(",");
+-            if (parts.length != 4) continue;
++        if (arr != null) for (int i = 0; i < arr.size(); i++) {
+             try {
+-                float left = Float.parseFloat(parts[0].trim());
+-                float top = Float.parseFloat(parts[1].trim());
+-                float right = Float.parseFloat(parts[2].trim());
+-                float bottom = Float.parseFloat(parts[3].trim());
+-                highlightRects.add(new HighlightRect(page, left, top, right, bottom));
+-            } catch (NumberFormatException ignored) {}
++                ReadableMap map = arr.getMap(i);
++                if (map == null || !map.hasKey("page") || !map.hasKey("rect")) continue;
++                String value = map.getString("rect");
++                if (value == null) continue;
++                String[] parts = value.split(",");
++                if (parts.length != 4) continue;
++                float a = Float.parseFloat(parts[0].trim()), b = Float.parseFloat(parts[1].trim());
++                float c = Float.parseFloat(parts[2].trim()), d = Float.parseFloat(parts[3].trim());
++                if (Float.isNaN(a) || Float.isInfinite(a) || Float.isNaN(b) || Float.isInfinite(b) ||
++                    Float.isNaN(c) || Float.isInfinite(c) || Float.isNaN(d) || Float.isInfinite(d)) continue;
++                int color = HIGHLIGHT_COLOR;
++                if (map.hasKey("color") && !map.isNull("color")) {
++                    try { color = Color.parseColor(map.getString("color")); } catch (Exception ignored) { }
++                }
++                color = Color.argb(153, Color.red(color), Color.green(color), Color.blue(color));
++                highlightRects.add(new HighlightRect(map.getInt("page"), Math.min(a,c), Math.max(b,d), Math.max(a,c), Math.min(b,d), color));
++            } catch (Exception ignored) { }
+         }
+         invalidate();
+-        postInvalidate();
++    }
++
++    public void setEnableTextSelection(boolean enabled) {
++        this.enableTextSelection = enabled;
++        if (!enabled) selectionGeneration++;
++        if (!enabled) synchronized (visiblePageTransforms) { visiblePageTransforms.clear(); }
+     }
+ 
+     // page start from 1
+diff --git a/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerDelegate.java b/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerDelegate.java
+index 43848d9..47e1b4b 100644
+--- a/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerDelegate.java
++++ b/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerDelegate.java
+@@ -77,6 +77,9 @@ public class RNPDFPdfViewManagerDelegate<T extends View, U extends BaseViewManag
+       case "singlePage":
+         mViewManager.setSinglePage(view, value == null ? false : (boolean) value);
+         break;
++      case "enableTextSelection":
++        mViewManager.setEnableTextSelection(view, value == null ? false : (boolean) value);
++        break;
+       default:
+         super.setProperty(view, propName, value);
+     }
+diff --git a/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerInterface.java b/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerInterface.java
+index 397268f..52407db 100644
+--- a/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerInterface.java
++++ b/node_modules/react-native-pdf-jsi/android/src/paper/java/com/facebook/react/viewmanagers/RNPDFPdfViewManagerInterface.java
+@@ -31,5 +31,6 @@ public interface RNPDFPdfViewManagerInterface<T extends View> {
+   void setSpacing(T view, int value);
+   void setPassword(T view, @Nullable String value);
+   void setSinglePage(T view, boolean value);
++  void setEnableTextSelection(T view, boolean value);
+   void setNativePage(T view, int page);
+ }
+diff --git a/node_modules/react-native-pdf-jsi/fabric/RNPDFPdfNativeComponent.js b/node_modules/react-native-pdf-jsi/fabric/RNPDFPdfNativeComponent.js
+index bf4ea60..f0df39d 100644
+--- a/node_modules/react-native-pdf-jsi/fabric/RNPDFPdfNativeComponent.js
++++ b/node_modules/react-native-pdf-jsi/fabric/RNPDFPdfNativeComponent.js
+@@ -37,8 +37,9 @@
+    password: ?string,
+    onChange: ?BubblingEventHandler<ChangeEvent>,
+    singlePage: ?boolean,
++   enableTextSelection: ?boolean,
+    pdfId: ?string,
+-   highlightRects: ?$ReadOnlyArray<$ReadOnly<{|page: Int32, rect: string|}>>,
++   highlightRects: ?$ReadOnlyArray<$ReadOnly<{|page: Int32, rect: string, color?: string|}>>,
+  |}>;
+ 
+  interface NativeCommands {
+diff --git a/node_modules/react-native-pdf-jsi/index.d.ts b/node_modules/react-native-pdf-jsi/index.d.ts
+index 8f9e09b..0c0d722 100644
+--- a/node_modules/react-native-pdf-jsi/index.d.ts
++++ b/node_modules/react-native-pdf-jsi/index.d.ts
+@@ -81,11 +81,25 @@ export interface PdfProps {
+     fitPolicy?: 0 | 1 | 2,
+     trustAllCerts?: boolean,
+     singlePage?: boolean,
++    /** Android only: enables native long-press PDF text selection. */
++    enableTextSelection?: boolean,
++    /** Android only: enables native long-press PDF text selection. */
++    /** Android only: enables native long-press PDF text selection. */
+     onLoadProgress?: (percent: number,) => void,
+     onLoadComplete?: (numberOfPages: number, path: string, size: {height: number, width: number}, tableContents?: TableContent[]) => void,
+     onPageChanged?: (page: number, numberOfPages: number) => void,
+     onError?: (error: object) => void,
+     onPageSingleTap?: (page: number, x: number, y: number) => void,
++    /** Android only: native long-press sentence selection from a PDF text layer. */
++    onTextSelected?: (selection: { text: string, page: number, rects: Array<{ page: number, rect: string }> }) => void,
++    /** Android only: emitted when the pressed PDF page has no selectable text layer. */
++    onTextSelectionReady?: (version: string) => void,
++    onTextSelectionError?: (message: string) => void,
++    onTextSelectionUnavailable?: (page: number) => void,
++    /** Android only: native long-press sentence selection from a PDF text layer. */
++    /** Android only: emitted when the pressed PDF page has no selectable text layer. */
++    /** Android only: native long-press sentence selection from a PDF text layer. */
++    /** Android only: emitted when the pressed PDF page has no selectable text layer. */
+     onScaleChanged?: (scale: number) => void,
+     onPressLink?: (url: string) => void,
+     /**
+@@ -98,7 +112,7 @@ export interface PdfProps {
+      * Each item: { page: number, rect: string } where rect is "left,top,right,bottom" in PDF page coordinates.
+      * Supported on Android; iOS can be added later.
+      */
+-    highlightRects?: Array<{ page: number; rect: string }>,
++    highlightRects?: Array<{ page: number; rect: string; color?: string }>,
+ }
+ 
+ declare class Pdf extends React.Component<PdfProps, any> {
+diff --git a/node_modules/react-native-pdf-jsi/index.js b/node_modules/react-native-pdf-jsi/index.js
+index e707f2e..d591f7a 100644
+--- a/node_modules/react-native-pdf-jsi/index.js
++++ b/node_modules/react-native-pdf-jsi/index.js
+@@ -1,3 +1,4 @@
++// ljingleAccentPdfHighlightV1
+ /**
+  * Copyright (c) 2025-present, Punith M (punithm300@gmail.com)
+  * Enhanced version with JSI integration for high-performance PDF operations
+@@ -66,10 +67,13 @@ export default class Pdf extends Component {
+         onPageChanged: PropTypes.func,
+         onError: PropTypes.func,
+         onPageSingleTap: PropTypes.func,
++        onTextSelected: PropTypes.func,
++        onTextSelectionUnavailable: PropTypes.func,
++        onTextSelectionFailure: PropTypes.func,
+         onScaleChanged: PropTypes.func,
+         onPressLink: PropTypes.func,
+         pdfId: PropTypes.string,
+-        highlightRects: PropTypes.arrayOf(PropTypes.shape({ page: PropTypes.number.isRequired, rect: PropTypes.string.isRequired })),
++        highlightRects: PropTypes.arrayOf(PropTypes.shape({ page: PropTypes.number.isRequired, rect: PropTypes.string.isRequired, color: PropTypes.string })),
+ 
+         // Props that are not available in the earlier react native version, added to prevent crashed on android
+         accessibilityLabel: PropTypes.string,
+@@ -110,6 +114,12 @@ export default class Pdf extends Component {
+         },
+         onPageSingleTap: (page, x, y) => {
+         },
++        onTextSelected: (selection) => {
++        },
++        onTextSelectionUnavailable: (page) => {
++        },
++        onTextSelectionFailure: (failure) => {
++        },
+         onScaleChanged: (scale) => {
+         },
+         onPressLink: (url) => {
+@@ -573,8 +583,39 @@ export default class Pdf extends Component {
+     };
+ 
+     _onChange = (event) => {
++        const nativeMessage = event && event.nativeEvent && event.nativeEvent.message ? event.nativeEvent.message : '';
++        if (nativeMessage.indexOf('textSelection|') === 0) {
++            try {
++                const selection = JSON.parse(nativeMessage.slice('textSelection|'.length));
++                this.props.onTextSelected && this.props.onTextSelected(selection);
++            } catch (error) {
++                console.warn('[Pdf] Invalid native text selection payload', error);
++            }
++            return;
++        }
++        if (nativeMessage.indexOf('textSelectionError|') === 0) {
++            this.props.onTextSelectionError && this.props.onTextSelectionError(nativeMessage.slice('textSelectionError|'.length));
++            return;
++        }
++        if (nativeMessage.indexOf('textSelectionReady|') === 0) {
++            this.props.onTextSelectionReady && this.props.onTextSelectionReady(nativeMessage.slice('textSelectionReady|'.length));
++            return;
++        }
++        if (nativeMessage.indexOf('textSelectionUnavailable|') === 0) {
++            this.props.onTextSelectionUnavailable && this.props.onTextSelectionUnavailable(Number(nativeMessage.split('|')[1]) || 1);
++            return;
++        }
++        // ljinglePdfSelectionFailureBridgeR5
++        if (nativeMessage.indexOf('textSelectionFailure|') === 0) {
++            const parts = nativeMessage.split('|');
++            this.props.onTextSelectionFailure && this.props.onTextSelectionFailure({
++                code: parts[1] || 'UNKNOWN',
++                page: Number(parts[2]) || 1,
++            });
++            return;
++        }
+ 
+-        let message = event.nativeEvent.message.split('|');
++        let message = nativeMessage.split('|');
+         if (__DEV__) {
+             console.log("📥 [Pdf] onChange received:", message[0], "full message:", event.nativeEvent.message);
+         }
+@@ -694,6 +735,14 @@ export default class Pdf extends Component {
+     };
+ 
+     render() {
++        const nativeProps = { ...this.props };
++        delete nativeProps.onTextSelectionError;
++        delete nativeProps.onTextSelectionReady;
++        delete nativeProps.onTextSelected;
++        delete nativeProps.onTextSelectionUnavailable;
++        delete nativeProps.onTextSelectionFailure;
++        if (Platform.OS !== 'android') delete nativeProps.enableTextSelection;
++        // ljingleNativePdfSelectionBridgeAndroidV1
+         if (Platform.OS === "android" || Platform.OS === "ios" || Platform.OS === "windows") {
+                 return (
+                     <View style={[this.props.style,{overflow: 'hidden'}]}>
+@@ -708,7 +757,7 @@ export default class Pdf extends Component {
+                                 Platform.OS === "android" || Platform.OS === "windows"?(
+                                         <PdfCustom
+                                             ref={component => (this._root = component)}
+-                                            {...this.props}
++                                            {...nativeProps}
+                                             style={[{flex:1,backgroundColor: '#EEE'}, this.props.style]}
+                                             path={this.state.path}
+                                             onChange={this._onChange}
+@@ -717,7 +766,7 @@ export default class Pdf extends Component {
+                                         this.props.usePDFKit ?(
+                                                 <PdfCustom
+                                                     ref={component => (this._root = component)}
+-                                                    {...this.props}
++                                                    {...nativeProps}
+                                                     style={[{backgroundColor: '#EEE',overflow: 'hidden'}, this.props.style]}
+                                                     path={this.state.path}
+                                                     onChange={this._onChange}

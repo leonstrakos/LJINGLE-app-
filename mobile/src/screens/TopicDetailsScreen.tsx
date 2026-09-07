@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { TopicActivityCreateSheet } from '../components/TopicActivityCreateSheet';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
@@ -23,7 +24,6 @@ import { TopicActivityCard } from '../components/TopicActivityCard';
 import { TopicActivityLinkPicker } from '../components/TopicActivityLinkPicker';
 import { topicApi } from '../services/topicApi';
 import { topicTimeApi } from '../services/topicTimeApi';
-import { sharePortableTopic } from '../services/portableExport';
 import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { TimerMotionView } from '../components/TimerMotionView';
@@ -31,7 +31,6 @@ import { semanticFeedback } from '../utils/semanticFeedback';
 import { formatDuration } from '../utils/activityTime';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { deletedFeedback } from '../utils/crudFeedback';
-import { ShareGlyph } from '../components/ShareGlyph';
 import type { TopicTimeSummary } from '../types/topicTime';
 // forkDTopicsV1
 import type {
@@ -44,7 +43,7 @@ import type {
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkN2CelestialCollectionsTopicsV2
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const CELESTIAL_GOLD = celestial.gold;
 
 export type TopicDetailsScreenProps = {
@@ -65,7 +64,6 @@ function timersByActivityId(timers: TopicActivityTimerResponse[]) {
 export function TopicDetailsScreen({ route, navigation }: TopicDetailsScreenProps) {
   const { topicId } = route.params;
   const [topic, setTopic] = useState<TopicResponse | null>(null);
-  const [sharingTopic, setSharingTopic] = useState(false);
   const [activities, setActivities] = useState<TopicActivityResponse[]>([]);
   const [timeSummary, setTimeSummary] =
     useState<TopicTimeSummary | null>(null);
@@ -344,6 +342,7 @@ export function TopicDetailsScreen({ route, navigation }: TopicDetailsScreenProp
   if (loading && !topic) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="topics" />
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={colors.black} />
           <Text style={styles.loadingText}>Povezujemo aktivnosti i vrijeme…</Text>
@@ -362,24 +361,7 @@ export function TopicDetailsScreen({ route, navigation }: TopicDetailsScreenProp
     );
   }
 
-  const shareTopic = async () => {
-    if (sharingTopic) return;
 
-    setSharingTopic(true);
-    setError(null);
-
-    try {
-      await sharePortableTopic(topicId);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Share nije uspio.',
-      );
-    } finally {
-      setSharingTopic(false);
-    }
-  };
 
   const header = (
     <>
@@ -395,19 +377,6 @@ export function TopicDetailsScreen({ route, navigation }: TopicDetailsScreenProp
             {topic.name}
           </Text>
 
-          <Pressable
-            accessibilityLabel="Share tema"
-            accessibilityRole="button"
-            disabled={sharingTopic}
-            onPress={() => void shareTopic()}
-            style={({ pressed }) => [
-              styles.portableShare,
-              pressed && { opacity: 0.72 },
-              sharingTopic && { opacity: 0.5 },
-            ]}
-          >
-            <ShareGlyph />
-          </Pressable>
         </View>
         {/* portableVisualPolishV1 */}
         <Text style={[styles.description, celestialMode && styles.descriptionCelestial]}>
@@ -567,6 +536,7 @@ export function TopicDetailsScreen({ route, navigation }: TopicDetailsScreenProp
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="topics" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -1231,7 +1201,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#30D158',
   },
   runningText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',

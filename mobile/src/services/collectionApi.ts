@@ -1,5 +1,6 @@
 import type {
   CollectionDetail,
+  CollectionFilterChip,
   CollectionItem,
   CollectionRequest,
   CollectionSummary,
@@ -31,6 +32,13 @@ function normalizeDetail(item: CollectionDetail): CollectionDetail {
   };
 }
 
+function normalizeFilterChip(item: CollectionFilterChip): CollectionFilterChip {
+  return {
+    ...item,
+    symbol: normalizeCollectionSymbol(item.symbol),
+  };
+}
+
 function normalizeRequest(payload: CollectionRequest): CollectionRequest {
   return {
     ...payload,
@@ -53,6 +61,14 @@ export const collectionApi = {
         `/collections/for-entity?entityType=${query(entityType)}&entityId=${query(entityId)}`,
       )
     ).map(normalizeSummary),
+
+  // ljingleCollectionChipsR1: one indexed read, even with many Memory Boxes.
+  getFilterChips: async (entityType: EntityReferenceType) =>
+    (
+      await apiRequest<CollectionFilterChip[]>(
+        `/collections/filters?entityType=${query(entityType)}`,
+      )
+    ).map(normalizeFilterChip),
 
   create: async (payload: CollectionRequest) =>
     normalizeSummary(

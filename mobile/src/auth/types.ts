@@ -13,6 +13,5 @@ export type LjingleAuthSession = {
 export type LjingleRegistration = {
   email: string;
   username: string;
-  password: string;
-  inviteCode: string;
+  password: string; // authVisualCardCelestialV1
 };

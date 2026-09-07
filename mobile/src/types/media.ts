@@ -1,6 +1,6 @@
 export type MediaType = 'MOVIE' | 'SERIES';
 
-export type WatchStatus = 'WATCHLIST' | 'WATCHING' | 'COMPLETED' | 'DROPPED';
+export type WatchStatus = 'WATCHLIST' | 'LATER' | 'WATCHING' | 'COMPLETED' | 'DROPPED'; // catalogueFinalPolishV1
 
 export type MediaEnjoyment = 'ENJOYED' | 'OKAY' | 'REGRET';
 
@@ -63,6 +63,7 @@ export const mediaTypeLabels: Record<MediaType, string> = {
 
 export const watchStatusLabels: Record<WatchStatus, string> = {
   WATCHLIST: 'Za pogledati',
+  LATER: 'Za poslije',
   WATCHING: 'Gledam',
   COMPLETED: 'Pogledano',
   DROPPED: 'Odustao/la',

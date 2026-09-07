@@ -1,10 +1,4 @@
 ﻿import * as SQLite from 'expo-sqlite';
-import { importGamesNotesOnce } from './gamesNotesImport';
-import { importTvTimeOnce } from './tvTimeImport';
-import { repairTvTimeOnce } from './tvTimeRepair';
-import { restoreProfileWatchHistoryOnce } from './profileWatchRescue';
-import { restoreProfileWatchlistOnce } from './profileWatchlistRescue';
-import { repairProfileSeriesRescueOnce } from './profileSeriesRescueRepair';
 import { getDatabaseConnectionAsync } from './databaseConnection'; // sqlitePlatformConnectionV2
 
 const DATABASE_VERSION = 7;
@@ -266,6 +260,87 @@ async function migrate(database: SQLite.SQLiteDatabase) {
       UNIQUE(collection_id, entity_type, entity_id)
     );
 
+    -- collectionBigBoxesV1
+    -- Big Boxes are presentation-only parents for normal Collections.
+    CREATE TABLE IF NOT EXISTS collection_big_boxes (
+      box_id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      symbol TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS collection_big_box_items (
+      box_id TEXT NOT NULL,
+      collection_id TEXT NOT NULL UNIQUE,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL,
+      PRIMARY KEY (box_id, collection_id),
+      FOREIGN KEY (box_id) REFERENCES collection_big_boxes(box_id) ON DELETE CASCADE,
+      FOREIGN KEY (collection_id) REFERENCES collections(collection_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_collection_big_boxes_position
+      ON collection_big_boxes(position, created_at);
+    CREATE INDEX IF NOT EXISTS idx_collection_big_box_items_box
+      ON collection_big_box_items(box_id, position, created_at);
+    CREATE INDEX IF NOT EXISTS idx_collection_big_box_items_collection
+      ON collection_big_box_items(collection_id);
+
+    -- memoryCapsuleBoxedV1
+    CREATE TABLE IF NOT EXISTS memory_capsules (
+      capsule_id TEXT PRIMARY KEY NOT NULL,
+      backing_collection_id TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      description TEXT,
+      open_on TEXT,
+      opened_at TEXT,
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL,
+      FOREIGN KEY (backing_collection_id)
+        REFERENCES collections(collection_id)
+        ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_capsule_images (
+      image_id TEXT PRIMARY KEY NOT NULL,
+      capsule_id TEXT NOT NULL,
+      uri TEXT NOT NULL,
+      file_name TEXT,
+      mime_type TEXT,
+      caption TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL,
+      FOREIGN KEY (capsule_id)
+        REFERENCES memory_capsules(capsule_id)
+        ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_capsule_collection_links (
+      capsule_id TEXT NOT NULL,
+      collection_id TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL,
+      PRIMARY KEY (capsule_id, collection_id),
+      FOREIGN KEY (capsule_id)
+        REFERENCES memory_capsules(capsule_id)
+        ON DELETE CASCADE,
+      FOREIGN KEY (collection_id)
+        REFERENCES collections(collection_id)
+        ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_memory_capsules_created
+      ON memory_capsules(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_memory_capsule_images_capsule
+      ON memory_capsule_images(capsule_id, position, created_at);
+    CREATE INDEX IF NOT EXISTS idx_memory_capsule_collections_capsule
+      ON memory_capsule_collection_links(capsule_id, position, created_at);
+
     CREATE TABLE IF NOT EXISTS entity_links (
       link_id TEXT PRIMARY KEY NOT NULL,
       source_type TEXT NOT NULL,
@@ -279,6 +354,43 @@ async function migrate(database: SQLite.SQLiteDatabase) {
       UNIQUE(source_type, source_id, target_type, target_id, relation_type)
     );
 
+    -- bookReaderCanonicalV1
+    -- A document belongs to an existing book. Reader notes stay in entries and
+    -- only receive a location anchor here; this is not a second notes system.
+    CREATE TABLE IF NOT EXISTS book_documents (
+      document_id TEXT PRIMARY KEY NOT NULL,
+      book_id TEXT NOT NULL UNIQUE,
+      format TEXT NOT NULL CHECK(format IN ('PDF', 'EPUB')),
+      uri TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      mime_type TEXT,
+      size_bytes INTEGER,
+      current_page INTEGER,
+      total_pages INTEGER,
+      epub_locator TEXT,
+      progress INTEGER NOT NULL DEFAULT 0,
+      reader_theme TEXT NOT NULL DEFAULT 'DAY' CHECK(reader_theme IN ('DAY', 'NIGHT')),
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL,
+      FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS reader_entry_anchors (
+      anchor_id TEXT PRIMARY KEY NOT NULL,
+      entry_id TEXT NOT NULL UNIQUE,
+      document_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      format TEXT NOT NULL CHECK(format IN ('PDF', 'EPUB')),
+      page INTEGER,
+      epub_locator TEXT,
+      selected_text TEXT,
+      created_at TEXT NOT NULL,
+      modified_at TEXT NOT NULL,
+      FOREIGN KEY (entry_id) REFERENCES entries(entry_id) ON DELETE CASCADE,
+      FOREIGN KEY (document_id) REFERENCES book_documents(document_id) ON DELETE CASCADE,
+      FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_collection_items_collection
       ON collection_items(collection_id, position, created_at);
     CREATE INDEX IF NOT EXISTS idx_collection_items_entity
@@ -287,17 +399,12 @@ async function migrate(database: SQLite.SQLiteDatabase) {
       ON entity_links(source_type, source_id);
     CREATE INDEX IF NOT EXISTS idx_entity_links_target
       ON entity_links(target_type, target_id);
+    CREATE INDEX IF NOT EXISTS idx_reader_entry_anchors_document
+      ON reader_entry_anchors(document_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_reader_entry_anchors_book
+      ON reader_entry_anchors(book_id, created_at DESC);
 
-    INSERT OR IGNORE INTO collections
-      (collection_id, name, description, symbol, created_at, modified_at)
-    VALUES
-      ('00000000-0000-4000-8000-000000000101', 'Childhood', 'Stvari koje pripadaju djetinjstvu i ranim uspomenama.', 'â—Ś', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000102', 'Rainy Night Movies', 'Filmovi i serije za kiĹˇne noÄ‡i.', 'â‚', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000103', 'Philosophy', 'Knjige, teme, citati i biljeĹˇke povezani s filozofijom.', 'â—‡', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000104', 'Weird Internet', 'ÄŚudni kutovi interneta, rabbit holes i reference.', 'âŚ', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000105', 'Comfort Games', 'Igre kojima se vraÄ‡aĹˇ radi poznatog osjeÄ‡aja.', 'â†', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000106', 'Summer 2026', 'Stvari koje pripadaju ljetu 2026.', 'âĽ', datetime('now'), datetime('now')),
-      ('00000000-0000-4000-8000-000000000107', 'To Revisit', 'Stvari kojima se ĹľeliĹˇ vratiti kasnije.', 'â†»', datetime('now'), datetime('now'));
+    -- catalogueFinalPolishV1: starter collections are intentionally not re-seeded.
   `);
 
   // topicActivityLinksV1
@@ -365,6 +472,20 @@ async function migrate(database: SQLite.SQLiteDatabase) {
     }
   }
 
+  // ljingleZapisiVaultR1: custom entry filter chip. This is deliberately an always-ensure
+  // migration so it cannot collide with another patch's PRAGMA user_version number.
+  const entryLabelColumns = await database.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(entries)',
+  );
+
+  if (!entryLabelColumns.some((column) => column.name === 'custom_label')) {
+    await database.execAsync('ALTER TABLE entries ADD COLUMN custom_label TEXT');
+  }
+
+  await database.execAsync(
+    'CREATE INDEX IF NOT EXISTS idx_entries_custom_label ON entries(custom_label COLLATE NOCASE)',
+  );
+
   if (currentVersion < DATABASE_VERSION) {
     await database.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
   }
@@ -375,23 +496,12 @@ export function getDatabase() {
     // sqlitePlatformConnectionV2
     databasePromise = getDatabaseConnectionAsync().then(async (database) => {
       await migrate(database);
-      // tvTimeImportV1 â€” one-time idempotent TV Time migration
-      await importTvTimeOnce(database);
-      // tvTimeRepairV3Fast â€” cached series metadata, ignored flags, stats and recent-dismiss schema
-      await repairTvTimeOnce(database);
-      // gamesNotesImportV1 â€” one-time Notes history import, SQLite only
-      await importGamesNotesOnce(database);
-      // profileWatchRescueV1
-      await restoreProfileWatchHistoryOnce(database);
-      // profileWatchlistRescueV1
-      await restoreProfileWatchlistOnce(database);
-      // profileSeriesRescueRepairV1
-      await repairProfileSeriesRescueOnce(database);
+      // releaseCleanEmptyDatabaseV1
+      // Release builds start with schema only. Personal data is imported explicitly by the user.
       return database;
     });
   }
   return databasePromise;
 }
-
 
 

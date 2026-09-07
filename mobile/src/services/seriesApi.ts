@@ -101,11 +101,25 @@ async function persistSeriesProgress(
     await getDatabase();
 
   await database.runAsync(
-    'UPDATE media_items SET progress=?, modified_at=? WHERE media_id=?',
+    `UPDATE media_items
+        SET progress=?,
+            watch_status=CASE
+              WHEN ? > 0 AND ? >= ? THEN 'COMPLETED'
+              WHEN watch_status='COMPLETED' AND ? > 0 AND ? < ? THEN 'WATCHING'
+              ELSE watch_status
+            END,
+            modified_at=?
+      WHERE media_id=?`,
     percent,
+    progress.totalCount,
+    progress.watchedCount,
+    progress.totalCount,
+    progress.totalCount,
+    progress.watchedCount,
+    progress.totalCount,
     new Date().toISOString(),
     mediaId,
-  );
+  ); // catalogueFinalPolishV1
 
   return progress;
 }
@@ -200,6 +214,23 @@ export const seriesApi = {
     return summarizedAndPersisted(
       mediaId,
     );
+  },
+
+  async setSeasonWatched(
+    mediaId: string,
+    seasonNumber: number,
+    watched: boolean,
+  ): Promise<SeriesProgress> {
+    const database = await getDatabase();
+    const watchedAt = watched ? new Date().toISOString() : null;
+    await database.runAsync(
+      'UPDATE series_episodes SET watched=?, watched_at=? WHERE media_id=? AND season_number=?',
+      watched ? 1 : 0,
+      watchedAt,
+      mediaId,
+      seasonNumber,
+    );
+    return summarizedAndPersisted(mediaId);
   },
 
   // forkK13_3SafeDomainAdaptersV1

@@ -9,11 +9,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { BookImportPreview } from '../components/BookImportPreview';
 import { BookMetadataCard } from '../components/BookMetadataCard';
 import { bookMetadataApi } from '../services/bookMetadataApi';
 import { ApiError } from '../services/apiClient';
+import { createdFeedback } from '../utils/crudFeedback';
 import { colors } from '../theme/colors';
 import type {
   BookImportPreviewResponse,
@@ -107,6 +109,10 @@ export function BookMetadataImportScreen({ onImported }: Props) {
         targetBookId: preview.existingBook?.bookId,
         confirmMetadataUpdate,
       });
+      // bookApiCreateSoundR1
+      if (result.action === 'CREATE') {
+        createdFeedback();
+      }
       setSuccess(
         result.action === 'CREATE'
           ? `Knjiga „${result.book.title}” dodana je u katalog.`
@@ -123,6 +129,7 @@ export function BookMetadataImportScreen({ onImported }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <AeroAtmosphere variant="books" />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -296,7 +303,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterTextActive: {
-    color: colors.white,
+    color: colors.onAccent,
   },
   searchRow: {
     flexDirection: 'row',

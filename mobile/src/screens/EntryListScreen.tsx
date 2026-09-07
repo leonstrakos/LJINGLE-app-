@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+// ljingleContrastTargetedR3
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,15 +13,26 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { EntryCard } from '../components/EntryCard';
+import {
+  EntryGalleryTile,
+  EntryGalleryViewer,
+  EntryGalleryViewToggle,
+  type EntryGalleryItem,
+  type EntryGalleryMode,
+} from '../components/EntryGallery';
 import { EntryDeleteModal } from '../components/EntryDeleteModal';
+import { CollectionFilterRail } from '../components/CollectionFilterRail';
 import { entryApi } from '../services/entryApi';
+import { collectionApi } from '../services/collectionApi';
 import { getEntryImagePreviews } from '../services/entryImages';
 import {
   emptyEntryLinkLabels,
   entryLinksApi,
 } from '../services/entryLinksApi';
+import { getReaderAnchorPreviews } from '../services/bookReaderRepository';
 import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { deletedFeedback } from '../utils/crudFeedback';
@@ -32,18 +44,35 @@ import {
   type EntryLinkLabels,
   type EntryType,
 } from '../types/entry';
+import type { ReaderAnchorPreview } from '../types/reader';
+import type { CollectionFilterChip } from '../types/collection';
 
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { celestial, celestialAlpha } from '../theme/celestial';
+import { CelestialMotionLayer } from '../components/CelestialMotionLayer';
+import { updateCelestialParallax } from '../motion/celestialParallax';
+import { AnimatedPressable } from '../components/AnimatedPressable';
 export type EntryListScreenProps = {
   navigation: {
-    navigate: (screen: 'EntryForm', params?: EntryFormParams) => void;
+    navigate: (
+      screen: 'EntryForm' | 'BookDetails',
+      params?: EntryFormParams | {
+        bookId: string;
+        openReader?: boolean;
+        readerPage?: number | null;
+        readerLocator?: string | null;
+        readerSelectionRects?: Array<{ page: number; rect: string }> | null;
+      },
+    ) => void;
+  };
+  route?: {
+    params?: { focusEntryId?: string; collectionId?: string };
   };
 };
 
 type Filter = EntryType | 'ALL';
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 function normalizeEntrySearch(value: unknown) {
   return String(value ?? '')
@@ -54,10 +83,14 @@ function normalizeEntrySearch(value: unknown) {
 
 // brutusEntrySearchV1
 
-export function EntryListScreen({ navigation }: EntryListScreenProps) {
+export function EntryListScreen({ navigation, route }: EntryListScreenProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [filter, setFilter] = useState<Filter>('ALL');
+  const [customFilter, setCustomFilter] = useState<string | null>(null);
+  const [collectionFilters, setCollectionFilters] = useState<CollectionFilterChip[]>([]);
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
+    route?.params?.collectionId ?? null,
+  );
   const [query, setQuery] = useState('');
   const [linkLabels, setLinkLabels] = useState<EntryLinkLabels>(emptyEntryLinkLabels);
   const [loading, setLoading] = useState(true);
@@ -67,45 +100,71 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [imagePreviews, setImagePreviews] = useState<Record<string, string[]>>({});
+  // ljingleEntriesGalleryMemoryBoxR2:screen
+  const [entryViewMode, setEntryViewMode] =
+    useState<EntryGalleryMode>('LIST');
+  const [galleryViewerIndex, setGalleryViewerIndex] =
+    useState<number | null>(null);
+  const [readerAnchors, setReaderAnchors] = useState<
+    Record<string, ReaderAnchorPreview>
+  >({});
   const requestVersion = useRef(0);
+  // ljingleReaderEntriesHighlightRadioR1: target card requested by the book reader
+  const listRef = useRef<FlatList<Entry>>(null);
 
+  // settingsApplyNotesSpeedV1: render the entry rows first; hydrate labels and images after.
   const loadEntries = useCallback(async (asRefresh = false) => {
     const version = ++requestVersion.current;
     asRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
 
     try {
-      const entriesPromise = entryApi.getAll(filter === 'ALL' ? {} : { type: filter });
-      const allEntriesPromise = filter === 'ALL' ? entriesPromise : entryApi.getAll({});
-      const labelsPromise = entryLinksApi
-        .getAll(asRefresh)
-        .then(entryLinksApi.toLabels)
-        .catch(() => emptyEntryLinkLabels);
-      const [nextEntries, nextAllEntries, nextLabels] = await Promise.all([
-        entriesPromise,
-        allEntriesPromise,
-        labelsPromise,
+      // Filtering is local. One ordered SQLite read replaces the old pair of
+      // filtered + unfiltered requests on every filter change.
+      const [nextEntries, nextCollectionFilters] = await Promise.all([
+        entryApi.getAll({}),
+        collectionApi.getFilterChips('ENTRY').catch(() => [] as CollectionFilterChip[]),
       ]);
-
-      const nextImagePreviews = await getEntryImagePreviews(
-        nextEntries.map((entry) => entry.entryId),
-      ).catch(() => ({} as Record<string, string[]>));
 
       if (version !== requestVersion.current) return;
       setEntries(nextEntries);
-      setAllEntries(nextAllEntries);
+      setCollectionFilters(nextCollectionFilters);
+      setLoading(false);
+      setRefreshing(false);
+
+      // Cards can already render now. Relationship labels and image previews
+      // arrive together without blocking the first visible frame.
+      const [nextLabels, nextImagePreviews, nextReaderAnchors] = await Promise.all([
+        entryLinksApi
+          .getAll(asRefresh)
+          .then(entryLinksApi.toLabels)
+          .catch(() => emptyEntryLinkLabels),
+        getEntryImagePreviews(
+          nextEntries.map((entry) => entry.entryId),
+        ).catch(() => ({} as Record<string, string[]>)),
+        getReaderAnchorPreviews(
+          nextEntries.map((entry) => entry.entryId),
+        ).catch(() => ({} as Record<string, ReaderAnchorPreview>)),
+      ]);
+
+      if (version !== requestVersion.current) return;
       setLinkLabels(nextLabels);
       setImagePreviews(nextImagePreviews);
+      setReaderAnchors(nextReaderAnchors);
     } catch (caught) {
       if (version !== requestVersion.current) return;
-      setError(caught instanceof Error ? caught.message : 'Zapisi se nisu mogli učitati.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Zapisi se nisu mogli učitati.',
+      );
     } finally {
       if (version === requestVersion.current) {
         setLoading(false);
         setRefreshing(false);
       }
     }
-  }, [filter]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -147,16 +206,48 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
 
   const openReference = (title: string) => {
     const wanted = title.trim().toLocaleLowerCase('hr-HR');
-    const target = allEntries.find(
+    const target = entries.find(
       (entry) => entry.title?.trim().toLocaleLowerCase('hr-HR') === wanted,
     );
     if (target) navigation.navigate('EntryForm', { entryId: target.entryId });
   };
 
+  const openReaderAnchor = (anchor: ReaderAnchorPreview) => {
+    navigation.navigate('BookDetails', {
+      bookId: anchor.bookId,
+      openReader: true,
+      readerPage: anchor.page,
+      readerLocator: anchor.epubLocator,
+      readerSelectionRects: anchor.selectionRects,
+    });
+  };
+
   const normalizedQuery =
     normalizeEntrySearch(query.trim());
 
-  const visibleEntries = entries.filter((entry) => {
+  // ljingleZapisiVaultR1: custom chip collection and combined filtering.
+  const customLabels = (() => {
+    const labels = new Map<string, string>();
+    for (const entry of entries) {
+      const label = entry.customLabel?.trim();
+      if (label) labels.set(normalizeEntrySearch(label), label);
+    }
+    return [...labels.values()].sort((left, right) => left.localeCompare(right, 'hr-HR'));
+  })();
+
+  const filteredEntries = entries.filter((entry) => {
+    if (filter !== 'ALL' && entry.type !== filter) return false;
+    if (customFilter && normalizeEntrySearch(entry.customLabel) !== normalizeEntrySearch(customFilter)) {
+      return false;
+    }
+    const activeCollection = collectionFilters.find(
+      (chip) => chip.collectionId === activeCollectionId,
+    );
+    if (activeCollection && !activeCollection.itemIds.includes(entry.entryId)) return false;
+    return true;
+  });
+
+  const visibleEntries = filteredEntries.filter((entry) => {
     if (!normalizedQuery) return true;
 
     const haystack = normalizeEntrySearch(
@@ -164,6 +255,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
         entry.title,
         entry.content,
         entryTypeLabels[entry.type],
+        entry.customLabel,
       ]
         .filter(Boolean)
         .join(' '),
@@ -172,9 +264,95 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
     return haystack.includes(normalizedQuery);
   });
 
+  // ljingleCollectionChipsR1: Reader and Memory Box deep-links reveal the exact filtered card.
+  const focusEntryId = route?.params?.focusEntryId?.trim() || null;
+  const requestedCollectionId = route?.params?.collectionId?.trim() || null;
+  useEffect(() => {
+    if (requestedCollectionId && activeCollectionId !== requestedCollectionId) {
+      setActiveCollectionId(requestedCollectionId);
+      return;
+    }
+    if (!focusEntryId || visibleEntries.length === 0) return;
+    if (entryViewMode !== 'LIST') {
+      setEntryViewMode('LIST');
+      return;
+    }
+    if (filter !== 'ALL') {
+      setFilter('ALL');
+      return;
+    }
+    if (customFilter) {
+      setCustomFilter(null);
+      return;
+    }
+    if (query) {
+      setQuery('');
+      return;
+    }
+    const index = visibleEntries.findIndex((entry) => entry.entryId === focusEntryId);
+    if (index < 0) return;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.12 });
+      (navigation as unknown as { setParams?: (params: { focusEntryId?: string; collectionId?: string }) => void })
+        .setParams?.({ focusEntryId: undefined, collectionId: undefined });
+    }, 90);
+    return () => clearTimeout(timer);
+  }, [
+    activeCollectionId,
+    customFilter,
+    entryViewMode,
+    filter,
+    focusEntryId,
+    query,
+    requestedCollectionId,
+    visibleEntries,
+  ]);
+
+
+  const galleryItems: EntryGalleryItem[] =
+    visibleEntries.flatMap((entry) => {
+      const title =
+        entry.title?.trim() ||
+        entry.content.replace(/\s+/g, ' ').trim().slice(0, 86) ||
+        entryTypeLabels[entry.type];
+
+      return (imagePreviews[entry.entryId] ?? []).map(
+        (uri, imageIndex) => {
+          const readerAnchor =
+            readerAnchors[entry.entryId] ?? null;
+
+          const sourceLabel =
+            readerAnchor
+              ? linkLabels.books[readerAnchor.bookId] ??
+                'Povezana knjiga'
+              : null;
+
+          const sourceLocation =
+            readerAnchor?.format === 'PDF' && readerAnchor.page
+              ? 'str. ' + readerAnchor.page
+              : readerAnchor?.format === 'EPUB'
+                ? 'EPUB'
+                : null;
+
+          return {
+            key: entry.entryId + ':' + imageIndex + ':' + uri,
+            entryId: entry.entryId,
+            uri,
+            title,
+            typeLabel: entryTypeLabels[entry.type],
+            // ljingleReaderGalleryCrossoverR2:screen
+            sourceLabel,
+            sourceLocation,
+          };
+        },
+      );
+    });
+
   const header = (
     <>
       <View style={[styles.hero, celestialMode && styles.celestialHero]}>
+        {/* ljingleCelestialMotionLanguageR1:entries */}
+        <CelestialMotionLayer preset="entries" />
         {celestialMode ? <CelestialAtmosphere variant="entries" /> : null}
         <Text style={styles.eyebrow}>Misli, citati i tragovi</Text>
         <Text style={styles.heading}>Zapisi</Text>
@@ -182,9 +360,9 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
           Jedno mjesto za sve što želiš zapamtiti uz knjige, teme i aktivnosti.
         </Text>
 <View style={styles.summaryRow}>
-          <Text style={styles.summaryValue}>{entries.length}</Text>
+          <Text style={styles.summaryValue}>{visibleEntries.length}</Text>
           <Text style={styles.summaryLabel}>
-            {filter === 'ALL' ? 'prikazanih zapisa' : entryTypeLabels[filter].toLowerCase()}
+            {customFilter ? 'u odabranoj oznaci' : filter === 'ALL' ? 'prikazanih zapisa' : entryTypeLabels[filter].toLowerCase()}
           </Text>
           {loading && entries.length > 0 ? (
             <ActivityIndicator color={colors.black} size="small" style={styles.syncSpinner} />
@@ -231,17 +409,71 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
         <FilterChip
           active={filter === 'ALL'}
           label="Sve"
-          onPress={() => setFilter('ALL')}
+          onPress={() => {
+            setFilter('ALL');
+            setCustomFilter(null);
+          }}
         />
         {entryTypes.map((type) => (
           <FilterChip
             active={filter === type}
             key={type}
             label={entryTypeLabels[type]}
-            onPress={() => setFilter(type)}
+            onPress={() => {
+              setFilter(type);
+              setCustomFilter(null);
+            }}
           />
         ))}
       </ScrollView>
+
+      {customLabels.length > 0 ? (
+        <>
+          <View style={styles.customFilterHeading}>
+            <Text style={styles.customFilterTitle}>Oznake</Text>
+            <Text style={styles.customFilterHint}>tvoje niti kroz zapise</Text>
+          </View>
+          <ScrollView
+            contentContainerStyle={styles.filters}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+            {customLabels.map((label) => (
+              <FilterChip
+                active={normalizeEntrySearch(customFilter) === normalizeEntrySearch(label)}
+                key={label}
+                label={`✦  ${label}`}
+                onPress={() => {
+                  setFilter('ALL');
+                  setCustomFilter((current) =>
+                    normalizeEntrySearch(current) === normalizeEntrySearch(label) ? null : label,
+                  );
+                }}
+              />
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
+      {/* ljingleZapisiVaultR1: labels become first-class filters */}
+
+      <EntryGalleryViewToggle
+        value={entryViewMode}
+        onChange={(nextMode) => {
+          setGalleryViewerIndex(null);
+          setEntryViewMode(nextMode);
+        }}
+      />
+
+      <CollectionFilterRail
+        activeCollectionId={activeCollectionId}
+        chips={collectionFilters}
+        onSelect={(collectionId) => {
+          setActiveCollectionId(collectionId);
+          setFilter('ALL');
+          setCustomFilter(null);
+          setQuery('');
+        }}
+      />
 
       {error && entries.length > 0 ? (
         <Pressable
@@ -256,7 +488,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
 
       <View style={styles.listHeading}>
         <Text style={styles.sectionTitle}>
-          {filter === 'ALL' ? 'Svi zapisi' : entryTypeLabels[filter]}
+          {customFilter ? `✦  ${customFilter}` : filter === 'ALL' ? 'Svi zapisi' : entryTypeLabels[filter]}
         </Text>
       </View>
     </>
@@ -265,6 +497,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
   if (loading && entries.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="entries" />
         <View style={styles.centerState}>
           <ActivityIndicator color={colors.black} size="large" />
           <Text style={styles.stateCopy}>Slažemo tvoje zapise…</Text>
@@ -276,6 +509,7 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
   if (error && entries.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
+      <AeroAtmosphere variant="entries" />
         <View style={styles.centerState}>
           <Text style={styles.errorMark}>!</Text>
           <Text style={styles.stateTitle}>Zapisi se nisu učitali</Text>
@@ -294,21 +528,76 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="entries" />
+      {entryViewMode === 'GALLERY' ? (
+        <FlatList
+          key="gallery"
+          columnWrapperStyle={styles.galleryColumnRow}
+          contentContainerStyle={styles.content}
+          data={galleryItems}
+          keyExtractor={(item) => item.key}
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyMark}>▦</Text>
+              <Text style={styles.emptyTitle}>Još nema slika</Text>
+              <Text style={styles.emptyCopy}>
+                Slike iz zapisa pojavit će se ovdje. Odaberi Memory Box iznad i Gallery postaje njegov album.
+              </Text>
+            </View>
+          }
+          numColumns={2}
+          refreshControl={
+            <RefreshControl
+              colors={[colors.black]}
+              onRefresh={() => void loadEntries(true)}
+              refreshing={refreshing}
+              tintColor={colors.black}
+            />
+          }
+          renderItem={({ item, index }) => (
+            <EntryGalleryTile
+              item={item}
+              onPress={() => setGalleryViewerIndex(index)}
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+        
+          onScroll={(event) => {
+            // ljingleSemanticAliveR1:scroll-entries
+            updateCelestialParallax(event.nativeEvent.contentOffset.y);
+          }}
+          scrollEventThrottle={16}
+        />
+      ) : (
       <FlatList
+        key="list"
+        ref={listRef}
         contentContainerStyle={styles.content}
         data={visibleEntries}
         keyExtractor={(item) => item.entryId}
         ListHeaderComponent={header}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({
+            offset: Math.max(0, index * Math.max(1, averageItemLength)),
+            animated: false,
+          });
+          setTimeout(() => {
+            listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.12 });
+          }, 140);
+        }}
         ListEmptyComponent={
           <View style={styles.emptyCard}>
             <Text style={styles.emptyMark}>✎</Text>
             <Text style={styles.emptyTitle}>
-              {filter === 'ALL' ? 'Još nema zapisa' : 'Nema zapisa ove vrste'}
+              {customFilter ? 'Nema zapisa s ovom oznakom' : filter === 'ALL' ? 'Još nema zapisa' : 'Nema zapisa ove vrste'}
             </Text>
             <Text style={styles.emptyCopy}>
-              {filter === 'ALL'
-                ? 'Zabilježi prvu misao, citat ili opažanje i poveži ga sa svojim katalogom.'
-                : `Kad stvoriš prvi zapis vrste „${entryTypeLabels[filter]}”, pojavit će se ovdje.`}
+              {customFilter
+                ? `Oznaka „${customFilter}” još nema odgovarajući zapis.`
+                : filter === 'ALL'
+                  ? 'Zabilježi prvu misao, citat ili opažanje i poveži ga sa svojim katalogom.'
+                  : `Kad stvoriš prvi zapis vrste „${entryTypeLabels[filter]}”, pojavit će se ovdje.`}
             </Text>
           </View>
         }
@@ -325,15 +614,40 @@ export function EntryListScreen({ navigation }: EntryListScreenProps) {
             entry={item}
             imageUris={imagePreviews[item.entryId] ?? []}
             linkLabels={linkLabels}
+            onOpenReaderAnchor={
+              readerAnchors[item.entryId]
+                ? () => openReaderAnchor(readerAnchors[item.entryId]!)
+                : undefined
+            }
             onDelete={() => {
               setDeleteError(null);
               setDeleteTarget(item);
             }}
             onEdit={() => navigation.navigate('EntryForm', { entryId: item.entryId })}
             onOpenReference={openReference}
+            readerAnchor={readerAnchors[item.entryId] ?? null}
           />
         )}
         showsVerticalScrollIndicator={false}
+      />
+      )}
+
+      <EntryGalleryViewer
+        index={galleryViewerIndex}
+        items={galleryItems}
+        onClose={() => setGalleryViewerIndex(null)}
+        onIndexChange={setGalleryViewerIndex}
+        onOpenEntry={(entryId) => {
+          setGalleryViewerIndex(null);
+          navigation.navigate('EntryForm', { entryId });
+        }}
+        onOpenSource={(entryId) => {
+          const anchor = readerAnchors[entryId] ?? null;
+          if (!anchor) return;
+
+          setGalleryViewerIndex(null);
+          openReaderAnchor(anchor);
+        }}
       />
 
       <EntryDeleteModal
@@ -355,7 +669,8 @@ type FilterChipProps = {
 
 function FilterChip({ active, label, onPress }: FilterChipProps) {
   return (
-    <Pressable
+    <AnimatedPressable
+      cue="tap"
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
@@ -364,12 +679,33 @@ function FilterChip({ active, label, onPress }: FilterChipProps) {
         pressed && styles.pressed,
       ]}
     >
+        {/* ljingleSemanticAliveR1:chips-entries */}
       <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  galleryColumnRow: {
+    paddingHorizontal: 4,
+  },
+  // ljingleZapisiVaultR1: second, quieter rail for user-created labels.
+  customFilterHeading: {
+    marginTop: 16,
+    marginBottom: 9,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  customFilterTitle: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  customFilterHint: {
+    marginLeft: 8,
+    color: colors.textMuted,
+    fontSize: 10,
+  },
   entrySearchWrap: {
     marginTop: 18,
     marginBottom: 4,
@@ -453,10 +789,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: colors.white,
+    backgroundColor: celestialMode ? 'transparent' : colors.white,
   },
   addIconText: {
-    color: colors.black,
+    color: celestialMode ? colors.onAccent : colors.black,
     fontSize: 27,
     fontWeight: '400',
     lineHeight: 30,
@@ -466,18 +802,18 @@ const styles = StyleSheet.create({
     marginLeft: 13,
   },
   addTitle: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: '700',
   },
   addSubtitle: {
     marginTop: 3,
-    color: '#C7C7CC',
+    color: colors.onAccent,
     fontSize: 12,
   },
   addArrow: {
     marginLeft: 10,
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 28,
   },
   filterHeading: {
@@ -507,7 +843,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterLabelActive: {
-    color: colors.white,
+    color: colors.onAccent,
   },
   listHeading: {
     marginTop: 24,

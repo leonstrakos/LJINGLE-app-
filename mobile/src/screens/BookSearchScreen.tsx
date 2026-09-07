@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { gameApi } from '../games/services/gameApi';
 import { bookApi } from '../services/bookApi';
@@ -49,6 +50,7 @@ export function BookSearchScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="books" />
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>Tvoja zbirka</Text>
         <Text style={styles.heading}>Pretraži katalog</Text>

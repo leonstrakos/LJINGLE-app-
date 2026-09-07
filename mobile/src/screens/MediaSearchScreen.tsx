@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { MediaFeedbackView } from '../components/MediaFeedbackView';
 import { MediaPoster } from '../components/MediaPoster';
@@ -87,6 +88,7 @@ export function MediaSearchScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="media" />
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Online katalog</Text>
         <Text style={styles.heading}>Pronađi naslov</Text>
@@ -109,8 +111,8 @@ export function MediaSearchScreen({ navigation }: Props) {
         </View>
         <Text style={styles.sourceNote}>
           {mediaType === 'MOVIE'
-            ? 'Izvori: TMDB ako je postavljen · Apple Search · Wikidata backup'
-            : 'Izvori: TMDB ako je postavljen · TVmaze · Apple TV · Wikidata backup'}
+            ? 'Izvori: TMDB · Apple Search · Wikidata backup'
+            : 'Izvori: TMDB · TVmaze · Apple TV · Wikidata backup'}
         </Text>
         <View style={styles.searchRow}>
           <TextInput
@@ -147,7 +149,7 @@ export function MediaSearchScreen({ navigation }: Props) {
           ) : (
             <View style={styles.prompt}>
               <Text style={styles.promptIcon}>⌕</Text>
-              <Text style={styles.promptText}>Pronađite naslov online i dodajte rezultat u svoj privatni katalog. API ključ nije potreban.</Text>
+              <Text style={styles.promptText}>Pronađite naslov online i dodajte rezultat u svoj privatni katalog.</Text>
             </View>
           )}
           renderItem={({ item }) => (
@@ -190,13 +192,13 @@ const styles = StyleSheet.create({
   typeChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
   typeChipActive: { backgroundColor: colors.black, borderColor: colors.black },
   typeText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
-  typeTextActive: { color: colors.white },
+  typeTextActive: { color: colors.onAccent },
   sourceNote: { color: colors.textMuted, fontSize: 11, marginTop: 9 },
   sourceLink: { color: colors.text, fontWeight: '700', textDecorationLine: 'underline' },
   searchRow: { flexDirection: 'row', gap: 9, marginTop: 13 },
   input: { flex: 1, minHeight: 50, paddingHorizontal: 15, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 16 },
   searchButton: { minWidth: 80, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.black },
-  searchLabel: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  searchLabel: { color: colors.onAccent, fontSize: 15, fontWeight: '800' },
   disabled: { opacity: 0.5 },
   list: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 35 },
   prompt: { minHeight: 300, alignItems: 'center', justifyContent: 'center', padding: 32 },
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
   resultOverview: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 7 },
   resultActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   addButton: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: colors.black },
-  addLabel: { color: colors.white, fontSize: 12, fontWeight: '800' },
+  addLabel: { color: colors.onAccent, fontSize: 12, fontWeight: '800' },
   editButton: { paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.fillStrong },
   editLabel: { color: colors.text, fontSize: 12, fontWeight: '800' },
 });

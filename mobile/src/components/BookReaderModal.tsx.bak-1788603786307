@@ -1,0 +1,710 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { entryApi } from '../services/entryApi';
+import {
+  getReaderNotes,
+  saveBookDocumentTheme,
+  saveEpubPosition,
+  savePdfPosition,
+  saveReaderEntryAnchor,
+} from '../services/bookReaderRepository';
+import { colors } from '../theme/colors';
+import { setPaletteInteractionLock } from '../utils/paletteInteractionLock';
+// ljingleMorningFixesV1:reader
+import type { ActivityTimerResponse } from '../types/activity';
+import type {
+  BookDocument,
+  BookReaderTheme,
+  ReaderEntryAnchor,
+} from '../types/reader';
+
+declare const require: (name: string) => any;
+
+const Pdf = require('react-native-pdf-jsi').default as any;
+const EpubReader = require('@epubjs-react-native/core').Reader as any;
+const EpubReaderProvider = require('@epubjs-react-native/core').ReaderProvider as any;
+const useEpubFileSystem = require(
+  '@epubjs-react-native/expo-file-system',
+).useFileSystem as any;
+
+type Props = {
+  bookId: string;
+  bookTitle: string;
+  document: BookDocument | null;
+  readingTimer: ActivityTimerResponse | null;
+  timerLoading: boolean;
+  visible: boolean;
+  initialPage?: number | null;
+  initialLocator?: string | null;
+  onClose: () => void;
+  onOpenEntry: (entryId: string) => void;
+  onToggleTimer: () => void;
+  onProgressSaved: () => void;
+};
+
+type EpubPosition = {
+  locator: string;
+  progress: number;
+};
+
+function anchorLabel(anchor: ReaderEntryAnchor) {
+  if (anchor.format === 'PDF' && anchor.page) return `Stranica ${anchor.page}`;
+  return 'Mjesto u EPUB-u';
+}
+
+function safeEpubPosition(args: unknown[]): EpubPosition | null {
+  const values = args.filter(Boolean) as any[];
+  const location = values.find(
+    (value) =>
+      typeof value === 'object' &&
+      (value?.start?.cfi || value?.end?.cfi || value?.cfi),
+  );
+  const locator =
+    location?.start?.cfi ||
+    location?.cfi ||
+    location?.end?.cfi ||
+    values.find((value) => typeof value === 'string' && value.includes('epubcfi'));
+
+  const numeric = values
+    .filter((value) => typeof value === 'number' && Number.isFinite(value))
+    .map(Number);
+  const progress =
+    numeric.find((value) => value >= 0 && value <= 1) ??
+    numeric.find((value) => value >= 0 && value <= 100) ??
+    0;
+
+  return locator ? { locator: String(locator), progress } : null;
+}
+
+function ReaderButton({
+  active = false,
+  disabled = false,
+  label,
+  onPress,
+}: {
+  active?: boolean;
+  disabled?: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.toolbarButton,
+        active && styles.toolbarButtonActive,
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.toolbarButtonText, active && styles.toolbarButtonTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function BookReaderModal({
+  bookId,
+  bookTitle,
+  document,
+  readingTimer,
+  timerLoading,
+  visible,
+  initialPage,
+  initialLocator,
+  onClose,
+  onOpenEntry,
+  onToggleTimer,
+  onProgressSaved,
+}: Props) {
+  const [readerTheme, setReaderTheme] = useState<BookReaderTheme>(
+    document?.readerTheme ?? 'DAY',
+  );
+  const [page, setPage] = useState(
+    Math.max(1, initialPage ?? document?.currentPage ?? 1),
+  );
+  const [totalPages, setTotalPages] = useState(document?.totalPages ?? 0);
+  const [epubLocator, setEpubLocator] = useState(
+    initialLocator ?? document?.epubLocator ?? '',
+  );
+  const [epubProgress, setEpubProgress] = useState(document?.progress ?? 0);
+  const [notes, setNotes] = useState<ReaderEntryAnchor[]>([]);
+  const [panel, setPanel] = useState<'NOTE' | 'NOTES' | null>(null);
+  const [noteType, setNoteType] = useState<'NOTE' | 'QUOTE'>('NOTE');
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteContent, setNoteContent] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [readerError, setReaderError] = useState<string | null>(null);
+  const saveVersion = useRef(0);
+
+  const night = readerTheme === 'NIGHT';
+  const displayedProgress = document?.format === 'PDF'
+    ? totalPages > 0
+      ? Math.round((page / totalPages) * 100)
+      : document?.progress ?? 0
+    : Math.round(epubProgress <= 1 ? epubProgress * 100 : epubProgress);
+
+  const epubTheme = useMemo(
+    () => ({
+      body: {
+        background: night ? '#111318' : '#FBF7EF',
+        color: night ? '#E8E2D5' : '#202026',
+        'font-family': 'Georgia, serif',
+        'line-height': '1.62',
+        padding: '0 4%',
+      },
+      p: {
+        color: night ? '#E8E2D5' : '#202026',
+      },
+      a: {
+        color: night ? '#D4AF55' : '#725A1F',
+      },
+    }),
+    [night],
+  );
+
+  const refreshNotes = async () => {
+    if (!document) return;
+    setNotes(await getReaderNotes(document.documentId));
+  };
+
+  useEffect(() => {
+    setPaletteInteractionLock('book-reader', visible);
+    return () => setPaletteInteractionLock('book-reader', false);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !document) return;
+    setReaderTheme(document.readerTheme);
+    setPage(Math.max(1, initialPage ?? document.currentPage ?? 1));
+    setTotalPages(document.totalPages ?? 0);
+    setEpubLocator(initialLocator ?? document.epubLocator ?? '');
+    setEpubProgress(document.progress);
+    setReaderError(null);
+    void refreshNotes().catch(() => setNotes([]));
+  }, [document?.documentId, visible, initialPage, initialLocator]);
+
+  useEffect(() => {
+    if (!visible || !document || document.format !== 'PDF' || totalPages <= 0) {
+      return;
+    }
+    const version = ++saveVersion.current;
+    const timeout = setTimeout(() => {
+      void savePdfPosition(document.documentId, bookId, page, totalPages)
+        .then(() => {
+          if (version === saveVersion.current) onProgressSaved();
+        })
+        .catch(() => undefined);
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [bookId, document?.documentId, document?.format, page, totalPages, visible]);
+
+  useEffect(() => {
+    if (!visible || !document || document.format !== 'EPUB' || !epubLocator) return;
+    const version = ++saveVersion.current;
+    const timeout = setTimeout(() => {
+      void saveEpubPosition(
+        document.documentId,
+        bookId,
+        epubLocator,
+        epubProgress,
+      )
+        .then(() => {
+          if (version === saveVersion.current) onProgressSaved();
+        })
+        .catch(() => undefined);
+    }, 700);
+    return () => clearTimeout(timeout);
+  }, [bookId, document?.documentId, document?.format, epubLocator, epubProgress, visible]);
+
+  const toggleTheme = async () => {
+    if (!document) return;
+    const next: BookReaderTheme = readerTheme === 'DAY' ? 'NIGHT' : 'DAY';
+    setReaderTheme(next);
+    await saveBookDocumentTheme(document.documentId, next).catch(() => undefined);
+  };
+
+  const beginNote = (quote = '') => {
+    setNoteError(null);
+    setSelectedText(quote.trim());
+    setNoteType(quote.trim() ? 'QUOTE' : 'NOTE');
+    setNoteTitle('');
+    setNoteContent(quote.trim());
+    setPanel('NOTE');
+  };
+
+  const createNote = async () => {
+    if (!document || savingNote || !noteContent.trim()) return;
+    setSavingNote(true);
+    setNoteError(null);
+    try {
+      const entry = await entryApi.create({
+        title: noteTitle.trim() || null,
+        content: noteContent.trim(),
+        type: noteType,
+        bookId,
+        activityId: readingTimer?.activityId ?? null,
+        topicId: null,
+      });
+
+      await saveReaderEntryAnchor({
+        entryId: entry.entryId,
+        documentId: document.documentId,
+        bookId,
+        format: document.format,
+        page: document.format === 'PDF' ? page : null,
+        epubLocator: document.format === 'EPUB' ? epubLocator : null,
+        selectedText: selectedText || null,
+      });
+
+      await refreshNotes();
+      setPanel('NOTES');
+      setNoteTitle('');
+      setNoteContent('');
+      setSelectedText('');
+    } catch (caught) {
+      setNoteError(
+        caught instanceof Error ? caught.message : 'Zapis nije spremljen.',
+      );
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  if (!document) return null;
+
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+      visible={visible}
+    >
+      <StatusBar hidden={visible} />
+      <SafeAreaView style={[styles.safeArea, night && styles.safeAreaNight]}>
+        <View style={[styles.header, night && styles.headerNight]}>
+          <Pressable
+            accessibilityLabel="Zatvori čitač"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={onClose}
+            style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+          >
+            <Text style={[styles.closeText, night && styles.nightText]}>×</Text>
+          </Pressable>
+          <View style={styles.headerCopy}>
+            <Text numberOfLines={1} style={[styles.headerTitle, night && styles.nightText]}>
+              {bookTitle}
+            </Text>
+            <Text style={[styles.headerMeta, night && styles.nightMuted]}>
+              {document.format} · {Math.max(0, Math.min(100, displayedProgress))}%
+            </Text>
+          </View>
+          <ReaderButton
+            active={night}
+            label={night ? 'Noć' : 'Dan'}
+            onPress={() => void toggleTheme()}
+          />
+        </View>
+
+        <View style={[styles.readerStage, night && styles.readerStageNight]}>
+          {document.format === 'PDF' ? (
+            <View
+              style={[
+                styles.readerFill,
+                night &&
+                  Platform.OS === 'android' &&
+                  ({ filter: [{ invert: 1 }, { hueRotate: '180deg' }] } as any),
+              ]}
+            >
+              <Pdf
+                enablePaging={false}
+                horizontal={false}
+                onError={(value: unknown) =>
+                  setReaderError(
+                    value instanceof Error ? value.message : 'PDF se nije mogao otvoriti.',
+                  )
+                }
+                onLoadComplete={(pages: number) => {
+                  setTotalPages(Math.max(1, Number(pages) || 1));
+                  setReaderError(null);
+                }}
+                onPageChanged={(nextPage: number, pages: number) => {
+                  setPage(Math.max(1, Number(nextPage) || 1));
+                  setTotalPages(Math.max(1, Number(pages) || 1));
+                }}
+                page={Math.max(1, initialPage ?? document.currentPage ?? 1)}
+                source={{ uri: document.uri, cache: false }}
+                style={styles.readerFill}
+                trustAllCerts={false}
+              />
+            </View>
+          ) : (
+            <EpubReaderProvider>
+              <EpubReader
+                allowPopups={false}
+                allowScriptedContent={false}
+                defaultTheme={epubTheme}
+                enableSelection
+                fileSystem={useEpubFileSystem}
+                initialLocation={
+                  epubLocator || initialLocator || document.epubLocator || undefined
+                }
+                key={`${document.documentId}-${readerTheme}`}
+                onLocationChange={(...args: unknown[]) => {
+                  const next = safeEpubPosition(args);
+                  if (!next) return;
+                  setEpubLocator(next.locator);
+                  setEpubProgress(next.progress);
+                }}
+                onSelected={(text: string, cfiRange: string) => {
+                  if (cfiRange) setEpubLocator(String(cfiRange));
+                  const quote = String(text ?? '').trim();
+                  setSelectedText(quote);
+                  setNoteType(quote ? 'QUOTE' : 'NOTE');
+                  setNoteContent(quote);
+                  setPanel(null);
+                }}
+                src={document.uri}
+              />
+            </EpubReaderProvider>
+          )}
+
+          {readerError ? (
+            <View style={styles.readerError}>
+              <Text style={styles.readerErrorTitle}>Dokument se nije otvorio</Text>
+              <Text style={styles.readerErrorText}>{readerError}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={[styles.footer, night && styles.headerNight]}>
+          <ReaderButton
+            active={Boolean(readingTimer?.running)}
+            disabled={timerLoading || !readingTimer}
+            label={readingTimer?.running ? '■ Timer' : '▶ Timer'}
+            onPress={onToggleTimer}
+          />
+          <ReaderButton
+            active={Boolean(selectedText)}
+            label={selectedText ? '＋ Citat' : '＋ Zapis'}
+            onPress={() => beginNote(selectedText)}
+          />
+          <ReaderButton
+            active={panel === 'NOTES'}
+            label={`Zapisi ${notes.length}`}
+            onPress={() => setPanel(panel === 'NOTES' ? null : 'NOTES')}
+          />
+          <Text style={[styles.positionText, night && styles.nightMuted]}>
+            {document.format === 'PDF'
+              ? `${page}${totalPages ? ` / ${totalPages}` : ''}`
+              : `${Math.max(0, Math.min(100, displayedProgress))}%`}
+          </Text>
+        </View>
+
+        {panel ? (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.panelOverlay}
+          >
+            <Pressable onPress={() => setPanel(null)} style={styles.panelBackdrop} />
+            <View style={[styles.panel, night && styles.panelNight]}>
+              <View style={styles.panelHandle} />
+              {panel === 'NOTE' ? (
+                <ScrollView keyboardShouldPersistTaps="handled">
+                  <View style={styles.panelHeader}>
+                    <View>
+                      <Text style={[styles.panelTitle, night && styles.nightText]}>
+                        Zapis uz čitanje
+                      </Text>
+                      <Text style={[styles.panelSubtitle, night && styles.nightMuted]}>
+                        {document.format === 'PDF' ? `Stranica ${page}` : 'Trenutno mjesto u EPUB-u'}
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => setPanel(null)}>
+                      <Text style={[styles.panelClose, night && styles.nightText]}>×</Text>
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.noteTypeRow}>
+                    {(['NOTE', 'QUOTE'] as const).map((type) => (
+                      <Pressable
+                        key={type}
+                        onPress={() => setNoteType(type)}
+                        style={[
+                          styles.noteTypeChip,
+                          noteType === type && styles.noteTypeChipActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.noteTypeText,
+                            noteType === type && styles.noteTypeTextActive,
+                          ]}
+                        >
+                          {type === 'NOTE' ? 'Bilješka' : 'Citat'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <TextInput
+                    onChangeText={setNoteTitle}
+                    placeholder="Naslov (nije obavezan)"
+                    placeholderTextColor={colors.textMuted}
+                    style={[styles.noteTitleInput, night && styles.inputNight]}
+                    value={noteTitle}
+                  />
+                  <TextInput
+                    multiline
+                    onChangeText={setNoteContent}
+                    placeholder="Zapiši misao…  [[Naziv zapisa]] i dalje radi."
+                    placeholderTextColor={colors.textMuted}
+                    style={[styles.noteInput, night && styles.inputNight]}
+                    textAlignVertical="top"
+                    value={noteContent}
+                  />
+                  {noteError ? <Text style={styles.noteError}>{noteError}</Text> : null}
+                  <Pressable
+                    disabled={savingNote || !noteContent.trim()}
+                    onPress={() => void createNote()}
+                    style={({ pressed }) => [
+                      styles.saveButton,
+                      (savingNote || !noteContent.trim()) && styles.disabled,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    {savingNote ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>Spremi kao LJingle zapis</Text>
+                    )}
+                  </Pressable>
+                </ScrollView>
+              ) : (
+                <>
+                  <View style={styles.panelHeader}>
+                    <View>
+                      <Text style={[styles.panelTitle, night && styles.nightText]}>
+                        Zapisi iz knjige
+                      </Text>
+                      <Text style={[styles.panelSubtitle, night && styles.nightMuted]}>
+                        Isti zapisi kao u glavnom dijelu aplikacije
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => setPanel(null)}>
+                      <Text style={[styles.panelClose, night && styles.nightText]}>×</Text>
+                    </Pressable>
+                  </View>
+                  <ScrollView contentContainerStyle={styles.notesList}>
+                    {notes.length === 0 ? (
+                      <Text style={[styles.emptyNotes, night && styles.nightMuted]}>
+                        Još nema zapisa vezanih uz ovaj dokument.
+                      </Text>
+                    ) : (
+                      notes.map((note) => (
+                        <Pressable
+                          key={note.anchorId}
+                          onPress={() => onOpenEntry(note.entryId)}
+                          style={({ pressed }) => [
+                            styles.noteCard,
+                            night && styles.noteCardNight,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={styles.noteAnchor}>{anchorLabel(note)}</Text>
+                          <Text numberOfLines={1} style={[styles.noteCardTitle, night && styles.nightText]}>
+                            {note.entryTitle || 'Zapis bez naslova'}
+                          </Text>
+                          <Text numberOfLines={3} style={[styles.noteCardContent, night && styles.nightMuted]}>
+                            {note.entryContent}
+                          </Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </ScrollView>
+                </>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        ) : null}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#F4F0E8' },
+  safeAreaNight: { backgroundColor: '#0B0D12' },
+  header: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#D8D1C4',
+    backgroundColor: '#FBF7EF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  headerNight: { backgroundColor: '#111318', borderBottomColor: '#2C2F36' },
+  closeButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: 'rgba(127,127,127,0.10)',
+  },
+  closeText: { color: '#202026', fontSize: 31, lineHeight: 34, fontWeight: '300' },
+  headerCopy: { flex: 1, minWidth: 0, marginHorizontal: 11 },
+  headerTitle: { color: '#202026', fontSize: 15, fontWeight: '800' },
+  headerMeta: { marginTop: 2, color: '#77736E', fontSize: 11, fontWeight: '600' },
+  toolbarButton: {
+    minHeight: 38,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(127,127,127,0.24)',
+    borderRadius: 999,
+    backgroundColor: 'rgba(127,127,127,0.08)',
+    paddingHorizontal: 12,
+  },
+  toolbarButtonActive: { borderColor: colors.gold, backgroundColor: colors.goldSoft },
+  toolbarButtonText: { color: colors.textMuted, fontSize: 12, fontWeight: '800' },
+  toolbarButtonTextActive: { color: colors.text },
+  readerStage: { flex: 1, backgroundColor: '#E7E2D9' },
+  readerStageNight: { backgroundColor: '#050608' },
+  readerFill: { flex: 1, width: '100%', height: '100%' },
+  readerError: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    top: '35%',
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+  },
+  readerErrorTitle: { color: '#202026', fontSize: 17, fontWeight: '800' },
+  readerErrorText: { marginTop: 7, color: '#77736E', fontSize: 13, lineHeight: 19 },
+  footer: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#D8D1C4',
+    backgroundColor: '#FBF7EF',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  positionText: { marginLeft: 'auto', color: '#77736E', fontSize: 11, fontWeight: '800' },
+  nightText: { color: '#F3EEDF' },
+  nightMuted: { color: '#A7A39A' },
+  panelOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end' },
+  panelBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.40)' },
+  panel: {
+    maxHeight: '74%',
+    minHeight: 320,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: '#FBF7EF',
+    paddingHorizontal: 18,
+    paddingBottom: 22,
+  },
+  panelNight: { backgroundColor: '#17191F' },
+  panelHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    marginTop: 9,
+    marginBottom: 12,
+    borderRadius: 2,
+    backgroundColor: 'rgba(127,127,127,0.34)',
+  },
+  panelHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  panelTitle: { color: '#202026', fontSize: 20, fontWeight: '900' },
+  panelSubtitle: { marginTop: 3, color: '#77736E', fontSize: 12 },
+  panelClose: { color: '#202026', fontSize: 30, lineHeight: 32 },
+  noteTypeRow: { flexDirection: 'row', marginTop: 18, gap: 8 },
+  noteTypeChip: {
+    borderWidth: 1,
+    borderColor: 'rgba(127,127,127,0.25)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  noteTypeChipActive: { borderColor: colors.black, backgroundColor: colors.black },
+  noteTypeText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  noteTypeTextActive: { color: colors.white },
+  noteTitleInput: {
+    minHeight: 48,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(127,127,127,0.25)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    paddingHorizontal: 13,
+    color: '#202026',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noteInput: {
+    minHeight: 138,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(127,127,127,0.25)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    padding: 13,
+    color: '#202026',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  inputNight: { borderColor: '#343741', backgroundColor: '#0F1116', color: '#F3EEDF' },
+  noteError: { marginTop: 8, color: colors.danger, fontSize: 12 },
+  saveButton: {
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    borderRadius: 15,
+    backgroundColor: colors.black,
+    paddingHorizontal: 16,
+  },
+  saveButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  notesList: { paddingTop: 14, paddingBottom: 20 },
+  emptyNotes: { color: '#77736E', fontSize: 14, lineHeight: 21, textAlign: 'center', padding: 28 },
+  noteCard: {
+    marginBottom: 9,
+    borderWidth: 1,
+    borderColor: '#DDD5C7',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    padding: 14,
+  },
+  noteCardNight: { borderColor: '#343741', backgroundColor: '#101218' },
+  noteAnchor: { color: colors.gold, fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  noteCardTitle: { marginTop: 5, color: '#202026', fontSize: 15, fontWeight: '800' },
+  noteCardContent: { marginTop: 5, color: '#77736E', fontSize: 13, lineHeight: 18 },
+  disabled: { opacity: 0.42 },
+  pressed: { opacity: 0.72 },
+});

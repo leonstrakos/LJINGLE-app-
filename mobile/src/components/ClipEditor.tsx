@@ -39,10 +39,15 @@ export function ClipEditor({ uri, start, end, onChange }: Props) {
   const duration = Math.max(0, status.duration || webDuration || 0);
   const stop = end ?? duration;
 
+  // // ljingleMemoryRadioAddSongCrashFixR1
+  // useAudioPlayer(uri) already owns/loads this source. Replacing the exact same
+  // just-mounted native source again can race the Expo Audio shared-object lifecycle
+  // on Android when a freshly picked file is rendered. Keep one source transition.
   useEffect(() => {
-    player.replace(uri);
     initialized.current = false;
-    return () => player.pause();
+    return () => {
+      try { player.pause(); } catch { /* native player may already be releasing */ }
+    };
   }, [player, uri]);
 
   useEffect(() => {

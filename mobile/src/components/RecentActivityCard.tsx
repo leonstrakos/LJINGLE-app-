@@ -1,3 +1,4 @@
+// ljingleZodiacPlayR1
 import {
   useMemo,
   useRef } from 'react';
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 
 import { activityAccents, colors } from '../theme/colors';
+import { ensureContrast } from '../theme/contrast';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import type { ActivityTimerResponse } from '../types/activity';
 import { formatDuration } from '../utils/activityTime';
@@ -42,15 +44,21 @@ const activityLabels: Record<ActivityTimerResponse['activityType'], string> = {
 
 export function RecentActivityCard({ activity, starting, onStart, onDismiss }: Props) {
   const accent = activityAccents[activity.activityType];
+  const playInk = aeroMode ? colors.white : ensureContrast(colors.background, accent.foreground, 4.5);
 
 
   // recentSwipeDismissV1 — either horizontal direction dismisses Continue only; history stays intact.
   const translateX = useRef(new Animated.Value(0)).current;
+  // ljingleCelestialRecentContinueTapFixR1: block swipe ownership while the Continue action is pressed
+  const continueTouchRef = useRef(false);
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) =>
-          !starting && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+          !continueTouchRef.current &&
+          !starting &&
+          Math.abs(gesture.dx) > 8 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
         onPanResponderMove: (_, gesture) => translateX.setValue(gesture.dx),
         onPanResponderRelease: (_, gesture) => {
           if (Math.abs(gesture.dx) >= 72) {
@@ -77,6 +85,126 @@ export function RecentActivityCard({ activity, starting, onStart, onDismiss }: P
       }),
     [onDismiss, starting, translateX],
   );
+  const celestialMode =
+    activeVisualSkinId === 'classic';
+
+  // ljingleCelestialRecentSeamlessListR1:branch
+  if (celestialMode) {
+    return (
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.celestialRecentMotion,
+          {
+            transform: [
+              { translateX },
+            ],
+          },
+        ]}
+      >
+        <View
+          style={
+            styles.celestialRecentRow
+          }
+        >
+          <View
+            style={
+              styles.celestialRecentCopy
+            }
+          >
+            <Text
+              style={[
+                styles.celestialRecentType,
+                {
+                  color:
+                    accent.foreground,
+                },
+              ]}
+            >
+              {
+                activityLabels[
+                  activity.activityType
+                ]
+              }
+            </Text>
+
+            <Text
+              numberOfLines={1}
+              style={
+                styles.celestialRecentLabel
+              }
+            >
+              {activity.label}
+            </Text>
+
+            <Text
+              style={
+                styles.celestialRecentTotal
+              }
+            >
+              {
+                formatDuration(
+                  activity.totalSeconds,
+                )
+              } ukupno
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              `Nastavi ${activity.label}`
+            }
+            disabled={
+              starting ||
+              !activity.activityId
+            }
+            hitSlop={22}
+            onPressIn={() => {
+              continueTouchRef.current = true;
+            }}
+            onPressOut={() => {
+              continueTouchRef.current = false;
+            }}
+            onPress={() => {
+              if (
+                starting ||
+                !activity.activityId
+              ) {
+                return;
+              }
+
+              onStart();
+            }}
+            style={({ pressed }) => [
+              styles.celestialRecentContinue,
+              pressed &&
+                !starting &&
+                styles.celestialRecentContinuePressed,
+              starting &&
+                styles.celestialRecentContinueDisabled,
+            ]}
+          >
+            {starting ? (
+              <ActivityIndicator
+                color={colors.text}
+                size="small"
+              />
+            ) : (
+              <Text
+                style={
+                  styles.celestialRecentContinueText
+                }
+              >
+                Nastavi  ›
+              </Text>
+            )}
+          </Pressable>
+        </View>
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
     <View style={[styles.card, aeroMode && styles.aeroCard]}>
@@ -117,10 +245,11 @@ export function RecentActivityCard({ activity, starting, onStart, onDismiss }: P
         />
       ) : null}
         {starting ? (
-          <ActivityIndicator color={colors.white} size="small" />
+          <ActivityIndicator color={playInk} size="small" />
         ) : (
           <Text style={[
           styles.continueIcon,
+          { color: playInk },
           aeroMode && styles.aeroPlayGlyphHidden,
         ]}>▶</Text>
         )}
@@ -135,6 +264,81 @@ export function RecentActivityCard({ activity, starting, onStart, onDismiss }: P
 // aeroPlayRepairV2Applied
 // aeroPlayContainLOCKV1
 const styles = StyleSheet.create({
+  // ljingleCelestialRecentSeamlessListR1:styles
+  celestialRecentMotion: {
+    marginBottom: 8,
+  },
+
+  celestialRecentRow: {
+    // ljingleCelestialTimerSmallerActionHitAreasR2:recent-inset
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+
+  celestialRecentCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  celestialRecentType: {
+    marginBottom: 2,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    opacity: 0.74,
+  },
+
+  celestialRecentLabel: {
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+    letterSpacing: -0.18,
+  },
+
+  celestialRecentTotal: {
+    marginTop: 2,
+    color: colors.textMuted,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '400',
+    opacity: 0.58,
+  },
+
+  celestialRecentContinue: {
+    // ljingleCelestialTimerSmallerActionHitAreasR2:recent
+    minHeight: 60,
+    minWidth: 132,
+    alignSelf: 'stretch',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 18,
+    paddingRight: 2,
+    paddingVertical: 6,
+  },
+
+  celestialRecentContinueText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '500',
+    opacity: 0.72,
+  },
+
+  celestialRecentContinuePressed: {
+    opacity: 0.46,
+  },
+
+  celestialRecentContinueDisabled: {
+    opacity: 0.36,
+  },
+
 
   aeroPlayButtonOverride: {
     position: 'relative',
@@ -420,3 +624,11 @@ const styles = StyleSheet.create({
     fontFamily: pixelMode ? 'monospace' : undefined,
   },
 });
+
+// ljingleCelestialRecentSeamlessListR1
+
+// ljingleCelestialRecentContinueTapFixR1
+
+// ljingleCelestialTimerFitRecentContinueTargetR1:recent
+
+// ljingleCelestialTimerSmallerActionHitAreasR2:recent

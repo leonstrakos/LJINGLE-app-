@@ -1,3 +1,4 @@
+// ljingleCataloguePdfInteractionFixR1
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -16,17 +17,28 @@ import { JingleBellIcon } from './JingleBellIcon';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import { semanticFeedback } from '../utils/semanticFeedback';
 import {
+  isPaletteInteractionLocked,
+  subscribePaletteInteractionLock,
+} from '../utils/paletteInteractionLock';
+import {
   getJingleBackgroundEnabled,
   subscribeJingleBackgroundEnabled,
 } from '../services/jinglePortalStylePreference';
 import { celestial, celestialAlpha } from '../theme/celestial';
 import { BellSearchGlyph } from './BellSearchGlyph';
 import { CollectionMemoryBoxGlyph } from './CollectionMemoryBoxGlyph';
+import { FirstRunTutorial } from './FirstRunTutorial';
+import { useMemoryAudio } from '../audio/MemoryAudioProvider';
+import { CompletionCelebrationOverlay } from './CompletionCelebrationOverlay';
+import { SemanticAliveOverlay } from './SemanticAliveOverlay';
+// completionCelebrationR1:portal-host
 
 // forkN5GlyphReorderV1
+// ljingleOnboardingPlayerV1
 
 export type JinglePortalRoute =
   | 'Today'
+  | 'JingleNetwork'
   | 'Catalogue'
   | 'Collections'
   | 'BookList'
@@ -45,14 +57,13 @@ type Props = {
 };
 
 const aeroMode = activeVisualSkinId === 'aero';
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 // forkN1CelestialHomeCommandBellV1
 
-// forkCJingleBrandLockV1
-// LJingle's floating bell is a brand object, not an accent-colored control.
-const JINGLE_BRAND_NAVY = '#071F4F';
-const JINGLE_BRAND_GOLD = '#DCA01F';
-const JINGLE_BRAND_GOLD_BORDER = 'rgba(226, 169, 45, 0.82)';
+// Portal controls follow the currently applied LJingle palette.
+const JINGLE_BRAND_NAVY = colors.navy;
+const JINGLE_BRAND_GOLD = colors.gold;
+const JINGLE_BRAND_GOLD_BORDER = colors.separator;
 const webGlassStyle =
   Platform.OS === 'web'
     ? ({
@@ -112,6 +123,12 @@ const catalogueDestinations: BellDestination[] = [
 
 const primaryDestinations: BellDestination[] = [
   {
+    route: 'JingleNetwork',
+    mark: '⌁',
+    title: 'Jingle Portal',
+    detail: 'Ljudi, shared catalogues i primljeni Jingles',
+  },
+  {
     route: 'Entries',
     mark: '✎',
     title: 'Zapisi',
@@ -140,13 +157,64 @@ const primaryDestinations: BellDestination[] = [
 // jingleLongPressHomeOnlyV1
 let suppressJinglePressUntil = 0;
 
+function playerTime(value: number) {
+  const safe = Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : 0;
+  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
+}
+
+// ljingleBrainRadioJingleMotionR1:portal
+function PortalTransportGlyphR1({
+  playing,
+}: {
+  playing: boolean;
+}) {
+  return (
+    <View
+      pointerEvents="none"
+      style={styles.portalTransportGlyphR1}
+    >
+      {playing ? (
+        <>
+          <View
+            style={[
+              styles.portalPauseBarR1,
+              styles.portalPauseLeftR1,
+            ]}
+          />
+          <View
+            style={[
+              styles.portalPauseBarR1,
+              styles.portalPauseRightR1,
+            ]}
+          />
+        </>
+      ) : (
+        <View style={styles.portalPlayTriangleR1} />
+      )}
+    </View>
+  );
+}
+
 export function JinglePortal({
   onNavigate,
   onOpenPalette,
 }: Props) {
+  const audio = useMemoryAudio();
   const [panelVisible, setPanelVisible] = useState(false);
+  const [portalInteractionLocked, setPortalInteractionLocked] = useState(isPaletteInteractionLocked());
   const [catalogueOpen, setCatalogueOpen] = useState(false);
   const [bellBackgroundEnabled, setBellBackgroundEnabled] = useState(false);
+
+  useEffect(() => subscribePaletteInteractionLock(() => {
+    const locked = isPaletteInteractionLocked();
+    setPortalInteractionLocked(locked);
+    if (locked) {
+      setPanelVisible(false);
+      setCatalogueOpen(false);
+    }
+  }), []);
 
   useEffect(() => {
     let active = true;
@@ -167,6 +235,37 @@ export function JinglePortal({
   const longPressTriggered = useRef(false);
   const ring = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(1)).current;
+  const playbackMotion = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    playbackMotion.stopAnimation();
+
+    if (!audio.playing) {
+      Animated.timing(playbackMotion, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(playbackMotion, {
+          toValue: 1,
+          duration: 1450,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(playbackMotion, {
+          toValue: 0.18,
+          duration: 1650,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [audio.playing, playbackMotion]);
 
   const animateBell = () => {
     ring.stopAnimation();
@@ -278,7 +377,31 @@ export function JinglePortal({
 
 
   const renderFloatingBell = (insidePanel = false) => (
-    <View style={[styles.anchor, insidePanel && styles.anchorOnPanel]}>
+    <View pointerEvents={portalInteractionLocked ? 'none' : 'auto'} style={[styles.anchor, insidePanel && styles.anchorOnPanel]}>
+      {audio.current ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.playbackBubble,
+            !audio.playing && styles.playbackBubblePaused,
+            {
+              opacity: playbackMotion.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.14, 0.40],
+              }),
+              transform: [
+                {
+                  scale: playbackMotion.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.96, 1.08],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
+
       {bellBackgroundEnabled ? (
         <View style={[styles.halo, aeroMode && styles.aeroHalo]} />
       ) : null}
@@ -290,6 +413,7 @@ export function JinglePortal({
       <Pressable
         accessibilityLabel={insidePanel ? 'Zatvori Jingle' : 'Jingle'}
         accessibilityRole="button"
+        disabled={portalInteractionLocked}
         delayLongPress={430}
         hitSlop={14}
         accessibilityHint={
@@ -298,12 +422,14 @@ export function JinglePortal({
             : 'Dodirni za Bell Menu. Drži za Početnu.'
         }
         onLongPress={() => {
+          if (portalInteractionLocked || isPaletteInteractionLocked()) return;
           longPressTriggered.current = true;
           suppressJinglePressUntil =
             Date.now() + 1000;
           goHomeFromBell();
         }}
         onPress={() => {
+          if (portalInteractionLocked || isPaletteInteractionLocked()) return;
           if (
             longPressTriggered.current ||
             Date.now() <
@@ -328,6 +454,24 @@ export function JinglePortal({
         ) : null}
 
         <Animated.View
+          style={{
+            transform: [
+              {
+                rotate: playbackMotion.interpolate({
+                  inputRange: [0, 0.25, 0.5, 0.75, 1],
+                  outputRange: ['0deg', '-2deg', '2.5deg', '-1.5deg', '0deg'],
+                }),
+              },
+              {
+                scale: playbackMotion.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.045],
+                }),
+              },
+            ],
+          }}
+        >
+        <Animated.View
           style={[
             styles.bellWrap,
             {
@@ -341,12 +485,18 @@ export function JinglePortal({
         >
           <JingleBellIcon active style={styles.bell} />
         </Animated.View>
+        </Animated.View>
+
+{/* ljingleMorningFixesV1:portalBadge — playback controls live inside the player, not on the global bell. */}
       </Pressable>
     </View>
   );
   return (
     <>
       {renderFloatingBell()}
+      <CompletionCelebrationOverlay />
+      {/* ljingleSemanticAliveR1:overlay */}
+      <SemanticAliveOverlay />
 
       <Modal
         animationType="fade"
@@ -397,6 +547,75 @@ export function JinglePortal({
               </View>
             </View>
 
+            {audio.current ? (
+              <View style={styles.nowPlaying}>
+                <View style={styles.nowPlayingTop}>
+                  <View style={styles.nowPlayingCopy}>
+                    <Text style={styles.nowPlayingEyebrow}>
+                      {audio.playing ? 'NOW PLAYING' : 'PAUSED'}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.nowPlayingTitle}>
+                      {audio.current.trackTitle}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.nowPlayingArtist}>
+                      {audio.current.artist || 'LJingle Memory Radio'}
+                      {' · '}
+                      {playerTime(audio.currentTime)}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      closePanel();
+                      onNavigate('MemoryRadio');
+                    }}
+                    style={({ pressed }) => [
+                      styles.openRadio,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.openRadioText}>RADIO ›</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.playerControls}>
+                  <Pressable
+                    accessibilityLabel="Prethodna frekvencija"
+                    accessibilityRole="button"
+                    onPress={audio.previous}
+                    style={({ pressed }) => [styles.playerControl, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.playerControlText}>|◀</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel={audio.playing ? 'Pauziraj' : 'Nastavi'}
+                    accessibilityRole="button"
+                    onPress={audio.toggleCurrent}
+                    style={({ pressed }) => [styles.playerControlMain, pressed && styles.pressed]}
+                  >
+                    <PortalTransportGlyphR1 playing={audio.playing} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Sljedeća frekvencija"
+                    accessibilityRole="button"
+                    onPress={audio.next}
+                    style={({ pressed }) => [styles.playerControl, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.playerControlText}>▶|</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Zaustavi reprodukciju"
+                    accessibilityRole="button"
+                    onPress={audio.stop}
+                    style={({ pressed }) => [styles.playerStop, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.playerStopText}>■</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
             <Pressable
               accessibilityRole="button"
               onPress={openPalette}
@@ -405,7 +624,7 @@ export function JinglePortal({
                 pressed && styles.pressed,
               ]}
             >
-              {activeVisualSkinId === 'classic' ? (
+              {(activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle') ? (
                 <View style={styles.searchMark}>
                   {/* forkN5GlyphReorderV1:bell-search */}
                   <BellSearchGlyph
@@ -488,7 +707,7 @@ export function JinglePortal({
                       >
                         <View style={styles.catalogueChildMark}>
                           {item.route === 'Collections' &&
-                          activeVisualSkinId === 'classic' ? (
+                          (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle') ? (
                             <>
                               {/* forkN5GlyphReorderV1:memory-box-nav */}
                               <CollectionMemoryBoxGlyph
@@ -569,12 +788,47 @@ export function JinglePortal({
           {renderFloatingBell(true)}
         </View>
       </Modal>
+
+      <FirstRunTutorial auto />
     </>
   );
 }
 
 // jinglePanelAccentCleanV1
 const styles = StyleSheet.create({
+  // ljingleBrainRadioJingleMotionR1:portal-styles
+  portalTransportGlyphR1: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  portalPauseBarR1: {
+    position: 'absolute',
+    top: 5,
+    width: 5,
+    height: 20,
+    borderRadius: 2.5,
+    backgroundColor: colors.background,
+  },
+  portalPauseLeftR1: {
+    left: 7,
+  },
+  portalPauseRightR1: {
+    right: 7,
+  },
+  portalPlayTriangleR1: {
+    width: 0,
+    height: 0,
+    marginLeft: 4,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 17,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: colors.background,
+  },
+
   // forkN1CelestialHomeCommandBellV1
   celestialSheetN1: {
     backgroundColor: celestial.night,
@@ -635,6 +889,18 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     backgroundColor: 'rgba(6, 55, 142, 0.10)',
   },
+  playbackBubble: {
+    position: 'absolute',
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    borderWidth: 1.5,
+    borderColor: 'rgba(220,160,31,0.88)',
+    backgroundColor: 'rgba(220,160,31,0.10)',
+  },
+  playbackBubblePaused: {
+    opacity: 0.24,
+  },
   button: {
     width: 54,
     height: 54,
@@ -671,6 +937,24 @@ const styles = StyleSheet.create({
     height: 15,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.34)',
+  },
+  playbackBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: JINGLE_BRAND_GOLD,
+    backgroundColor: JINGLE_BRAND_NAVY,
+  },
+  playbackBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 7,
+    fontWeight: '900',
   },
   aeroSheet: {
     backgroundColor: 'rgba(244, 252, 255, 0.86)',
@@ -823,6 +1107,125 @@ const styles = StyleSheet.create({
     // forkN1CelestialHomeCommandBellV1_brandSubtitle
     ...(celestialMode ? { color: celestialAlpha(celestial.ivory, 0.58) } : {}),
   },
+  nowPlaying: {
+    marginBottom: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: JINGLE_BRAND_GOLD_BORDER,
+    backgroundColor: celestialMode
+      ? celestial.nightSoft
+      : 'rgba(7,31,79,0.96)',
+    padding: 14,
+  },
+  nowPlayingTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  nowPlayingCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  nowPlayingEyebrow: {
+    color: JINGLE_BRAND_GOLD,
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  nowPlayingTitle: {
+    marginTop: 4,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  nowPlayingArtist: {
+    marginTop: 3,
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 10,
+  },
+  openRadio: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  openRadioText: {
+    color: JINGLE_BRAND_GOLD,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  playerControls: {
+    marginTop: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  playerControl: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  playerControlText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  playerControlMain: {
+    // ljingleRadioWhiteSilentR1:portal
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text,
+  },
+  playerControlMainText: {
+    color: colors.background,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  // ljingleReaderEntriesHighlightRadioR1: font-independent Android play/pause icon
+  playerPauseIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  playerPauseBar: {
+    width: 5,
+    height: 19,
+    borderRadius: 2,
+    backgroundColor: colors.background,
+  },
+  playerPlayTriangle: {
+    width: 0,
+    height: 0,
+    marginLeft: 3,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: colors.background,
+  },
+  playerStop: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  playerStopText: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 10,
+  },
   searchAction: {
     minHeight: 66,
     borderRadius: 18,
@@ -890,12 +1293,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: JINGLE_BRAND_NAVY,
+    backgroundColor: colors.gold,
     borderWidth: 1,
-    borderColor: JINGLE_BRAND_GOLD_BORDER,
+    borderColor: colors.gold,
   },
   catalogueMarkText: {
-    color: JINGLE_BRAND_GOLD,
+    color: colors.background,
     fontSize: 19,
     fontWeight: '800',
   },

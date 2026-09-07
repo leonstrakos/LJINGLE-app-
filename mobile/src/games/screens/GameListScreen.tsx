@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Image,
   FlatList,
@@ -13,8 +13,11 @@ import type { ViewToken } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../../components/AeroAtmosphere';
 
 import { FeedbackView } from '../../components/FeedbackView';
+import { CollectionFilterRail } from '../../components/CollectionFilterRail';
+import { collectionApi } from '../../services/collectionApi';
 import { colors } from '../../theme/colors';
 import { activeVisualSkinId } from '../../theme/visualSkins';
 import { registerUndo } from '../../utils/undoManager';
@@ -28,8 +31,9 @@ import { GameCard } from '../components/GameCard';
 import { gameApi } from '../services/gameApi';
 import { hydrateGameMetadata } from '../services/gameMetadataHydrator';
 // catalogueQuietModeV1
-import { getCatalogueDisplayMode } from '../../theme/catalogueDisplayMode';
+import { getCatalogueDisplayMode, useCatalogueDisplayMode } from '../../theme/catalogueDisplayMode';
 import { JingleBellIcon } from '../../components/JingleBellIcon';
+import type { CollectionFilterChip } from '../../types/collection';
 import {
   gameStatusLabels,
   gameStatuses,
@@ -40,11 +44,17 @@ import {
 
 import { CelestialAtmosphere } from '../../components/CelestialAtmosphere';
 import { celestial, celestialAlpha } from '../../theme/celestial';
+import { CelestialMotionLayer } from '../../components/CelestialMotionLayer';
+import { AnimatedPressable } from '../../components/AnimatedPressable';
+import { updateCelestialParallax } from '../../motion/celestialParallax';
 type Props = NativeStackScreenProps<GameStackParamList, 'GameList'>;
 
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+const classicLjingleMode = activeVisualSkinId === 'classic-ljingle';
 
 // gameStatePreservationV1
+type CatalogueView = 'LIST' | 'COVERS';
+
 type GameListPreservedStatus =
   | GameStatus
   | 'JINGLE'
@@ -52,13 +62,14 @@ type GameListPreservedStatus =
 
 type GameListPreservedState = {
   status: GameListPreservedStatus;
+  view?: CatalogueView;
   scrollOffset: number;
 };
 
 const GAME_STATE_KEY =
   catalogueStateKey('games');
 
-export function GameListScreen({ navigation }: Props) {
+export function GameListScreen({ navigation, route }: Props) {
   const initialScreenState = useRef(
     readScreenState<GameListPreservedState>(
       GAME_STATE_KEY,
@@ -78,15 +89,31 @@ export function GameListScreen({ navigation }: Props) {
 
   const [games, setGames] =
     useState<GameResponse[]>([]);
+  const [collectionFilters, setCollectionFilters] = useState<CollectionFilterChip[]>([]);
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
+    route.params?.collectionId ?? null,
+  );
 
   // jingleGamesV1
   const [status, setStatus] =
     useState<GameListPreservedStatus>(
       initialScreenState?.status ?? null,
     );
+  const [view, setView] = useState<CatalogueView>(initialScreenState?.view ?? 'LIST');
+  const [quickHeaderVisible, setQuickHeaderVisible] = useState(false);
+  const previousScrollY = useRef(0);
+  const catalogueMode = useCatalogueDisplayMode();
+  const coverGrid = view === 'COVERS' && catalogueMode !== 'compact';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectGameView = (value: CatalogueView) => {
+    setView(value);
+    setQuickHeaderVisible(false);
+    mergeScreenState<GameListPreservedState>(GAME_STATE_KEY, { view: value });
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  };
 
   const selectGameStatus = (
     value: GameListPreservedStatus,
@@ -98,6 +125,7 @@ export function GameListScreen({ navigation }: Props) {
       GAME_STATE_KEY,
       {
         status: value,
+        view,
         scrollOffset: 0,
       },
     );
@@ -119,6 +147,7 @@ export function GameListScreen({ navigation }: Props) {
       GAME_STATE_KEY,
       {
         status,
+        view,
         scrollOffset: offset,
       },
     );
@@ -178,15 +207,17 @@ export function GameListScreen({ navigation }: Props) {
     asRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
     try {
-      const loaded = await gameApi.getAll(
-        status && status !== 'JINGLE' ? status : undefined
-      );
+      const [loaded, nextCollectionFilters] = await Promise.all([
+        gameApi.getAll(status && status !== 'JINGLE' ? status : undefined),
+        collectionApi.getFilterChips('GAME').catch(() => [] as CollectionFilterChip[]),
+      ]);
 
       setGames(
         status === 'JINGLE'
           ? loaded.filter((game) => game.favourite)
           : loaded
       );
+      setCollectionFilters(nextCollectionFilters);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Dohvat igara nije uspio.');
     } finally {
@@ -200,6 +231,33 @@ export function GameListScreen({ navigation }: Props) {
       void loadGames();
     }, [loadGames]),
   );
+
+  const activeCollection = collectionFilters.find(
+    (chip) => chip.collectionId === activeCollectionId,
+  );
+  const visibleGames = activeCollection
+    ? games.filter((game) => activeCollection.itemIds.includes(game.gameId))
+    : games;
+
+  // ljingleCollectionChipsR1: collection detail taps land on the exact game row.
+  const requestedCollectionId = route.params?.collectionId?.trim() || null;
+  const focusGameId = route.params?.focusGameId?.trim() || null;
+  useEffect(() => {
+    if (requestedCollectionId && activeCollectionId !== requestedCollectionId) {
+      setActiveCollectionId(requestedCollectionId);
+      return;
+    }
+    if (!focusGameId || visibleGames.length === 0) return;
+    if (status !== null) { selectGameStatus(null); return; }
+    if (view !== 'LIST') { selectGameView('LIST'); return; }
+    const index = visibleGames.findIndex((game) => game.gameId === focusGameId);
+    if (index < 0) return;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.12 });
+      navigation.setParams({ focusGameId: undefined, collectionId: undefined });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [activeCollectionId, focusGameId, requestedCollectionId, status, view, visibleGames]);
 
   const toggleGameJingle = useCallback(async (game: GameResponse) => {
     const next = !game.favourite;
@@ -288,147 +346,99 @@ export function GameListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-      <View style={[styles.hero, celestialMode && styles.celestialHero]}>
-        {celestialMode ? <CelestialAtmosphere variant="games" /> : null}
-        <Text style={styles.eyebrow}>Katalog</Text>
-        <Text style={styles.heading}>Moje igre</Text>
-        {!loading && !error ? (
-          <Text style={styles.count}>
-            {games.length === 1 ? '1 igra u prikazu' : `${games.length} igara u prikazu`}
-          </Text>
-        ) : null}
-<View style={styles.quickActions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('GameMetadataSearch')}
-            style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.pressed]}
-          >
-            <Text style={styles.quickIcon}>⌕</Text>
-            <Text style={styles.quickLabel}>Online pretraga</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('GameForm')}
-            style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.pressed]}
-          >
-            <Text style={styles.quickIcon}>+</Text>
-            <Text style={styles.quickLabel}>Ručno dodaj</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filters}
-        >
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => selectGameStatus(null)}
-            style={[styles.filter, status === null && styles.filterSelected]}
-          >
-            <Text style={[styles.filterText, status === null && styles.filterTextSelected]}>Sve</Text>
-          </Pressable>
-          {gameStatuses.map((option) => (
-            <Pressable
-              key={option}
-              accessibilityRole="button"
-              onPress={() => selectGameStatus(option)}
-              style={[styles.filter, status === option && styles.filterSelected]}
-            >
-              <Text style={[styles.filterText, status === option && styles.filterTextSelected]}>
-                {gameStatusLabels[option]}
-              </Text>
-            </Pressable>
-          ))}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => selectGameStatus('JINGLE')}
-            style={[
-              styles.filter,
-              status === 'JINGLE' && styles.filterSelected,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                status === 'JINGLE' && styles.filterTextSelected,
-              ]}
-            >
-              Jingle
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-
-      {loading && games.length === 0 ? (
-        <FeedbackView type="loading" />
-      ) : error && games.length === 0 ? (
-        <FeedbackView type="error" message={error} onRetry={() => void loadGames()} />
-      ) : (
-        <FlatList
-          ref={listRef}
-          data={games}
-          onScroll={(event) => {
-            rememberGameScroll(
-              event.nativeEvent.contentOffset.y,
-            );
+      <FlatList
+        ref={listRef}
+        key={coverGrid ? 'game-covers' : 'game-list'}
+        data={visibleGames}
+        numColumns={coverGrid ? 3 : 1}
+        ListHeaderComponent={<View style={styles.scrollHeader}><View style={[styles.hero, celestialMode && styles.celestialHero]}>
+          {/* ljingleCelestialMotionLanguageR1:games */}
+          <CelestialMotionLayer preset="games" />{(celestialMode || classicLjingleMode) ? <CelestialAtmosphere variant="games" /> : null}<Text style={styles.eyebrow}>Katalog</Text><Text style={styles.heading}>Moje igre</Text>{!loading && !error ? <Text style={styles.count}>{visibleGames.length === 1 ? '1 igra u prikazu' : `${visibleGames.length} igara u prikazu`}</Text> : null}<View style={styles.quickActions}><Pressable accessibilityRole="button" onPress={() => navigation.navigate('GameMetadataSearch')} style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.pressed]}><Text style={styles.quickIcon}>⌕</Text><Text style={styles.quickLabel}>Online pretraga</Text></Pressable><Pressable accessibilityRole="button" onPress={() => navigation.navigate('GameForm')} style={({ pressed }) => [styles.quickAction, celestialMode && styles.celestialAction, pressed && styles.pressed]}><Text style={styles.quickIcon}>+</Text><Text style={styles.quickLabel}>Ručno dodaj</Text></Pressable></View></View>
+<CollectionFilterRail
+          leftInset={22}
+          topGap={6}
+          bottomGap={0}
+          activeCollectionId={activeCollectionId}
+          chips={collectionFilters}
+          onSelect={(collectionId) => {
+            setActiveCollectionId(collectionId);
+            selectGameStatus(null);
           }}
-          scrollEventThrottle={100}
-          onContentSizeChange={restoreGameScroll}
-          onViewableItemsChanged={onGameViewableItemsChanged}
-          viewabilityConfig={gameCoverViewability}
-          keyExtractor={(item) => item.gameId}
-          renderItem={({ item }) => (
-            <View style={styles.jingleRow}>
-              <GameCard
-                game={item}
-                onPress={() =>
-                  navigation.navigate('GameDetails', { gameId: item.gameId })
-                }
-              />
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'
-                }
-                onPress={() => void toggleGameJingle(item)}
-                style={({ pressed }) => [
-                  styles.jingleButton,
-                  pressed && styles.jinglePressed,
-                ]}
-              >
-                <JingleBellIcon
-                  active={item.favourite}
-                  inactiveOpacity={0.5}
-                  style={styles.jingleIcon}
-                />
-              </Pressable>
-            </View>
-          )}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={(
-            <FeedbackView
-              type="empty"
-              message={status ? 'Nema igara s odabranim statusom.' : 'Još nema igara u katalogu.'}
-            />
-          )}
-          refreshControl={(
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => void loadGames(true)}
-              tintColor={colors.black}
-              colors={[colors.black]}
-            />
-          )}
         />
-      )}
+<View style={styles.controlLine}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}><AnimatedPressable
+      cue="tap" accessibilityRole="button" onPress={() => selectGameStatus(null)} style={[styles.filter, status === null && styles.filterSelected]}>
+        {/* ljingleSemanticAliveR1:chips-games */}<Text style={[styles.filterText, status === null && styles.filterTextSelected]}>Sve</Text></AnimatedPressable>{gameStatuses.map((option) => <AnimatedPressable
+      cue="tap" key={option} accessibilityRole="button" onPress={() => selectGameStatus(option)} style={[styles.filter, status === option && styles.filterSelected]}>
+        {/* ljingleSemanticAliveR1:chips-games */}<Text style={[styles.filterText, status === option && styles.filterTextSelected]}>{gameStatusLabels[option]}</Text></AnimatedPressable>)}<AnimatedPressable
+      cue="tap" accessibilityRole="button" onPress={() => selectGameStatus('JINGLE')} style={[styles.filter, status === 'JINGLE' && styles.filterSelected]}>
+        {/* ljingleSemanticAliveR1:chips-games */}<Text style={[styles.filterText, status === 'JINGLE' && styles.filterTextSelected]}>Jingle</Text></AnimatedPressable></ScrollView>{catalogueMode !== 'compact' ? <Pressable accessibilityRole="button" onPress={() => selectGameView(coverGrid ? 'LIST' : 'COVERS')} style={styles.viewToggle}><Text style={styles.viewToggleText}>{coverGrid ? '☰' : '▦'}</Text></Pressable> : null}</View>
+</View>}
+        onScroll={(event) => {
+          const y =
+            event.nativeEvent
+              .contentOffset.y;
+
+          rememberGameScroll(y);
+
+          // ljingleSemanticAliveR21Exact:parallax-games
+          updateCelestialParallax(y);
+
+          if (y <= 8) {
+            setQuickHeaderVisible(false);
+          } else if (
+            y <
+            previousScrollY.current - 4
+          ) {
+            setQuickHeaderVisible(true);
+          } else if (
+            y >
+            previousScrollY.current + 8
+          ) {
+            setQuickHeaderVisible(false);
+          }
+
+          previousScrollY.current =
+            y;
+        }}
+        scrollEventThrottle={16}
+        onContentSizeChange={restoreGameScroll}
+        onViewableItemsChanged={coverGrid ? undefined : onGameViewableItemsChanged}
+        viewabilityConfig={gameCoverViewability}
+        keyExtractor={(item) => item.gameId}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({ offset: Math.max(0, index * Math.max(1, averageItemLength)), animated: false });
+          setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.12 }), 140);
+        }}
+        columnWrapperStyle={coverGrid ? styles.coverGridRow : undefined}
+        renderItem={({ item }) => coverGrid ? <View style={styles.coverGridItem}><GameCard game={item} coverOnly onPress={() => navigation.navigate('GameDetails', { gameId: item.gameId })} /></View> : <View style={styles.jingleRow}><GameCard game={item} onPress={() => navigation.navigate('GameDetails', { gameId: item.gameId })} /><Pressable accessibilityRole="button" accessibilityLabel={item.favourite ? 'Makni iz Jingle' : 'Dodaj u Jingle'} onPress={() => void toggleGameJingle(item)} style={({ pressed }) => [styles.jingleButton, pressed && styles.jinglePressed]}><JingleBellIcon active={item.favourite} inactiveOpacity={0.5} style={styles.jingleIcon} /></Pressable></View>}
+        contentContainerStyle={[styles.list, coverGrid && styles.coverGridList]}
+        ListEmptyComponent={loading ? <FeedbackView type="loading" /> : error ? <FeedbackView type="error" message={error} onRetry={() => void loadGames()} /> : <FeedbackView type="empty" message={status ? 'Nema igara s odabranim statusom.' : 'Još nema igara u katalogu.'} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadGames(true)} tintColor={colors.black} colors={[colors.black]} />}
+      />
+      {quickHeaderVisible ? <View style={styles.floatingHeader}><Text style={styles.floatingTitle}>Moje igre</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.floatingFilters}><AnimatedPressable
+      cue="tap" onPress={() => selectGameStatus(null)} style={[styles.filter, status === null && styles.filterSelected]}>
+        {/* ljingleSemanticAliveR1:chips-games */}<Text style={[styles.filterText, status === null && styles.filterTextSelected]}>Sve</Text></AnimatedPressable>{gameStatuses.map((option) => <AnimatedPressable
+      cue="tap" key={option} onPress={() => selectGameStatus(option)} style={[styles.filter, status === option && styles.filterSelected]}>
+        {/* ljingleSemanticAliveR1:chips-games */}<Text style={[styles.filterText, status === option && styles.filterTextSelected]}>{gameStatusLabels[option]}</Text></AnimatedPressable>)}<AnimatedPressable
+      cue="tap" onPress={() => selectGameStatus('JINGLE')} style={[styles.filter, status === 'JINGLE' && styles.filterSelected]}>
+        {/* ljingleSemanticAliveR1:chips-games */}<Text style={[styles.filterText, status === 'JINGLE' && styles.filterTextSelected]}>Jingle</Text></AnimatedPressable></ScrollView></View> : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollHeader: {},
+  coverGridList: { paddingHorizontal: 14 },
+  coverGridRow: { gap: 10, marginBottom: 10 },
+  coverGridItem: { flex: 1, maxWidth: '33.333%' },
+  controlLine: {
+    paddingHorizontal: 0,
+    marginBottom: 12, flexDirection: 'row', alignItems: 'center', marginTop: 6},
+  viewToggle: { width: 38, height: 38, marginLeft: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.fill, borderWidth: 1, borderColor: colors.separator },
+  viewToggleText: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  floatingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 8, paddingHorizontal: 18, paddingTop: 9, paddingBottom: 10, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.separator },
+  floatingTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 7 },
+  floatingFilters: { gap: 8, paddingRight: 12 },
   safeArea: { flex: 1, backgroundColor: colors.background },
   hero: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10 },
   eyebrow: { color: colors.textMuted, fontSize: 15, fontWeight: '600' },
@@ -456,18 +466,19 @@ const styles = StyleSheet.create({
   quickIcon: { color: colors.black, fontSize: 21, marginRight: 7 },
   quickLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
   pressed: { opacity: 0.65 },
-  filters: { gap: 8, paddingTop: 16, paddingBottom: 6 },
+  filters: {
+    paddingRight: 12, gap: 8, paddingTop: 16, paddingBottom: 6 },
   filter: {
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
   filterSelected: { backgroundColor: colors.black, borderColor: colors.black },
-  filterText: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  filterTextSelected: { color: colors.white },
+  filterText: { color: colors.text, fontSize: 13, fontWeight: '700'},
+  filterTextSelected: { color: colors.onAccent },
   list: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 34 },
   jingleRow: {
     position: 'relative',

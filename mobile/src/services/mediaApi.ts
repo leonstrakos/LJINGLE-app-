@@ -70,6 +70,16 @@ export const mediaApi = {
       body: JSON.stringify({ favourite }),
     }),
 
+  // catalogueFinalPolishV1: user-controlled Nebitno flag.
+  isIgnored: (mediaId: string) =>
+    apiRequest<{ ignored: boolean }>(`/media/${encodeURIComponent(mediaId)}/ignored`),
+
+  setIgnored: (mediaId: string, ignored: boolean) =>
+    apiRequest<{ ignored: boolean }>(`/media/${encodeURIComponent(mediaId)}/ignored`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ignored }),
+    }),
+
   patchMetadata: (mediaId: string, payload: MediaMetadataPatch) =>
     apiRequest<MediaResponse>(`/media/${encodeURIComponent(mediaId)}/metadata`, {
       method: 'PATCH',

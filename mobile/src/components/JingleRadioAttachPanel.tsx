@@ -1,3 +1,5 @@
+// ljingleMorningFixesV1:radioCrash
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -45,25 +47,27 @@ export function JingleRadioAttachPanel({
   items,
   onSaved,
 }: Props) {
-  const targets =
-    directJingleTargets(items);
+  const targets = useMemo(
+    () => directJingleTargets(items),
+    [items],
+  );
 
   const [selected, setSelected] =
-    React.useState<EntityReference | null>(
+    useState<EntityReference | null>(
       targets[0] ?? null,
     );
   const [picked, setPicked] =
-    React.useState<ImportedAudio | null>(null);
+    useState<ImportedAudio | null>(null);
   const [title, setTitle] =
-    React.useState('');
+    useState('');
   const [artist, setArtist] =
-    React.useState('');
+    useState('');
   const [saving, setSaving] =
-    React.useState(false);
+    useState(false);
   const [error, setError] =
-    React.useState<string | null>(null);
+    useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (
       selected &&
       targets.some(
@@ -80,7 +84,7 @@ export function JingleRadioAttachPanel({
     setSelected(
       targets[0] ?? null,
     );
-  }, [items, selected]);
+  }, [selected, targets]);
 
   const choose = async () => {
     setError(null);

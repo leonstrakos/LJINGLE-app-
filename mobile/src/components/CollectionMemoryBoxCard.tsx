@@ -1,40 +1,35 @@
 // forkLCollectionsMemoryBoxV2
 import {
-  Animated,
   PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
-  Easing,
 } from 'react-native';
 import {
-  useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { colors } from '../theme/colors';
+import { activeVisualSkinId } from '../theme/visualSkins';
 import type { CollectionSummary } from '../types/collection';
 import { DEFAULT_COLLECTION_SYMBOL } from '../utils/collectionSymbols';
 
-const ROW_STEP = 132;
-// collectionReorderMotionGeometryV1
-let activeDragRowStep = ROW_STEP;
-const STAR_GOLD = '#D3A11B';
+const DRAG_TRIGGER_PX = 76;
+const aeroMode = activeVisualSkinId === 'aero';
+const STAR_GOLD = aeroMode ? '#49AF4E' : '#D3A11B';
 
 type Props = {
   collection: CollectionSummary;
   index: number;
   count: number;
   reorderMode: boolean;
-  previewFromIndex: number | null;
-  previewTargetIndex: number | null;
+  reorderBusy: boolean;
   onOpen: () => void;
   onMove: (fromIndex: number, toIndex: number) => void;
-  onDrop: () => void;
-  onPreviewMove: (fromIndex: number, targetIndex: number) => void;
-  onPreviewClear: () => void;
+  onDrop: (moved: boolean) => void;
   onMoveButton: (fromIndex: number, toIndex: number) => void;
   onDragStateChange: (dragging: boolean) => void;
 };
@@ -48,241 +43,137 @@ export function CollectionMemoryBoxCard({
   index,
   count,
   reorderMode,
-  previewFromIndex,
-  previewTargetIndex,
+  reorderBusy,
   onOpen,
   onMove,
   onDrop,
-  onPreviewMove,
-  onPreviewClear,
   onMoveButton,
   onDragStateChange,
 }: Props) {
-  const dragY = useRef(new Animated.Value(0)).current;
-  const previewY = useRef(new Animated.Value(0)).current;
   const indexRef = useRef(index);
-  const startIndexRef = useRef(index);
-  const lastTargetRef = useRef(index);
-  const lastDyRef = useRef(0);
-  const rowStepRef = useRef(ROW_STEP);
+  const countRef = useRef(count);
+  const reorderModeRef = useRef(reorderMode);
   const draggingRef = useRef(false);
+  const movedRef = useRef(false);
+  const stepOriginRef = useRef(0);
+  const [draggingVisual, setDraggingVisual] = useState(false);
+
+  const callbacksRef = useRef({
+    onMove,
+    onDrop,
+    onDragStateChange,
+  });
 
   indexRef.current = index;
+  countRef.current = count;
+  reorderModeRef.current = reorderMode && !reorderBusy;
+  callbacksRef.current = {
+    onMove,
+    onDrop,
+    onDragStateChange,
+  };
 
-  // forkN51FinalMotionRadioProfileV1
-  // The collection array stays stable while the thumb is down. Instead,
-  // siblings slide into their would-be slots so the destination gap is visible
-  // before release. When preview state clears, the transform is reset in a
-  // layout effect so the real reordered layout replaces it without a flash.
-  useLayoutEffect(() => {
-    if (
-      !reorderMode ||
-      previewFromIndex == null ||
-      previewTargetIndex == null
-    ) {
-      previewY.stopAnimation();
-      previewY.setValue(0);
-      return;
-    }
+  const finishDrag = () => {
+    if (!draggingRef.current) return;
 
-    let offset = 0;
-    // Every sibling moves by the slot vacated by the dragged card.
-    // Using each sibling's own measured height causes overlap when card
-    // geometry differs even slightly.
-    const rowStep = activeDragRowStep;
+    const moved = movedRef.current;
+    draggingRef.current = false;
+    movedRef.current = false;
+    stepOriginRef.current = 0;
+    setDraggingVisual(false);
+    callbacksRef.current.onDragStateChange(false);
+    callbacksRef.current.onDrop(moved);
+  };
 
-    if (
-      previewFromIndex > previewTargetIndex &&
-      index >= previewTargetIndex &&
-      index < previewFromIndex
-    ) {
-      // Dragging upward: cards crossed by the dragged item move DOWN.
-      offset = rowStep;
-    } else if (
-      previewFromIndex < previewTargetIndex &&
-      index > previewFromIndex &&
-      index <= previewTargetIndex
-    ) {
-      // Dragging downward: cards crossed by the dragged item move UP.
-      offset = -rowStep;
-    }
-
-    previewY.stopAnimation();
-
-    Animated.timing(previewY, {
-      toValue: offset,
-      duration: 95,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [
-    index,
-    previewFromIndex,
-    previewTargetIndex,
-    previewY,
-    reorderMode,
-  ]);
-
+  // collectionReorderEngineV1: the old floating-card/preview-offset system is gone.
+  // The real keyed rows exchange one slot at a time, so FlatList always owns
+  // the only geometry on screen and cannot leave holes or overlapping cards.
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => reorderMode,
+        onStartShouldSetPanResponder: () =>
+          reorderModeRef.current,
+        onStartShouldSetPanResponderCapture: () =>
+          reorderModeRef.current,
         onMoveShouldSetPanResponder: (_event, gesture) =>
-          reorderMode && Math.abs(gesture.dy) > 2,
+          reorderModeRef.current && Math.abs(gesture.dy) > 2,
 
         onPanResponderGrant: () => {
+          if (!reorderModeRef.current) return;
+
           draggingRef.current = true;
-          startIndexRef.current = indexRef.current;
-          lastTargetRef.current = indexRef.current;
-          lastDyRef.current = 0;
-          dragY.stopAnimation();
-          dragY.setValue(0);
-
-          // Lock this card's actual measured slot geometry for every
-          // sibling preview until the gesture ends.
-          activeDragRowStep =
-            Math.max(
-              1,
-              rowStepRef.current,
-            );
-
-          onPreviewMove(
-            indexRef.current,
-            indexRef.current,
-          );
-          onDragStateChange(true);
+          movedRef.current = false;
+          stepOriginRef.current = 0;
+          setDraggingVisual(true);
+          callbacksRef.current.onDragStateChange(true);
         },
 
         onPanResponderMove: (_event, gesture) => {
           if (!draggingRef.current) return;
 
-          lastDyRef.current = gesture.dy;
+          let remaining = gesture.dy - stepOriginRef.current;
+          let safety = countRef.current;
 
-          const rowStep = activeDragRowStep;
-          const target = clamp(
-            startIndexRef.current +
-              Math.round(gesture.dy / rowStep),
-            0,
-            Math.max(0, count - 1),
-          );
+          while (
+            Math.abs(remaining) >= DRAG_TRIGGER_PX &&
+            safety > 0
+          ) {
+            safety -= 1;
 
-          if (target !== lastTargetRef.current) {
-            lastTargetRef.current = target;
-            onPreviewMove(
-              startIndexRef.current,
-              target,
+            const direction = remaining > 0 ? 1 : -1;
+            const fromIndex = indexRef.current;
+            const toIndex = clamp(
+              fromIndex + direction,
+              0,
+              Math.max(0, countRef.current - 1),
             );
-          }
 
-          dragY.setValue(gesture.dy);
-        },
-
-        onPanResponderRelease: () => {
-          if (!draggingRef.current) return;
-
-          draggingRef.current = false;
-
-          const fromIndex = startIndexRef.current;
-          const toIndex = lastTargetRef.current;
-          const rowStep = activeDragRowStep;
-          const displacement =
-            (toIndex - fromIndex) * rowStep;
-
-          // forkN51FinalMotionRadioProfileV1: first LAND the dragged card into the previewed gap while
-          // siblings are already displaced. Only after that tiny landing motion
-          // do we swap the real array and clear every temporary transform.
-          Animated.timing(dragY, {
-            toValue: displacement,
-            duration: fromIndex === toIndex ? 125 : 105,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start(() => {
-            if (fromIndex !== toIndex) {
-              onMove(fromIndex, toIndex);
-            } else {
-              onPreviewClear();
+            if (fromIndex === toIndex) {
+              stepOriginRef.current = gesture.dy;
+              break;
             }
 
-            // State changes above are batched in the same JS turn. Resetting the
-            // dragged transform now lets the final keyed layout replace the
-            // temporary gesture geometry without a visible rebound.
-            dragY.setValue(0);
-            previewY.setValue(0);
-            lastDyRef.current = 0;
-            onDragStateChange(false);
-            onDrop();
-          });
+            // Advance locally before React renders the new index. This keeps
+            // fast gestures deterministic even when several slots are crossed
+            // inside one native move event.
+            indexRef.current = toIndex;
+            stepOriginRef.current += direction * DRAG_TRIGGER_PX;
+            movedRef.current = true;
+            callbacksRef.current.onMove(fromIndex, toIndex);
+            remaining = gesture.dy - stepOriginRef.current;
+          }
         },
 
-        onPanResponderTerminate: () => {
-          draggingRef.current = false;
-          lastTargetRef.current = startIndexRef.current;
-          lastDyRef.current = 0;
-          onPreviewClear();
-
-          Animated.timing(dragY, {
-            toValue: 0,
-            duration: 140,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }).start(() => {
-            previewY.setValue(0);
-            onDragStateChange(false);
-          });
-        },
-
+        onPanResponderRelease: finishDrag,
+        onPanResponderTerminate: finishDrag,
         onPanResponderTerminationRequest: () => false,
       }),
-    [
-      count,
-      dragY,
-      onDragStateChange,
-      onDrop,
-      onMove,
-      onPreviewClear,
-      onPreviewMove,
-      previewY,
-      reorderMode,
-    ],
+    [],
   );
 
   const symbol = collection.symbol || DEFAULT_COLLECTION_SYMBOL;
 
   return (
-    <Animated.View
-      onLayout={(event) => {
-        const height = event.nativeEvent.layout.height;
-        if (height > 80) {
-          // shell margin is outside onLayout; include the visual inter-row gap.
-          rowStepRef.current = height + 14;
-        }
-      }}
+    <View
       style={[
         styles.shell,
         reorderMode && styles.shellReorder,
-        {
-          transform: [
-            {
-              translateY: Animated.add(
-                dragY,
-                previewY,
-              ),
-            },
-          ],
-        },
+        draggingVisual && styles.shellDragging,
       ]}
     >
       <View style={styles.backLayer} />
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Otvori kolekciju ${collection.name}`}
+        accessibilityLabel={'Otvori kolekciju ' + collection.name}
         disabled={reorderMode}
         onPress={onOpen}
         style={({ pressed }) => [
           styles.card,
+          aeroMode && styles.aeroCard,
           pressed && !reorderMode && styles.pressed,
           reorderMode && styles.cardReorder,
+          draggingVisual && styles.cardDragging,
         ]}
       >
         <View style={styles.stars} pointerEvents="none">
@@ -319,7 +210,11 @@ export function CollectionMemoryBoxCard({
           {!reorderMode ? (
             <Text style={styles.openLabel}>Otvori kutiju</Text>
           ) : (
-            <Text style={styles.reorderHint}>Povuci ručku za redoslijed</Text>
+            <Text style={styles.reorderHint}>
+              {reorderBusy
+                ? 'Spremanje redoslijeda…'
+                : 'Povuci ručku za redoslijed'}
+            </Text>
           )}
         </View>
 
@@ -327,12 +222,12 @@ export function CollectionMemoryBoxCard({
           <View style={styles.reorderTools}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Pomakni ${collection.name} gore`}
-              disabled={index <= 0}
+              accessibilityLabel={'Pomakni ' + collection.name + ' gore'}
+              disabled={reorderBusy || index <= 0}
               onPress={() => onMoveButton(index, index - 1)}
               style={[
                 styles.orderButton,
-                index <= 0 && styles.orderDisabled,
+                (reorderBusy || index <= 0) && styles.orderDisabled,
               ]}
             >
               <Text style={styles.orderButtonText}>↑</Text>
@@ -340,9 +235,16 @@ export function CollectionMemoryBoxCard({
 
             <View
               accessible
-              accessibilityLabel={`Povuci ${collection.name} za promjenu redoslijeda`}
+              accessibilityLabel={
+                'Povuci ' + collection.name + ' za promjenu redoslijeda'
+              }
               accessibilityRole="adjustable"
-              style={styles.dragHandle}
+              accessibilityState={{ disabled: reorderBusy }}
+              collapsable={false}
+              style={[
+                styles.dragHandle,
+                draggingVisual && styles.dragHandleActive,
+              ]}
               {...responder.panHandlers}
             >
               <Text style={styles.dragHandleText}>≡</Text>
@@ -350,12 +252,13 @@ export function CollectionMemoryBoxCard({
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Pomakni ${collection.name} dolje`}
-              disabled={index >= count - 1}
+              accessibilityLabel={'Pomakni ' + collection.name + ' dolje'}
+              disabled={reorderBusy || index >= count - 1}
               onPress={() => onMoveButton(index, index + 1)}
               style={[
                 styles.orderButton,
-                index >= count - 1 && styles.orderDisabled,
+                (reorderBusy || index >= count - 1) &&
+                  styles.orderDisabled,
               ]}
             >
               <Text style={styles.orderButtonText}>↓</Text>
@@ -365,7 +268,7 @@ export function CollectionMemoryBoxCard({
           <Text style={styles.arrow}>›</Text>
         )}
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -375,7 +278,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingTop: 5,
   },
-  shellReorder: { zIndex: 20 },
+  shellReorder: {
+    zIndex: 1,
+  },
+  shellDragging: {
+    zIndex: 3,
+    elevation: 7,
+  },
   backLayer: {
     position: 'absolute',
     left: 12,
@@ -397,8 +306,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     overflow: 'hidden',
   },
+  aeroCard: {
+    borderColor: 'rgba(255,255,255,0.94)',
+    shadowColor: colors.navySoft,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 4,
+  },
   cardReorder: {
     borderColor: STAR_GOLD,
+  },
+  cardDragging: {
+    backgroundColor: colors.fillStrong,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 7,
   },
   stars: {
     position: 'absolute',
@@ -485,8 +410,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.black,
   },
+  dragHandleActive: {
+    backgroundColor: STAR_GOLD,
+  },
   dragHandleText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 21,
     lineHeight: 24,
     fontWeight: '900',

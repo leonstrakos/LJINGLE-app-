@@ -5,7 +5,8 @@ import { activeVisualSkinId } from '../theme/visualSkins';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
+const aeroMode = activeVisualSkinId === 'aero';
 
 type Props = {
   type: 'loading' | 'error' | 'empty';
@@ -16,7 +17,7 @@ type Props = {
 export function FeedbackView({ type, message, onRetry }: Props) {
   if (type === 'loading') {
     return (
-      <View style={[styles.container, celestialMode && styles.celestialContainer]}>
+      <View style={[styles.container, aeroMode && styles.aeroContainer, celestialMode && styles.celestialContainer]}>
         <ActivityIndicator size="large" color={colors.black} />
         <Text style={[styles.message, celestialMode && styles.celestialMessage]}>Učitavanje knjiga…</Text>
       </View>
@@ -24,7 +25,7 @@ export function FeedbackView({ type, message, onRetry }: Props) {
   }
 
   return (
-    <View style={[styles.container, celestialMode && styles.celestialContainer]}>
+    <View style={[styles.container, aeroMode && styles.aeroContainer, celestialMode && styles.celestialContainer]}>
       <Text style={[styles.symbol, celestialMode && styles.celestialSymbol]}>{type === 'error' ? '!' : celestialMode ? '✦' : '⌁'}</Text>
       <Text style={[styles.title, celestialMode && styles.celestialTitle]}>
         {type === 'error' ? 'Nešto nije u redu' : 'Polica je još prazna'}
@@ -85,8 +86,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   retryText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontWeight: '700',
+  },
+  aeroContainer: {
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 28,
+    backgroundColor: colors.surface,
   },
   celestialContainer: {
     marginHorizontal: 8,
@@ -108,5 +116,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: celestialAlpha(celestial.gold, 0.62),
   },
-  celestialRetryText: { color: celestial.gold, letterSpacing: 0.55 },
+  celestialRetryText: { color: colors.onAccent, letterSpacing: 0.55 },
 });

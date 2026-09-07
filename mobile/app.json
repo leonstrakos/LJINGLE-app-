@@ -29,11 +29,6 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
-    "extra": {
-      "eas": {
-        "projectId": "f4e87cb2-98c6-4cbc-b66a-a59335828837"
-      }
-    },
     "icon": "./assets/logo.png",
     "plugins": [
       "expo-sqlite",
@@ -46,8 +41,14 @@
       ],
       "expo-asset",
       "onnxruntime-react-native",
-      "expo-secure-store"
+      "expo-secure-store",
+      "react-native-pdf-jsi"
     ],
-    "owner": "lekistra"
+    "owner": "noviaccleki",
+    "extra": {
+      "eas": {
+        "projectId": "6045e9c9-8044-47dc-97fb-fc2a9d8bb205"
+      }
+    }
   }
 }

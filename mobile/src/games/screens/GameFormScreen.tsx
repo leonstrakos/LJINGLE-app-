@@ -12,13 +12,15 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../../components/AeroAtmosphere';
 
 import { FeedbackView } from '../../components/FeedbackView';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
-import { semanticFeedback } from '../../utils/semanticFeedback';
 import { gameApi } from '../services/gameApi';
 import { createdFeedback } from '../../utils/crudFeedback';
+import { triggerCompletionCelebration } from '../../services/completionCelebration';
+// completionCelebrationR1:game-form
 import {
   enjoymentLabels,
   enjoymentOptions,
@@ -84,6 +86,7 @@ export function GameFormScreen({ route, navigation }: Props) {
   const [platform, setPlatform] = useState(prefill?.platforms[0] ?? '');
   const [releaseYear, setReleaseYear] = useState(prefill?.releaseYear ? String(prefill.releaseYear) : '');
   const [gameStatus, setGameStatus] = useState<GameStatus>('BACKLOG');
+  const [initialGameStatus, setInitialGameStatus] = useState<GameStatus | null>(null);
   const [progress, setProgress] = useState('0');
   const [enjoyment, setEnjoyment] = useState<Enjoyment | null>(null);
   const [favourite, setFavourite] = useState(false);
@@ -109,6 +112,7 @@ export function GameFormScreen({ route, navigation }: Props) {
         setPlatform(game.platform);
         setReleaseYear(game.releaseYear ? String(game.releaseYear) : '');
         setGameStatus(game.gameStatus);
+        setInitialGameStatus(game.gameStatus);
         setProgress(String(game.progress));
         setEnjoyment(game.enjoyment);
         setFavourite(game.favourite);
@@ -177,6 +181,16 @@ export function GameFormScreen({ route, navigation }: Props) {
     try {
       if (gameId) {
         await gameApi.update(gameId, payload);
+        if (
+          initialGameStatus !== null &&
+          initialGameStatus !== 'COMPLETED' &&
+          payload.gameStatus === 'COMPLETED'
+        ) {
+          triggerCompletionCelebration({
+            kind: 'GAME',
+            title: payload.title,
+          });
+        }
       } else {
         await gameApi.create(payload);
 
@@ -198,6 +212,7 @@ export function GameFormScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="games" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -267,15 +282,7 @@ export function GameFormScreen({ route, navigation }: Props) {
                   <Pressable
                     key={option}
                     onPress={() => {
-                      if (
-                        option === 'COMPLETED' &&
-                        gameStatus !== 'COMPLETED'
-                      ) {
-                        // semanticCompletionFeedbackV1
-                        void semanticFeedback.complete();
-                      }
-
-                      setGameStatus(option);
+setGameStatus(option);
                     }}
                     style={[styles.choice, gameStatus === option && styles.choiceSelected]}
                   >
@@ -395,7 +402,7 @@ const styles = StyleSheet.create({
   },
   choiceSelected: { backgroundColor: colors.black, borderColor: colors.black },
   choiceText: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  choiceTextSelected: { color: colors.white },
+  choiceTextSelected: { color: colors.onAccent },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchCopy: { flex: 1 },
   switchHint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },

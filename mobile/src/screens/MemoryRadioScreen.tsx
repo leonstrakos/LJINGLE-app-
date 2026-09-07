@@ -20,6 +20,7 @@ import {
 import { useFocusEffect,
   useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { useMemoryAudio } from '../audio/MemoryAudioProvider';
 import { MemoryPlayer } from '../components/MemoryPlayer';
@@ -27,16 +28,11 @@ import { EntryMarkup } from '../components/EntryMarkup';
 import { JingleRadioAttachPanel } from '../components/JingleRadioAttachPanel';
 import { FrequencyLinksPanel } from '../components/FrequencyLinksPanel';
 import { FrequencyCollectionsPanel } from '../components/FrequencyCollectionsPanel';
-import { FrequencyShareSheet } from '../components/FrequencyShareSheet';
 import { ClipEditor } from '../components/ClipEditor';
 import { entryApi } from '../services/entryApi';
 import { memoryRadioApi,
   pickLocalAudio } from '../services/memoryRadioApi';
 import { entityLinksApi } from '../services/entityLinksApi';
-import {
-  sharePortableFrequencyAs,
-  type PortableFrequencyShareMode,
-} from '../services/portableExport';
 import {
   getFrequencyCoverMap,
   pickFrequencyCover,
@@ -65,12 +61,14 @@ import {
 import { colors } from '../theme/colors';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
 import { activeVisualSkinId } from '../theme/visualSkins';
+import { CelestialMotionLayer } from '../components/CelestialMotionLayer';
+import { ReactiveAmbientField } from '../components/ReactiveAmbientField';
 
 // forkN4CelestialArchiveVisualV12
 // Classic-only celestial archive skin.
 // IMPORTANT: celestial *language* is fixed, but its palette stays driven by
 // ThemePicker semantic colors. Pixel + Aero (Meadow/Frutiger) stay untouched.
-const n4Celestial = activeVisualSkinId === 'classic';
+const n4Celestial = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const N4_NIGHT = colors.background;
 const N4_PANEL = colors.surface;
 const N4_PANEL_RAISED = colors.fillStrong;
@@ -84,8 +82,8 @@ const N4_MUTED = colors.textMuted;
 import type { Entry } from '../types/entry';
 import type { EntityReference } from '../types/collection';
 import type { ImportedAudio, MemoryTrack } from '../types/memoryRadio';
-import { ShareGlyph } from '../components/ShareGlyph';
 
+// ljingleOnboardingPlayerV1
 
 const n4Dust = [
   ['7%', 34, 2, 0.32], ['18%', 112, 1, 0.22], ['31%', 64, 2, 0.42],
@@ -184,6 +182,9 @@ export function MemoryRadioScreen() {
   ] = useState<EntityReference[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  // ljingleRadioEntrySearchPickerR2
+  const [entrySearchQuery, setEntrySearchQuery] =
+    useState('');
   const [anchorText, setAnchorText] = useState<string | null>(null);
   const [picked, setPicked] = useState<ImportedAudio | null>(null);
   const [title, setTitle] = useState('');
@@ -216,13 +217,8 @@ export function MemoryRadioScreen() {
   const [editRemoveCover, setEditRemoveCover] =
     useState(false);
 
-  const [shareTrackId, setShareTrackId] =
-    useState<string | null>(null);
-  const [shareBusy, setShareBusy] = useState(false);
-  const [shareStatus, setShareStatus] =
-    useState<string | null>(null);
-  const [shareError, setShareError] =
-    useState<string | null>(null);
+  const [frequenciesOpen, setFrequenciesOpen] =
+    useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const bass = useRef(new Animated.Value(0)).current;
@@ -254,7 +250,17 @@ export function MemoryRadioScreen() {
       setJingleReferences(
         nextJingleReferences,
       );
-      setSelectedEntryId((current) => current ?? nextEntries[0]?.entryId ?? null);
+      // radioStandaloneAddR1
+      // Zapis is optional. Never silently attach a new song to the first note.
+      setSelectedEntryId((current) =>
+        current &&
+        nextEntries.some(
+          (entry) =>
+            entry.entryId === current,
+        )
+          ? current
+          : null,
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Memory Radio se nije učitao.');
     } finally {
@@ -296,6 +302,63 @@ export function MemoryRadioScreen() {
   }, [load]));
 
   const selectedEntry = entries.find((entry) => entry.entryId === selectedEntryId) ?? null;
+
+  const entrySearchResults = useMemo(() => {
+    const normalizeEntrySearch = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const query =
+      normalizeEntrySearch(entrySearchQuery);
+
+    const terms =
+      query.split(/\s+/).filter(Boolean);
+
+    const selectedFirst =
+      selectedEntryId
+        ? [
+            ...entries.filter(
+              (entry) =>
+                entry.entryId === selectedEntryId,
+            ),
+            ...entries.filter(
+              (entry) =>
+                entry.entryId !== selectedEntryId,
+            ),
+          ]
+        : entries;
+
+    if (terms.length === 0) {
+      return selectedFirst.slice(0, 12);
+    }
+
+    return selectedFirst
+      .filter((entry) => {
+        const haystack =
+          normalizeEntrySearch(
+            [
+              entry.title,
+              entry.content,
+            ]
+              .filter(Boolean)
+              .join(' '),
+          );
+
+        return terms.every((term) =>
+          haystack.includes(term),
+        );
+      })
+      .slice(0, 24);
+  }, [
+    entries,
+    entrySearchQuery,
+    selectedEntryId,
+  ]);
   const anchors = useMemo(
     () => selectedEntry ? boldFragments(selectedEntry.content) : [],
     [selectedEntry],
@@ -447,19 +510,31 @@ export function MemoryRadioScreen() {
   };
 
   const save = async () => {
-    if (!picked || !selectedEntryId || saving) return;
+    if (!picked || saving) return;
     setSaving(true);
     setError(null);
     try {
-      await memoryRadioApi.attach({
-        ...picked,
-        title: title.trim() || picked.title,
-        artist: artist.trim(),
-        entryId: selectedEntryId,
-        anchorText,
-        clipStartSeconds: clipStart,
-        clipEndSeconds: clipEnd,
-      });
+      if (selectedEntryId) {
+        await memoryRadioApi.attach({
+          ...picked,
+          title: title.trim() || picked.title,
+          artist: artist.trim(),
+          entryId: selectedEntryId,
+          anchorText,
+          clipStartSeconds: clipStart,
+          clipEndSeconds: clipEnd,
+        });
+      } else {
+        // Standalone frequency: audio_tracks only, no fake/forced Zapis.
+        await memoryRadioApi.createStandalone({
+          ...picked,
+          title:
+            title.trim() ||
+            picked.title,
+          artist:
+            artist.trim(),
+        });
+      }
       setPicked(null);
       setTitle('');
       setArtist('');
@@ -674,76 +749,7 @@ export function MemoryRadioScreen() {
     }
   };
 
-  const shareMemory =
-    memories.find(
-      (memory) =>
-        memory.trackId === shareTrackId,
-    ) ?? null;
 
-  const openFrequencyShare = (
-    memory: MemoryTrack,
-  ) => {
-    if (shareBusy) return;
-    setShareStatus(null);
-    setShareError(null);
-    setShareTrackId(memory.trackId);
-  };
-
-  const closeFrequencyShare = () => {
-    if (shareBusy) return;
-    setShareTrackId(null);
-    setShareStatus(null);
-    setShareError(null);
-  };
-
-  const shareFrequencyAs = async (
-    mode: PortableFrequencyShareMode,
-  ) => {
-    if (!shareMemory || shareBusy) return;
-
-    const trackId = shareMemory.trackId;
-    setShareBusy(true);
-    setShareStatus(null);
-    setShareError(null);
-    setError(null);
-
-    if (mode !== 'bridge') {
-      setShareTrackId(null);
-    }
-
-    try {
-      const result =
-        await sharePortableFrequencyAs(
-          trackId,
-          mode,
-        );
-
-      if (
-        mode === 'bridge' &&
-        result.toBridgeId
-      ) {
-        setShareStatus(
-          'Poslano preko Bridgea na ' +
-            result.toBridgeId +
-            '.',
-        );
-      }
-    } catch (caught) {
-      if (mode !== 'bridge') {
-        setShareTrackId(trackId);
-      }
-
-      const message =
-        caught instanceof Error
-          ? caught.message
-          : 'Share nije uspio.';
-
-      setShareError(message);
-      setError(message);
-    } finally {
-      setShareBusy(false);
-    }
-  };
 
   const shuffle = () => {
     if (station.pool.length === 0) return;
@@ -769,13 +775,14 @@ export function MemoryRadioScreen() {
       ];
 
     if (next) {
-      audio.play(next);
+      audio.play(next, station.pool);
     }
   };
 
   if (loading && memories.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="radio" />
         <View style={styles.center}><ActivityIndicator color={colors.navy} size="large" /></View>
       </SafeAreaView>
     );
@@ -783,9 +790,14 @@ export function MemoryRadioScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      {/* ljingleSemanticAliveR1:radio */}
+      <ReactiveAmbientField mode="radio" active={Boolean(audio.current && audio.playing)} />
+      <AeroAtmosphere variant="radio" />
       <N4CelestialDust />
         <ScrollView ref={radioScrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
+          {/* ljingleCelestialMotionLanguageR1:radio */}
+          <CelestialMotionLayer preset="radio" active={Boolean(audio.current && audio.playing)} />
           <CelestialAtmosphere variant="radio" />
           {n4Celestial ? <Text style={styles.n4HeroConstellation}>✦ · ✧ · ✦</Text> : null}
           <Text style={styles.kicker}>LJINGLE 2001. FM</Text>
@@ -967,7 +979,8 @@ export function MemoryRadioScreen() {
                       accessibilityRole="button"
                       onPress={() =>
                         audio.play(
-                          lostSignalTrack
+                          lostSignalTrack,
+                          station.pool,
                         )
                       }
                       style={({ pressed }) => [
@@ -1094,7 +1107,16 @@ export function MemoryRadioScreen() {
                   : 'Nepovezana frekvencija — audio je sačuvan, ali nije vezan uz Zapis.'}
                 </Text>
               )}
-              <View style={styles.playerGap}><MemoryPlayer memory={featured} /></View>
+              <View style={styles.playerGap}>
+                <MemoryPlayer
+                  memory={featured}
+                  queue={
+                    featuredIsFromAnotherStation
+                      ? memories
+                      : station.pool
+                  }
+                />
+              </View>
               <Pressable onPress={shuffle} style={({ pressed }) => [styles.shuffle, pressed && styles.pressed]}>
                 <Text style={styles.shuffleText}>Pronađi drugo sjećanje</Text>
               </Pressable>
@@ -1102,7 +1124,7 @@ export function MemoryRadioScreen() {
           ) : (
             <Text style={styles.emptyBroadcast}>
               {memories.length === 0
-                ? 'Poveži prvu pjesmu sa zapisom i radio će se probuditi.'
+                ? 'Dodaj prvu pjesmu i radio će se probuditi.'
                 : station.emptyText}
             </Text>
           )}
@@ -1126,13 +1148,73 @@ export function MemoryRadioScreen() {
             items={jingleReferences}
             onSaved={load}
           />
-        ) : entries.length === 0 ? (
-          <View style={styles.card}><Text style={styles.emptyText}>Prvo napravi barem jedan Zapis.</Text></View>
         ) : (
           <View style={styles.card}>
-            <Text style={styles.label}>Zapis</Text>
+            <Text style={styles.label}>Zapis · neobavezno</Text>
+
+            <View style={styles.entrySearchWrap}>
+              <TextInput
+                accessibilityLabel="Pretraži zapise za Radio"
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={setEntrySearchQuery}
+                placeholder="Pretraži naslov ili tekst Zapisa…"
+                placeholderTextColor={colors.textMuted}
+                style={styles.entrySearchInput}
+                value={entrySearchQuery}
+              />
+
+              {entrySearchQuery ? (
+                <Pressable
+                  accessibilityLabel="Očisti pretragu Zapisa"
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => setEntrySearchQuery('')}
+                  style={({ pressed }) => [
+                    styles.entrySearchClear,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.entrySearchClearText}>
+                    ×
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <Text style={styles.entrySearchMeta}>
+              {entrySearchQuery.trim()
+                ? `${entrySearchResults.length}${
+                    entrySearchResults.length === 24 ? '+' : ''
+                  } rezultata`
+                : entries.length === 0
+                  ? 'Nema Zapisa · pjesmu možeš spremiti samostalno'
+                  : `Nedavni Zapisi · ${entries.length} ukupno`}
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {entries.map((entry) => (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setSelectedEntryId(null);
+                  setAnchorText(null);
+                }}
+                style={[
+                  styles.chip,
+                  selectedEntryId === null &&
+                    styles.chipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedEntryId === null &&
+                      styles.chipTextActive,
+                  ]}
+                >
+                  Bez Zapisa
+                </Text>
+              </Pressable>
+              {entrySearchResults.map((entry) => (
                 <Pressable
                   key={entry.entryId}
                   onPress={() => { setSelectedEntryId(entry.entryId); setAnchorText(null); }}
@@ -1145,21 +1227,25 @@ export function MemoryRadioScreen() {
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Veza</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              <Pressable onPress={() => setAnchorText(null)} style={[styles.chip, anchorText === null && styles.chipActive]}>
-                <Text style={[styles.chipText, anchorText === null && styles.chipTextActive]}>Cijeli zapis</Text>
-              </Pressable>
-              {anchors.map((anchor) => (
-                <Pressable key={anchor} onPress={() => setAnchorText(anchor)} style={[styles.chip, anchorText === anchor && styles.chipActive]}>
-                  <Text numberOfLines={1} style={[styles.chipText, anchorText === anchor && styles.chipTextActive]}>{anchor}</Text>
+            {selectedEntryId ? (
+              <>
+              <Text style={styles.label}>Veza</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                <Pressable onPress={() => setAnchorText(null)} style={[styles.chip, anchorText === null && styles.chipActive]}>
+                  <Text style={[styles.chipText, anchorText === null && styles.chipTextActive]}>Cijeli zapis</Text>
                 </Pressable>
-              ))}
-            </ScrollView>
+                {anchors.map((anchor) => (
+                  <Pressable key={anchor} onPress={() => setAnchorText(anchor)} style={[styles.chip, anchorText === anchor && styles.chipActive]}>
+                    <Text numberOfLines={1} style={[styles.chipText, anchorText === anchor && styles.chipTextActive]}>{anchor}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              </>
+            ) : null}
 
             <Pressable onPress={() => void chooseFile()} style={({ pressed }) => [styles.fileButton, pressed && styles.pressed]}>
               <Text style={styles.fileButtonTitle}>{picked ? picked.originalName : 'Odaberi audio datoteku'}</Text>
-              <Text style={styles.fileButtonCopy}>{picked ? 'Datoteka je spremna za povezivanje.' : 'MP3, M4A, WAV ili drugi format koji uređaj podržava'}</Text>
+              <Text style={styles.fileButtonCopy}>{picked ? 'Datoteka je spremna za Memory Radio.' : 'MP3, M4A, WAV ili drugi format koji uređaj podržava'}</Text>
             </Pressable>
 
             {picked ? (
@@ -1168,14 +1254,24 @@ export function MemoryRadioScreen() {
                 <TextInput value={title} onChangeText={setTitle} placeholder="Naslov" placeholderTextColor={colors.textMuted} style={styles.input} />
                 <Text style={styles.label}>Izvođač</Text>
                 <TextInput value={artist} onChangeText={setArtist} placeholder="Neobavezno" placeholderTextColor={colors.textMuted} style={styles.input} />
-                <ClipEditor
-                  uri={picked.fileUri}
-                  start={clipStart}
-                  end={clipEnd}
-                  onChange={(start, end) => { setClipStart(start); setClipEnd(end); }}
-                />
+                {selectedEntryId ? (
+                  <ClipEditor
+                    uri={picked.fileUri}
+                    start={clipStart}
+                    end={clipEnd}
+                    onChange={(start, end) => { setClipStart(start); setClipEnd(end); }}
+                  />
+                ) : (
+                  <Text style={styles.sectionCopy}>
+                    Bez Zapisa sprema se cijela pjesma. Zapis možeš povezati kasnije.
+                  </Text>
+                )}
                 <Pressable disabled={saving} onPress={() => void save()} style={({ pressed }) => [styles.save, pressed && styles.pressed, saving && styles.disabled]}>
-                  <Text style={styles.saveText}>{saving ? 'Spremanje...' : 'Poveži sjećanje i pjesmu'}</Text>
+                  <Text style={styles.saveText}>{saving
+                    ? 'Spremanje...'
+                    : selectedEntryId
+                      ? 'Spremi i poveži'
+                      : 'Spremi u Memory Radio'}</Text>
                 </Pressable>
               </>
             ) : null}
@@ -1187,8 +1283,24 @@ export function MemoryRadioScreen() {
         {memories.length > 0 ? (
           <View style={styles.library}>
             <N4CelestialRule />
-            <Text style={styles.sectionTitle}>Frekvencije</Text>
-            <Text style={styles.sectionCopy}>Odveži zadržava audio. Obriši uklanja frekvenciju i njezinu lokalnu kopiju.</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Otvori ili zatvori frekvenciju"
+              accessibilityState={{ expanded: frequenciesOpen }}
+              onPress={() => setFrequenciesOpen((current) => !current)}
+              style={({ pressed }) => [styles.frequencyLibraryHeader, pressed && styles.pressed]}
+            >
+              <View>
+                <Text style={styles.sectionTitle}>Frekvencije</Text>
+                <Text style={styles.sectionCopy}>{memories.length} spremljenih frekvencija</Text>
+              </View>
+              <Text style={styles.frequencyLibraryChevron}>
+                {frequenciesOpen ? '−' : '+'}
+              </Text>
+            </Pressable>
+            {frequenciesOpen ? (
+              <View style={styles.frequencyLibraryItems}>
+                <Text style={styles.sectionCopy}>Odveži zadržava audio. Obriši uklanja frekvenciju i njezinu lokalnu kopiju.</Text>
             {memories.map((memory) => {
               const busy = busyTrackId === memory.trackId;
               const confirming = confirmDeleteTrackId === memory.trackId;
@@ -1231,7 +1343,7 @@ export function MemoryRadioScreen() {
                   <View style={styles.frequencyHeader}>
                   <Pressable
                     disabled={busy}
-                    onPress={() => audio.play(memory)}
+                    onPress={() => audio.play(memory, memories)}
                     style={({ pressed }) => [styles.memoryRowCopy, pressed && styles.pressed]}
                   >
                     <Text
@@ -1264,19 +1376,6 @@ export function MemoryRadioScreen() {
                     />
                   ) : null}
 
-                  <Pressable
-                    accessibilityLabel="Share frequency"
-                    accessibilityRole="button"
-                    disabled={busy || shareBusy}
-                    onPress={() => openFrequencyShare(memory)}
-                    style={({ pressed }) => [
-                      styles.frequencyShare,
-                      pressed && styles.pressed,
-                      (busy || shareBusy) && styles.disabled,
-                    ]}
-                  >
-                    <ShareGlyph />
-                  </Pressable>
                 </View>
                 {/* portableFrequencyVisualPolishV1 */}
 
@@ -1394,7 +1493,7 @@ export function MemoryRadioScreen() {
 
                   {editingTrackId !== memory.trackId ? (
                     <View style={styles.rowActions}>
-                                          <Pressable disabled={busy} onPress={() => audio.play(memory)} style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}>
+                                          <Pressable disabled={busy} onPress={() => audio.play(memory, memories)} style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}>
                       <Text style={styles.rowPlay}>PLAY</Text>
                     </Pressable>
 
@@ -1444,31 +1543,19 @@ export function MemoryRadioScreen() {
                 </View>
               );
             })}
+              </View>
+            ) : null}
           </View>
         ) : null}
               <FrequencyCollectionsPanel
           memories={memories}
-          onPlay={(memory) =>
-            audio.play(memory)
+          onPlay={(memory, queue) =>
+            audio.play(memory, queue)
           }
         />
 
 </ScrollView>
 
-      <FrequencyShareSheet
-        busy={shareBusy}
-        error={shareError}
-        coverUri={
-          shareMemory
-            ? frequencyCovers[shareMemory.trackId] ?? null
-            : null
-        }
-        frequency={shareMemory}
-        onChoose={(mode) => void shareFrequencyAs(mode)}
-        onClose={closeFrequencyShare}
-        status={shareStatus}
-        visible={Boolean(shareMemory)}
-      />
       
     </SafeAreaView>
   );
@@ -1513,11 +1600,46 @@ const styles = StyleSheet.create({
   sectionCopy: { marginTop: 4, color: n4Celestial ? N4_MUTED : colors.textMuted, fontSize: 12 },
   card: { borderWidth: 1, borderColor: n4Celestial ? N4_GOLD_LINE : colors.separator, borderRadius: 28, backgroundColor: n4Celestial ? N4_PANEL : colors.surface, padding: 22 },
   label: { marginTop: 17, marginBottom: 8, color: n4Celestial ? N4_IVORY : colors.text, fontSize: 12, fontWeight: '800' },
+  entrySearchWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  entrySearchInput: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    paddingLeft: 14,
+    paddingRight: 44,
+    color: colors.text,
+    fontSize: 14,
+  },
+  entrySearchClear: {
+    position: 'absolute',
+    right: 4,
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entrySearchClearText: {
+    color: colors.textMuted,
+    fontSize: 22,
+    fontWeight: '500',
+  },
+  entrySearchMeta: {
+    marginTop: 7,
+    marginBottom: 8,
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
   chips: { paddingRight: 12 },
   chip: { maxWidth: 230, marginRight: 8, borderWidth: 1, borderColor: n4Celestial ? N4_GOLD_LINE : colors.border, borderRadius: 999, backgroundColor: n4Celestial ? N4_PANEL : colors.surface, paddingHorizontal: 14, paddingVertical: 10 },
   chipActive: { borderColor: colors.navy, backgroundColor: colors.navy },
   chipText: { color: n4Celestial ? N4_IVORY : colors.text, fontSize: 12, fontWeight: '700' },
-  chipTextActive: { color: colors.white },
+  chipTextActive: { color: colors.onAccent },
   fileButton: { marginTop: 22, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.navy, borderRadius: 19, backgroundColor: n4Celestial ? N4_BLUE : colors.fill, padding: 18 },
   fileButtonTitle: { color: n4Celestial ? N4_IVORY : colors.text, fontSize: 16, fontWeight: '900' },
   fileButtonCopy: { marginTop: 5, color: n4Celestial ? N4_MUTED : colors.textMuted, fontSize: 12, lineHeight: 18 },
@@ -1527,6 +1649,21 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   error: { marginTop: 14, borderRadius: 14, backgroundColor: colors.dangerSoft, padding: 13, color: colors.danger, fontSize: 13 },
   library: { marginTop: 35 },
+  frequencyLibraryHeader: {
+    minHeight: 64,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  frequencyLibraryChevron: {
+    color: n4Celestial ? N4_GOLD : colors.navy,
+    fontSize: 25,
+    fontWeight: '500',
+  },
+  frequencyLibraryItems: {
+    marginTop: 2,
+  },
   memoryRow: {
     marginTop: 11,
     borderWidth: 1,

@@ -12,12 +12,13 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { FeedbackView } from '../components/FeedbackView';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { bookApi } from '../services/bookApi';
+import { collectionApi } from '../services/collectionApi';
 import { colors } from '../theme/colors';
-import { semanticFeedback } from '../utils/semanticFeedback';
 import {
   enjoymentLabels,
   enjoymentOptions,
@@ -28,7 +29,10 @@ import {
   type ReadingStatus,
 } from '../types/book';
 import type { RootStackParamList } from '../types/navigation';
+import type { CollectionSummary } from '../types/collection';
 import { createdFeedback } from '../utils/crudFeedback';
+import { triggerCompletionCelebration } from '../services/completionCelebration';
+// completionCelebrationR1:book-form
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookForm'>;
 
@@ -83,6 +87,7 @@ export function BookFormScreen({ route, navigation }: Props) {
   const [isbn, setIsbn] = useState('');
   const [publishedYear, setPublishedYear] = useState('');
   const [readingStatus, setReadingStatus] = useState<ReadingStatus>('LATER');
+  const [initialReadingStatus, setInitialReadingStatus] = useState<ReadingStatus | null>(null);
   // // catalogueJingleProgressSemanticsV1:BookProgress
   const [legacyProgress, setLegacyProgress] = useState('0');
   const [totalPages, setTotalPages] = useState('');
@@ -96,6 +101,9 @@ export function BookFormScreen({ route, navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [allCollections, setAllCollections] = useState<CollectionSummary[]>([]);
+  const [bookCollectionIds, setBookCollectionIds] = useState<string[]>([]);
+  const [collectionBusy, setCollectionBusy] = useState<string | null>(null); // catalogueFinalPolishV1
 
   useEffect(() => {
     if (!bookId) return;
@@ -110,6 +118,7 @@ export function BookFormScreen({ route, navigation }: Props) {
         setIsbn(book.isbn || '');
         setPublishedYear(book.publishedYear > 0 ? String(book.publishedYear) : '');
         setReadingStatus(book.readingStatus);
+        setInitialReadingStatus(book.readingStatus);
         setLegacyProgress(String(book.progress));
         setTotalPages(
           book.totalPages
@@ -134,6 +143,40 @@ export function BookFormScreen({ route, navigation }: Props) {
 
     void loadBook();
   }, [bookId]);
+
+  useEffect(() => {
+    if (!bookId) return;
+    let active = true;
+    void Promise.all([
+      collectionApi.getAll(),
+      collectionApi.getForEntity('BOOK', bookId),
+    ]).then(([collections, memberships]) => {
+      if (!active) return;
+      setAllCollections(collections);
+      setBookCollectionIds(memberships.map((item) => item.collectionId));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [bookId]);
+
+  const toggleBookCollection = async (collection: CollectionSummary) => {
+    if (!bookId || collectionBusy) return;
+    setCollectionBusy(collection.collectionId);
+    try {
+      if (bookCollectionIds.includes(collection.collectionId)) {
+        const detail = await collectionApi.getById(collection.collectionId);
+        const membership = detail.items.find((item) => item.entityType === 'BOOK' && item.entityId === bookId);
+        if (membership) await collectionApi.removeItem(collection.collectionId, membership.itemId);
+      } else {
+        await collectionApi.addItem(collection.collectionId, 'BOOK', bookId);
+      }
+      const memberships = await collectionApi.getForEntity('BOOK', bookId);
+      setBookCollectionIds(memberships.map((item) => item.collectionId));
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : 'Kolekcija nije promijenjena.');
+    } finally {
+      setCollectionBusy(null);
+    }
+  };
 
   const validate = (): BookRequest | null => {
     const nextErrors: Record<string, string> = {};
@@ -256,6 +299,16 @@ export function BookFormScreen({ route, navigation }: Props) {
     try {
       if (bookId) {
         await bookApi.update(bookId, payload);
+        if (
+          initialReadingStatus !== null &&
+          initialReadingStatus !== 'COMPLETED' &&
+          payload.readingStatus === 'COMPLETED'
+        ) {
+          triggerCompletionCelebration({
+            kind: 'BOOK',
+            title: payload.title,
+          });
+        }
       } else {
         await bookApi.create(payload);
 
@@ -284,6 +337,7 @@ export function BookFormScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="books" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -357,15 +411,7 @@ export function BookFormScreen({ route, navigation }: Props) {
                     key={status}
                     accessibilityRole="button"
                     onPress={() => {
-                      if (
-                        status === 'COMPLETED' &&
-                        readingStatus !== 'COMPLETED'
-                      ) {
-                        // semanticCompletionFeedbackV1
-                        void semanticFeedback.complete();
-                      }
-
-                      setReadingStatus(status);
+setReadingStatus(status);
 
                       if (
                         status === 'COMPLETED' &&
@@ -459,6 +505,30 @@ export function BookFormScreen({ route, navigation }: Props) {
               </Text>
             ) : null}
 
+            {editing && allCollections.length > 0 ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>Kolekcije</Text>
+                <View style={styles.choiceList}>
+                  {allCollections.map((collection) => {
+                    const active = bookCollectionIds.includes(collection.collectionId);
+                    return (
+                      <Pressable
+                        key={collection.collectionId}
+                        accessibilityRole="button"
+                        disabled={collectionBusy !== null}
+                        onPress={() => void toggleBookCollection(collection)}
+                        style={[styles.choice, active && styles.choiceSelected, collectionBusy === collection.collectionId && { opacity: 0.55 }]}
+                      >
+                        <Text style={[styles.choiceText, active && styles.choiceTextSelected]}>
+                          {collection.symbol ? `${collection.symbol} ${collection.name}` : collection.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.field}>
               <Text style={styles.label}>Kako ti je bilo?</Text>
               <View style={styles.choiceList}>
@@ -550,7 +620,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   introText: {
-    color: colors.textMuted,
+    color: colors.onAccent,
     fontSize: 15,
     lineHeight: 21,
     marginTop: 8,
@@ -612,7 +682,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   choiceTextSelected: {
-    color: colors.white,
+    color: colors.onAccent,
   },
   optionalHint: {
     color: colors.textMuted,

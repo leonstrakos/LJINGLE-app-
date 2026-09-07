@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
 
   primaryText: {
-    color: colors.white,
+    color: colors.onAccent,
     fontSize: 11,
     fontWeight: '800',
   },

@@ -1,0 +1,1425 @@
+﻿
+  src\auth\AuthGate.tsx:305:  starTwo: { right: '12%', top: 126 },
+  src\auth\AuthGate.tsx:306:  starThree: { left: '17%', top: 180 },
+> src\auth\AuthGate.tsx:307:  constellationLineOne: { position: 'absolute', left: '9%', top: 93, width: 84, height: 1, backgroundColor: GOLD, opacity: 0.35, transform
+: [{ rotate: '18deg' }] },
+> src\auth\AuthGate.tsx:308:  constellationLineTwo: { position: 'absolute', right: '9%', top: 154, width: 70, height: 1, backgroundColor: GOLD, opacity: 0.28, transfo
+rm: [{ rotate: '-24deg' }] },
+  src\auth\AuthGate.tsx:309:  brand: { alignItems: 'center', marginBottom: 4 },
+  src\auth\AuthGate.tsx:310:  crownStar: { color: GOLD, fontSize: 25, lineHeight: 27 },
+  src\components\ActiveTimerCard.tsx:135:    fontWeight: '800',
+  src\components\ActiveTimerCard.tsx:136:    letterSpacing: 0.8,
+> src\components\ActiveTimerCard.tsx:137:    textTransform: 'uppercase',
+  src\components\ActiveTimerCard.tsx:138:  },
+  src\components\ActiveTimerCard.tsx:139:  openHint: {
+  src\components\ActivityCreateForm.tsx:136:    fontWeight: '800',
+  src\components\ActivityCreateForm.tsx:137:    letterSpacing: 0.8,
+> src\components\ActivityCreateForm.tsx:138:    textTransform: 'uppercase',
+  src\components\ActivityCreateForm.tsx:139:  },
+  src\components\ActivityCreateForm.tsx:140:  heading: {
+  src\components\AnimatedPressable.tsx:98:          : null,
+  src\components\AnimatedPressable.tsx:99:        {
+> src\components\AnimatedPressable.tsx:100:          transform: [
+  src\components\AnimatedPressable.tsx:101:            {
+  src\components\AnimatedPressable.tsx:102:              scale:
+  src\components\BellSearchGlyph.tsx:58:          borderRadius: stroke,
+  src\components\BellSearchGlyph.tsx:59:          backgroundColor: color,
+> src\components\BellSearchGlyph.tsx:60:          transform: [
+  src\components\BellSearchGlyph.tsx:61:            {
+  src\components\BellSearchGlyph.tsx:62:              rotate: '45deg',
+  src\components\BookCard.tsx:159:  pressed: {
+  src\components\BookCard.tsx:160:    opacity: 0.78,
+> src\components\BookCard.tsx:161:    transform: [{ scale: 0.992 }],
+  src\components\BookCard.tsx:162:  },
+  src\components\BookCard.tsx:163:  thumbnail: {
+  src\components\BookMetadataCard.tsx:64:  pressed: {
+  src\components\BookMetadataCard.tsx:65:    opacity: 0.75,
+> src\components\BookMetadataCard.tsx:66:    transform: [{ scale: 0.995 }],
+  src\components\BookMetadataCard.tsx:67:  },
+  src\components\BookMetadataCard.tsx:68:  cover: {
+  src\components\BookReaderModal.tsx:1132:  },
+  src\components\BookReaderModal.tsx:1133:  noteCardNight: { borderColor: '#343741', borderLeftColor: colors.gold, backgroundColor: '#101218' },
+> src\components\BookReaderModal.tsx:1134:  noteAnchor: { color: colors.gold, fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  src\components\BookReaderModal.tsx:1135:  noteCardTitle: { marginTop: 5, color: colors.text, fontSize: 15, fontWeight: '800' },
+  src\components\BookReaderModal.tsx:1136:  noteCardContent: { marginTop: 5, color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  src\components\CelestialMotionLayer.tsx:585:        opacity,
+  src\components\CelestialMotionLayer.tsx:586:
+> src\components\CelestialMotionLayer.tsx:587:        transform: [
+  src\components\CelestialMotionLayer.tsx:588:          {
+  src\components\CelestialMotionLayer.tsx:589:            translateX,
+  src\components\CelestialMotionLayer.tsx:748:          opacity,
+  src\components\CelestialMotionLayer.tsx:749:
+> src\components\CelestialMotionLayer.tsx:750:          transform: [
+  src\components\CelestialMotionLayer.tsx:751:            {
+  src\components\CelestialMotionLayer.tsx:752:              translateX,
+  src\components\CelestialMotionLayer.tsx:951:          config.opacity,
+  src\components\CelestialMotionLayer.tsx:952:
+> src\components\CelestialMotionLayer.tsx:953:        transform: [
+  src\components\CelestialMotionLayer.tsx:954:          {
+  src\components\CelestialMotionLayer.tsx:955:            translateX,
+  src\components\CelestialMotionLayer.tsx:1137:        opacity,
+  src\components\CelestialMotionLayer.tsx:1138:
+> src\components\CelestialMotionLayer.tsx:1139:        transform: [
+  src\components\CelestialMotionLayer.tsx:1140:          {
+  src\components\CelestialMotionLayer.tsx:1141:            scale,
+  src\components\CelestialMotionLayer.tsx:1289:          opacity,
+  src\components\CelestialMotionLayer.tsx:1290:
+> src\components\CelestialMotionLayer.tsx:1291:          transform: [
+  src\components\CelestialMotionLayer.tsx:1292:            {
+  src\components\CelestialMotionLayer.tsx:1293:              translateX,
+  src\components\CelestialMotionLayer.tsx:1402:        styles.capsuleOrbit,
+  src\components\CelestialMotionLayer.tsx:1403:        {
+> src\components\CelestialMotionLayer.tsx:1404:          transform: [
+  src\components\CelestialMotionLayer.tsx:1405:            {
+  src\components\CelestialMotionLayer.tsx:1406:              rotate,
+  src\components\CelestialMotionLayer.tsx:1547:      style={[
+  src\components\CelestialMotionLayer.tsx:1548:        styles.layer,
+> src\components\CelestialMotionLayer.tsx:1549:        { transform: [{ translateY: celestialParallaxTranslateY }] },
+  src\components\CelestialMotionLayer.tsx:1550:      ]}
+  src\components\CelestialMotionLayer.tsx:1551:    >
+  src\components\CelestialUI.tsx:328:    color: celestial.accentText,
+  src\components\CelestialUI.tsx:329:    ...celestialTypography.meta,
+> src\components\CelestialUI.tsx:330:    textTransform: 'uppercase',
+  src\components\CelestialUI.tsx:331:  },
+  src\components\CelestialUI.tsx:332:
+  src\components\CelestialUI.tsx:334:    color: celestial.muted,
+  src\components\CelestialUI.tsx:335:    ...celestialTypography.eyebrow,
+> src\components\CelestialUI.tsx:336:    textTransform: 'uppercase',
+  src\components\CelestialUI.tsx:337:  },
+  src\components\CelestialUI.tsx:338:  eyebrowCelestial: {
+  src\components\CelestialUI.tsx:379:    color: celestial.muted,
+  src\components\CelestialUI.tsx:380:    ...celestialTypography.meta,
+> src\components\CelestialUI.tsx:381:    textTransform: 'uppercase',
+  src\components\CelestialUI.tsx:382:    textAlign: 'center',
+  src\components\CelestialUI.tsx:383:  },
+  src\components\CollectionMemoryBoxGlyph.tsx:53:          borderTopLeftRadius: size * 0.08,
+  src\components\CollectionMemoryBoxGlyph.tsx:54:          borderTopRightRadius: size * 0.08,
+> src\components\CollectionMemoryBoxGlyph.tsx:55:          transform: [{ rotate: '-8deg' }],
+  src\components\CollectionMemoryBoxGlyph.tsx:56:          opacity: 0.96,
+  src\components\CollectionMemoryBoxGlyph.tsx:57:        }}
+  src\components\CollectionSymbolPicker.tsx:221:    fontWeight: '900',
+  src\components\CollectionSymbolPicker.tsx:222:    letterSpacing: 0.9,
+> src\components\CollectionSymbolPicker.tsx:223:    textTransform: 'uppercase',
+  src\components\CollectionSymbolPicker.tsx:224:  },
+  src\components\CollectionSymbolPicker.tsx:225:  grid: {
+  src\components\CommandPaletteEdgeGesture.tsx:238:          {
+  src\components\CommandPaletteEdgeGesture.tsx:239:            opacity,
+> src\components\CommandPaletteEdgeGesture.tsx:240:            transform: [
+  src\components\CommandPaletteEdgeGesture.tsx:241:              { translateX },
+  src\components\CommandPaletteEdgeGesture.tsx:242:              { translateY },
+  src\components\CompletionCelebrationOverlay.tsx:325:                      star.size,
+  src\components\CompletionCelebrationOverlay.tsx:326:                    opacity,
+> src\components\CompletionCelebrationOverlay.tsx:327:                    transform:
+  src\components\CompletionCelebrationOverlay.tsx:328:                      reducedMotion
+  src\components\CompletionCelebrationOverlay.tsx:329:                        ? [
+  src\components\DeleteConfirmationModal.tsx:68:  cancelLabel: { color: colors.black, fontSize: 15, fontWeight: '600' },
+  src\components\DeleteConfirmationModal.tsx:69:  deleteLabel: { color: colors.white, fontSize: 15, fontWeight: '600' },
+> src\components\DeleteConfirmationModal.tsx:70:  pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
+  src\components\DeleteConfirmationModal.tsx:71:  disabled: { opacity: 0.6 },
+  src\components\DeleteConfirmationModal.tsx:72:  celestialBackdrop: { backgroundColor: celestialAlpha(celestial.night, 0.72) },
+  src\components\EntityRelationsPanel.tsx:702:    fontWeight: '900',
+  src\components\EntityRelationsPanel.tsx:703:    letterSpacing: 1.15,
+> src\components\EntityRelationsPanel.tsx:704:    textTransform: 'uppercase',
+  src\components\EntityRelationsPanel.tsx:705:  },
+  src\components\EntityRelationsPanel.tsx:706:  heading: {
+  src\components\EntityRelationsPanel.tsx:737:  },
+  src\components\EntityRelationsPanel.tsx:738:  linkType: { minWidth: 70, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 8, backgroundColor: colors.fill },
+> src\components\EntityRelationsPanel.tsx:739:  linkTypeText: { color: colors.textMuted, fontSize: 8, fontWeight: '900', textAlign: 'center', textTransform: 'uppercas
+e' },
+  src\components\EntityRelationsPanel.tsx:740:  linkCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
+  src\components\EntityRelationsPanel.tsx:741:  linkTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  src\components\EntityRelationsPanel.tsx:793:    borderBottomWidth: 2.5,
+  src\components\EntityRelationsPanel.tsx:794:    borderColor: colors.text,
+> src\components\EntityRelationsPanel.tsx:795:    transform: [{ rotate: '45deg' }],
+  src\components\EntityRelationsPanel.tsx:796:    marginLeft: 5,
+  src\components\EntityRelationsPanel.tsx:797:  },
+  src\components\EntityRelationsPanel.tsx:798:  modalHeaderCopy: { flex: 1, minWidth: 0, marginLeft: 4 },
+> src\components\EntityRelationsPanel.tsx:799:  modalKicker: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase'
+ },
+  src\components\EntityRelationsPanel.tsx:800:  modalTitle: { maxWidth: 260, marginTop: 3, color: colors.text, fontSize: 20, fontWeight: '900' },
+  src\components\EntityRelationsPanel.tsx:801:  done: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 11, backgroundColor: colors.black },
+  src\components\EntityRelationsPanel.tsx:811:  check: { marginLeft: 9, color: colors.text, fontSize: 18, fontWeight: '900' },
+  src\components\EntityRelationsPanel.tsx:812:  linkComposer: { padding: 16, paddingBottom: 24 },
+> src\components\EntityRelationsPanel.tsx:813:  fieldLabel: { marginTop: 8, marginBottom: 7, color: colors.text, fontSize: 11, fontWeight: '900', textTransform: 'uppe
+rcase', letterSpacing: 0.6 },
+  src\components\EntityRelationsPanel.tsx:814:  relationList: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingBottom: 8 },
+  src\components\EntityRelationsPanel.tsx:815:  relationChip: { alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 13, paddingVertical: 8, alignItems: 'center
+', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.fill },
+  src\components\EntityRelationsPanel.tsx:820:  referenceScroller: { maxHeight: 170, marginTop: 8, flexGrow: 0 },
+  src\components\EntityRelationsPanel.tsx:821:  referenceRow: { minHeight: 58, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', borderBottomWidth: Styl
+eSheet.hairlineWidth, borderBottomColor: colors.separator },
+> src\components\EntityRelationsPanel.tsx:822:  referenceType: { width: 72, color: colors.textMuted, fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
+  src\components\EntityRelationsPanel.tsx:823:  referenceCopy: { flex: 1, minWidth: 0 },
+  src\components\EntityRelationsPanel.tsx:824:  referenceTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  src\components\EntryDeleteModal.tsx:177:  pressed: {
+  src\components\EntryDeleteModal.tsx:178:    opacity: 0.8,
+> src\components\EntryDeleteModal.tsx:179:    transform: [{ scale: 0.99 }],
+  src\components\EntryDeleteModal.tsx:180:  },
+  src\components\EntryDeleteModal.tsx:181:  disabled: {
+  src\components\EntryGallery.tsx:308:    fontWeight: '800',
+  src\components\EntryGallery.tsx:309:    letterSpacing: 1.05,
+> src\components\EntryGallery.tsx:310:    textTransform: 'uppercase',
+  src\components\EntryGallery.tsx:311:  },
+  src\components\EntryGallery.tsx:312:  toggleRail: {
+  src\components\EntryGallery.tsx:376:  tilePressed: {
+  src\components\EntryGallery.tsx:377:    opacity: 0.78,
+> src\components\EntryGallery.tsx:378:    transform: [{ scale: 0.985 }],
+  src\components\EntryGallery.tsx:379:  },
+  src\components\EntryGallery.tsx:380:  tileImage: {
+  src\components\EntryGallery.tsx:394:    fontWeight: '800',
+  src\components\EntryGallery.tsx:395:    letterSpacing: 0.8,
+> src\components\EntryGallery.tsx:396:    textTransform: 'uppercase',
+  src\components\EntryGallery.tsx:397:  },
+  src\components\EntryGallery.tsx:398:  tileTitle: {
+  src\components\EntryGallery.tsx:463:    fontWeight: '800',
+  src\components\EntryGallery.tsx:464:    letterSpacing: 0.9,
+> src\components\EntryGallery.tsx:465:    textTransform: 'uppercase',
+  src\components\EntryGallery.tsx:466:  },
+  src\components\EntryGallery.tsx:467:  viewerTitle: {
+  src\components\EntryLinkPicker.tsx:221:    fontWeight: '700',
+  src\components\EntryLinkPicker.tsx:222:    letterSpacing: 0.6,
+> src\components\EntryLinkPicker.tsx:223:    textTransform: 'uppercase',
+  src\components\EntryLinkPicker.tsx:224:  },
+  src\components\EntryLinkPicker.tsx:225:  modalTitle: {
+  src\components\FirstRunTutorial.tsx:802:  graphRight: { right: 18, bottom: 23 },
+  src\components\FirstRunTutorial.tsx:803:  graphLine: { position: 'absolute', height: 1, width: 105, left: '50%', top: 110, backgroundColor: GOLD, opacity: 0.65 },
+> src\components\FirstRunTutorial.tsx:804:  graphLineOne: { marginLeft: -98, transform: [{ rotate: '44deg' }] },
+> src\components\FirstRunTutorial.tsx:805:  graphLineTwo: { marginLeft: -7, transform: [{ rotate: '-44deg' }] },
+  src\components\FirstRunTutorial.tsx:806:  graphStar: { position: 'absolute', left: '50%', top: 96, marginLeft: -8, color: GOLD, fontSize: 16, zIndex: 3 },
+  src\components\FirstRunTutorial.tsx:807:  nodeKicker: { color: GOLD, fontSize: 7, fontWeight: '900', letterSpacing: 1 },
+  src\components\FirstRunTutorial.tsx:810:  brainHeroRow: { flexDirection: 'row', alignItems: 'center' },
+  src\components\FirstRunTutorial.tsx:811:  brainGlyphHalo: { width: 54, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 17, borderWidth: 1,
+ borderColor: GOLD, backgroundColor: PAPER },
+> src\components\FirstRunTutorial.tsx:812:  brainGlyphScale: { transform: [{ scale: 1.55 }] },
+  src\components\FirstRunTutorial.tsx:813:  brainHeroCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  src\components\FirstRunTutorial.tsx:814:  brainHeroKicker: { color: GOLD, fontSize: 7, fontWeight: '900', letterSpacing: 1.25 },
+  src\components\FirstRunTutorial.tsx:817:  brainSearchPrompt: { marginRight: 7, color: GOLD, fontSize: 14, fontWeight: '900' },
+  src\components\FirstRunTutorial.tsx:818:  brainSearchText: { flex: 1, color: NAVY, fontSize: 8, lineHeight: 11, fontWeight: '800' },
+> src\components\FirstRunTutorial.tsx:819:  brainMiniIcon: { width: 25, marginLeft: 7, alignItems: 'center', justifyContent: 'center', transform: [{ scale: 0.68 }] },
+  src\components\FirstRunTutorial.tsx:820:  brainResultCard: { marginTop: 8, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: GOLD, backgroundColor: PAPER 
+},
+  src\components\FirstRunTutorial.tsx:821:  brainResultHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  src\components\FrequencyLinksPanel.tsx:653:    fontWeight: '900',
+  src\components\FrequencyLinksPanel.tsx:654:    letterSpacing: 0.5,
+> src\components\FrequencyLinksPanel.tsx:655:    textTransform: 'uppercase',
+  src\components\FrequencyLinksPanel.tsx:656:  },
+  src\components\FrequencyLinksPanel.tsx:657:  linkAction: {
+  src\components\FrequencyLinksPanel.tsx:710:    fontWeight: '900',
+  src\components\FrequencyLinksPanel.tsx:711:    textAlign: 'center',
+> src\components\FrequencyLinksPanel.tsx:712:    textTransform: 'uppercase',
+  src\components\FrequencyLinksPanel.tsx:713:  },
+  src\components\FrequencyLinksPanel.tsx:714:  linkCopy: {
+  src\components\FrequencyLinksPanel.tsx:922:    fontSize: 8,
+  src\components\FrequencyLinksPanel.tsx:923:    fontWeight: '900',
+> src\components\FrequencyLinksPanel.tsx:924:    textTransform: 'uppercase',
+  src\components\FrequencyLinksPanel.tsx:925:  },
+  src\components\FrequencyLinksPanel.tsx:926:  resultCopy: {
+  src\components\FrequencyLinksPanel.tsx:969:    fontSize: 9,
+  src\components\FrequencyLinksPanel.tsx:970:    fontWeight: '800',
+> src\components\FrequencyLinksPanel.tsx:971:    textTransform: 'uppercase',
+  src\components\FrequencyLinksPanel.tsx:972:  },
+  src\components\FrequencyLinksPanel.tsx:973:  lockedTarget: {
+  src\components\FreshItemShimmer.tsx:37:      <Animated.View style={[styles.shimmer, {
+  src\components\FreshItemShimmer.tsx:38:        opacity:p.interpolate({ inputRange:[0,.10,.52,.90,1], outputRange:[0,.48,.78,.20,0] }),
+> src\components\FreshItemShimmer.tsx:39:        transform:[
+  src\components\FreshItemShimmer.tsx:40:          { translateX:p.interpolate({ inputRange:[0,1], outputRange:[-80,width+80] }) },
+  src\components\FreshItemShimmer.tsx:41:          { rotate:'-16deg' },
+  src\components\GlobalTimerCard.tsx:427:  pressed: {
+  src\components\GlobalTimerCard.tsx:428:    opacity: 0.74,
+> src\components\GlobalTimerCard.tsx:429:    transform: [{ scale: 0.97 }],
+  src\components\GlobalTimerCard.tsx:430:  },
+  src\components\GlobalTimerCard.tsx:431:  error: {
+  src\components\GlobalUndoToast.tsx:146:            opacity,
+  src\components\GlobalUndoToast.tsx:147:
+> src\components\GlobalUndoToast.tsx:148:            transform: [
+  src\components\GlobalUndoToast.tsx:149:              { translateY },
+  src\components\GlobalUndoToast.tsx:150:            ],
+  src\components\HomeRiverMotion.tsx:377:        top: config.top,
+  src\components\HomeRiverMotion.tsx:378:        opacity,
+> src\components\HomeRiverMotion.tsx:379:        transform: [
+  src\components\HomeRiverMotion.tsx:380:          {
+  src\components\HomeRiverMotion.tsx:381:            translateX,
+  src\components\HomeRiverMotion.tsx:507:        {
+  src\components\HomeRiverMotion.tsx:508:          opacity,
+> src\components\HomeRiverMotion.tsx:509:          transform: [
+  src\components\HomeRiverMotion.tsx:510:            {
+  src\components\HomeRiverMotion.tsx:511:              translateX,
+  src\components\JingleBellIcon.tsx:69:          tintColor: color,
+  src\components\JingleBellIcon.tsx:70:          opacity: active ? 1 : inactiveOpacity,
+> src\components\JingleBellIcon.tsx:71:          transform: [{ rotate }, { scale }],
+  src\components\JingleBellIcon.tsx:72:        },
+  src\components\JingleBellIcon.tsx:73:      ]}
+  src\components\JinglePortal.tsx:357:                outputRange: [0.24, 0.68],
+  src\components\JinglePortal.tsx:358:              }),
+> src\components\JinglePortal.tsx:359:              transform: [
+  src\components\JinglePortal.tsx:360:                {
+  src\components\JinglePortal.tsx:361:                  scale: playbackMotion.interpolate({
+  src\components\JinglePortal.tsx:423:        <Animated.View
+  src\components\JinglePortal.tsx:424:          style={{
+> src\components\JinglePortal.tsx:425:            transform: [
+  src\components\JinglePortal.tsx:426:              {
+  src\components\JinglePortal.tsx:427:                rotate: playbackMotion.interpolate({
+  src\components\JinglePortal.tsx:443:            styles.bellWrap,
+  src\components\JinglePortal.tsx:444:            {
+> src\components\JinglePortal.tsx:445:              transform: [
+  src\components\JinglePortal.tsx:446:                { rotate },
+  src\components\JinglePortal.tsx:447:                { scale },
+  src\components\JinglePortal.tsx:924:    width: 56,
+  src\components\JinglePortal.tsx:925:    height: 60,
+> src\components\JinglePortal.tsx:926:    transform: [{ scale: 1.26 }],
+  src\components\JinglePortal.tsx:927:  },
+  src\components\JinglePortal.tsx:928:  spark: {
+  src\components\JinglePortal.tsx:1262:    fontSize: 28,
+  src\components\JinglePortal.tsx:1263:    lineHeight: 30,
+> src\components\JinglePortal.tsx:1264:    transform: [{ rotate: '90deg' }],
+  src\components\JinglePortal.tsx:1265:  },
+  src\components\JinglePortal.tsx:1266:  catalogueChevronOpen: {
+> src\components\JinglePortal.tsx:1267:    transform: [{ rotate: '-90deg' }],
+  src\components\JinglePortal.tsx:1268:  },
+  src\components\JinglePortal.tsx:1269:  catalogueChildren: {
+  src\components\JingleRadioAttachPanel.tsx:449:    fontWeight: '900',
+  src\components\JingleRadioAttachPanel.tsx:450:    letterSpacing: 0.7,
+> src\components\JingleRadioAttachPanel.tsx:451:    textTransform: 'uppercase',
+  src\components\JingleRadioAttachPanel.tsx:452:  },
+  src\components\JingleRadioAttachPanel.tsx:453:  targetTypeActive: {
+  src\components\JingleRadioAttachPanel.tsx:519:    color: colors.textMuted,
+  src\components\JingleRadioAttachPanel.tsx:520:    fontSize: 9,
+> src\components\JingleRadioAttachPanel.tsx:521:    textTransform: 'uppercase',
+  src\components\JingleRadioAttachPanel.tsx:522:  },
+  src\components\JingleRadioAttachPanel.tsx:523:  bell: {
+  src\components\LjingleBoxedReveal.tsx:171:                {
+  src\components\LjingleBoxedReveal.tsx:172:                  opacity: glow,
+> src\components\LjingleBoxedReveal.tsx:173:                  transform: [{ scale: particleScale }],
+  src\components\LjingleBoxedReveal.tsx:174:                },
+  src\components\LjingleBoxedReveal.tsx:175:              ]}
+  src\components\LjingleBoxedReveal.tsx:186:                    top: '50%',
+  src\components\LjingleBoxedReveal.tsx:187:                    opacity: particleOpacity,
+> src\components\LjingleBoxedReveal.tsx:188:                    transform: [
+  src\components\LjingleBoxedReveal.tsx:189:                      { translateX: x },
+> src\components\LjingleBoxedReveal.tsx:190:                      { translateY: y },
+  src\components\LjingleBoxedReveal.tsx:191:                      { scale: particleScale },
+  src\components\LjingleBoxedReveal.tsx:192:                      { rotate: index % 2 ? '22deg' : '-16deg' },
+  src\components\LjingleBoxedReveal.tsx:202:              style={[
+  src\components\LjingleBoxedReveal.tsx:203:                styles.boxAssembly,
+> src\components\LjingleBoxedReveal.tsx:204:                { transform: [{ scale: boxScale }] },
+  src\components\LjingleBoxedReveal.tsx:205:              ]}
+  src\components\LjingleBoxedReveal.tsx:206:            >
+  src\components\LjingleBoxedReveal.tsx:217:                  styles.boxLid,
+  src\components\LjingleBoxedReveal.tsx:218:                  {
+> src\components\LjingleBoxedReveal.tsx:219:                    transform: [
+> src\components\LjingleBoxedReveal.tsx:220:                      { translateY: lidY },
+  src\components\LjingleBoxedReveal.tsx:221:                      { rotate: lidRotate },
+  src\components\LjingleBoxedReveal.tsx:222:                    ],
+  src\components\LjingleBoxedReveal.tsx:230:                style={[
+  src\components\LjingleBoxedReveal.tsx:231:                  styles.seal,
+> src\components\LjingleBoxedReveal.tsx:232:                  { transform: [{ scale: sealScale }] },
+  src\components\LjingleBoxedReveal.tsx:233:                ]}
+  src\components\LjingleBoxedReveal.tsx:234:              >
+  src\components\LjingleStar.tsx:55:            ? 1
+  src\components\LjingleStar.tsx:56:            : 0,
+> src\components\LjingleStar.tsx:57:        transform: [
+  src\components\LjingleStar.tsx:58:          {
+  src\components\LjingleStar.tsx:59:            rotate: '45deg',
+  src\components\MediaCard.tsx:159:  }, // mediaGridMatchGamesV4
+  src\components\MediaCard.tsx:160:  coverOnlyImage: { width: '100%', height: '100%' },
+> src\components\MediaCard.tsx:161:  coverOnlyPressed: { opacity: 0.72, transform: [{ scale: 0.995 }] },
+  src\components\MediaCard.tsx:162:  cardCompact: { minHeight: 82, paddingVertical: 11 },
+  src\components\MediaCard.tsx:163:  card: {
+  src\components\MediaCard.tsx:173:  pressed: {
+  src\components\MediaCard.tsx:174:    opacity: 0.72,
+> src\components\MediaCard.tsx:175:    transform: [{ scale: 0.995 }],
+  src\components\MediaCard.tsx:176:  },
+  src\components\MediaCard.tsx:177:  content: {
+  src\components\MediaCard.tsx:190:    fontSize: 11,
+  src\components\MediaCard.tsx:191:    fontWeight: '800',
+> src\components\MediaCard.tsx:192:    textTransform: 'uppercase',
+  src\components\MediaCard.tsx:193:    letterSpacing: 0.7,
+  src\components\MediaCard.tsx:194:  },
+  src\components\MemoryBoxGatherEntrance.tsx:23:  return <Animated.View style={{ position:'absolute', left:x, top:y,
+  src\components\MemoryBoxGatherEntrance.tsx:24:    opacity:p.interpolate({ inputRange:[0,.10,.68,1], outputRange:[0,.46,.58,0] }),
+> src\components\MemoryBoxGatherEntrance.tsx:25:    transform:[
+  src\components\MemoryBoxGatherEntrance.tsx:26:      { translateX:p.interpolate({ inputRange:[0,1], outputRange:[0,tx-x] }) },
+> src\components\MemoryBoxGatherEntrance.tsx:27:      { translateY:p.interpolate({ inputRange:[0,1], outputRange:[0,ty-y] }) },
+  src\components\MemoryBoxGatherEntrance.tsx:28:      { scale:p.interpolate({ inputRange:[0,.55,1], outputRange:[.72,1.03,.42] }) },
+  src\components\MemoryBoxGatherEntrance.tsx:29:    ],
+  src\components\MemoryCapsuleActionModal.tsx:254:  pressed: {
+  src\components\MemoryCapsuleActionModal.tsx:255:    opacity: 0.76,
+> src\components\MemoryCapsuleActionModal.tsx:256:    transform: [{ scale: 0.99 }],
+  src\components\MemoryCapsuleActionModal.tsx:257:  },
+  src\components\MemoryCapsuleActionModal.tsx:258:  disabled: {
+  src\components\MemoryCapsuleCard.tsx:189:    borderRadius: 1,
+  src\components\MemoryCapsuleCard.tsx:190:    backgroundColor: activeAccentColor,
+> src\components\MemoryCapsuleCard.tsx:191:    transform: [{ translateY: -1.5 }],
+  src\components\MemoryCapsuleCard.tsx:192:  },
+  src\components\MemoryCapsuleCard.tsx:193:  clockHandShort: {
+  src\components\MemoryCapsuleCard.tsx:197:    borderRadius: 1,
+  src\components\MemoryCapsuleCard.tsx:198:    backgroundColor: activeAccentColor,
+> src\components\MemoryCapsuleCard.tsx:199:    transform: [{ translateX: 1.75 }],
+  src\components\MemoryCapsuleCard.tsx:200:  },
+  src\components\MemoryCapsuleCard.tsx:201:  copy: {
+  src\components\ReactiveAmbientField.tsx:26:  return <Animated.View style={{position:'absolute',left:point[0],top:point[1],
+  src\components\ReactiveAmbientField.tsx:27:    opacity:p.interpolate({inputRange:[0,.45,1],outputRange:[.10,.42,.14]}),
+> src\components\ReactiveAmbientField.tsx:28:    transform:[
+  src\components\ReactiveAmbientField.tsx:29:      {translateX:p.interpolate({inputRange:[0,1],outputRange:[-dx*.35,dx]})},
+> src\components\ReactiveAmbientField.tsx:30:      {translateY:p.interpolate({inputRange:[0,1],outputRange:[-8,dy]})},
+  src\components\ReactiveAmbientField.tsx:31:      {scale:p.interpolate({inputRange:[0,.55,1],outputRange:[.82,1.06,.90]})},
+  src\components\ReactiveAmbientField.tsx:32:    ],
+  src\components\ReaderBookmarkGlyph.tsx:72:  notchLeft: {
+  src\components\ReaderBookmarkGlyph.tsx:73:    left: 1,
+> src\components\ReaderBookmarkGlyph.tsx:74:    transform: [{ rotate: '34deg' }],
+  src\components\ReaderBookmarkGlyph.tsx:75:  },
+  src\components\ReaderBookmarkGlyph.tsx:76:  notchRight: {
+  src\components\ReaderBookmarkGlyph.tsx:77:    right: 1,
+> src\components\ReaderBookmarkGlyph.tsx:78:    transform: [{ rotate: '-34deg' }],
+  src\components\ReaderBookmarkGlyph.tsx:79:  },
+  src\components\ReaderBookmarkGlyph.tsx:80:});
+  src\components\ReadingTimerCard.tsx:120:    fontWeight: '800',
+  src\components\ReadingTimerCard.tsx:121:    letterSpacing: 0.8,
+> src\components\ReadingTimerCard.tsx:122:    textTransform: 'uppercase',
+  src\components\ReadingTimerCard.tsx:123:  },
+  src\components\ReadingTimerCard.tsx:124:  title: {
+  src\components\RecentActivityCard.tsx:79:  );
+  src\components\RecentActivityCard.tsx:80:  return (
+> src\components\RecentActivityCard.tsx:81:    <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+  src\components\RecentActivityCard.tsx:82:    <View style={[styles.card, aeroMode && styles.aeroCard]}>
+  src\components\RecentActivityCard.tsx:83:      <View style={[styles.symbol, { backgroundColor: accent.background }]}>
+  src\components\RecentActivityCard.tsx:179:    padding: 0,
+  src\components\RecentActivityCard.tsx:180:
+> src\components\RecentActivityCard.tsx:181:    transform: [
+  src\components\RecentActivityCard.tsx:182:      {
+> src\components\RecentActivityCard.tsx:183:        translateY:
+  src\components\RecentActivityCard.tsx:184:          Platform.OS === 'web'
+  src\components\RecentActivityCard.tsx:185:            ? -2
+  src\components\RecentActivityCard.tsx:212:    zIndex: 5,
+  src\components\RecentActivityCard.tsx:213:
+> src\components\RecentActivityCard.tsx:214:    transform: [
+  src\components\RecentActivityCard.tsx:215:      {
+  src\components\RecentActivityCard.tsx:216:        scale:
+  src\components\RecentActivityCard.tsx:295:    fontWeight: '900',
+  src\components\RecentActivityCard.tsx:296:    letterSpacing: 0.65,
+> src\components\RecentActivityCard.tsx:297:    textTransform: 'uppercase',
+  src\components\RecentActivityCard.tsx:298:  
+  src\components\RecentActivityCard.tsx:299:    // aeroRecentTypeV3
+  src\components\RecentActivityCard.tsx:409:  continuePressed: {
+  src\components\RecentActivityCard.tsx:410:    opacity: 0.78,
+> src\components\RecentActivityCard.tsx:411:    transform: [{ scale: 0.96 }],
+  src\components\RecentActivityCard.tsx:412:  },
+  src\components\RecentActivityCard.tsx:413:  continueDisabled: {
+  src\components\SemanticAliveOverlay.tsx:31:        position: 'absolute', left: ox, top: oy,
+  src\components\SemanticAliveOverlay.tsx:32:        opacity: p.interpolate({ inputRange: [0,.12,.48,1], outputRange: [0,.86,.50,0] }),
+> src\components\SemanticAliveOverlay.tsx:33:        transform: [
+  src\components\SemanticAliveOverlay.tsx:34:          { translateX: p.interpolate({ inputRange: [0,1], outputRange: [0,d[0]] }) },
+> src\components\SemanticAliveOverlay.tsx:35:          { translateY: p.interpolate({ inputRange: [0,1], outputRange: [0,d[1]] }) },
+  src\components\SemanticAliveOverlay.tsx:36:          { scale: p.interpolate({ inputRange: [0,.28,1], outputRange: [.54,1.05,.66] }) },
+  src\components\SemanticAliveOverlay.tsx:37:        ],
+  src\components\SemanticAliveOverlay.tsx:50:        position: 'absolute', left: ox, top: oy,
+  src\components\SemanticAliveOverlay.tsx:51:        opacity: p.interpolate({ inputRange: [0,.18,.76,1], outputRange: [0,.70,.74,0] }),
+> src\components\SemanticAliveOverlay.tsx:52:        transform: [
+  src\components\SemanticAliveOverlay.tsx:53:          { translateX: p.interpolate({ inputRange: [0,1], outputRange: [s[0],0] }) },
+> src\components\SemanticAliveOverlay.tsx:54:          { translateY: p.interpolate({ inputRange: [0,1], outputRange: [s[1],0] }) },
+  src\components\SemanticAliveOverlay.tsx:55:          { scale: p.interpolate({ inputRange: [0,.74,1], outputRange: [.75,1,.28] }) },
+  src\components\SemanticAliveOverlay.tsx:56:        ],
+  src\components\SemanticAliveOverlay.tsx:61:      <Animated.View style={{ position:'absolute', left:ox-8, top:oy-8,
+  src\components\SemanticAliveOverlay.tsx:62:        opacity:p.interpolate({ inputRange:[0,.70,.88,1], outputRange:[0,0,.88,0] }),
+> src\components\SemanticAliveOverlay.tsx:63:        transform:[{ scale:p.interpolate({ inputRange:[0,.82,1], outputRange:[.3,1.08,.55] }) }],
+  src\components\SemanticAliveOverlay.tsx:64:      }}>
+  src\components\SemanticAliveOverlay.tsx:65:        <LjingleStar variant="spark" size={16} color={colors.text} opacity={1} />
+  src\components\SemanticAliveOverlay.tsx:72:    <Animated.View style={{ position:'absolute', left:sx, top:sy,
+  src\components\SemanticAliveOverlay.tsx:73:      opacity:p.interpolate({ inputRange:[0,.08,.76,1], outputRange:[0,.90,.78,0] }),
+> src\components\SemanticAliveOverlay.tsx:74:      transform:[
+  src\components\SemanticAliveOverlay.tsx:75:        { translateX:p.interpolate({ inputRange:[0,1], outputRange:[0,ex-sx] }) },
+> src\components\SemanticAliveOverlay.tsx:76:        { translateY:p.interpolate({ inputRange:[0,.55,1], outputRange:[0,-80,ey-sy] }) },
+  src\components\SemanticAliveOverlay.tsx:77:        { scale:p.interpolate({ inputRange:[0,.45,1], outputRange:[.72,1.08,.58] }) },
+  src\components\SemanticAliveOverlay.tsx:78:      ],
+  src\components\SemanticAliveOverlay.tsx:82:    <Animated.View style={{ position:'absolute', left:ex-3, top:ey-3,
+  src\components\SemanticAliveOverlay.tsx:83:      opacity:p.interpolate({ inputRange:[0,.76,.91,1], outputRange:[0,0,.68,0] }),
+> src\components\SemanticAliveOverlay.tsx:84:      transform:[{ scale:p.interpolate({ inputRange:[0,.82,1], outputRange:[.4,1.30,.72] }) }],
+  src\components\SemanticAliveOverlay.tsx:85:    }}>
+  src\components\SemanticAliveOverlay.tsx:86:      <LjingleStar variant="spark" size={12} color={colors.textMuted} opacity={1} />
+  src\components\SeriesTracker.tsx:228:  wrap: { marginTop: 20 },
+  src\components\SeriesTracker.tsx:229:  card: { padding: 20, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+> src\components\SeriesTracker.tsx:230:  label: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  src\components\SeriesTracker.tsx:231:  muted: { color: colors.textMuted, fontSize: 14 },
+  src\components\SeriesTracker.tsx:232:  error: { color: colors.textMuted, fontSize: 14, lineHeight: 21, marginTop: 9 },
+  src\components\SessionNotePrompt.tsx:735:    fontSize: 8,
+  src\components\SessionNotePrompt.tsx:736:    fontWeight: '900',
+> src\components\SessionNotePrompt.tsx:737:    textTransform: 'uppercase',
+  src\components\SessionNotePrompt.tsx:738:  },
+  src\components\SessionNotePrompt.tsx:739:  contextTitle: {
+  src\components\TimerMotionView.tsx:81:      style={{
+  src\components\TimerMotionView.tsx:82:        opacity,
+> src\components\TimerMotionView.tsx:83:        transform: [{ scale }],
+  src\components\TimerMotionView.tsx:84:      }}
+  src\components\TimerMotionView.tsx:85:    >
+  src\components\TopicActivityCard.tsx:126:    fontWeight: '800',
+  src\components\TopicActivityCard.tsx:127:    letterSpacing: 0.8,
+> src\components\TopicActivityCard.tsx:128:    textTransform: 'uppercase',
+  src\components\TopicActivityCard.tsx:129:  },
+  src\components\TopicActivityCard.tsx:130:  label: {
+  src\components\TopicActivityCard.tsx:187:  buttonPressed: {
+  src\components\TopicActivityCard.tsx:188:    opacity: 0.78,
+> src\components\TopicActivityCard.tsx:189:    transform: [{ scale: 0.99 }],
+  src\components\TopicActivityCard.tsx:190:  },
+  src\components\TopicActivityCard.tsx:191:  buttonDisabled: {
+  src\components\TopicActivityCreateSheet.tsx:123:              {
+  src\components\TopicActivityCreateSheet.tsx:124:                opacity: progress,
+> src\components\TopicActivityCreateSheet.tsx:125:                transform: [{ translateY }],
+  src\components\TopicActivityCreateSheet.tsx:126:              },
+  src\components\TopicActivityCreateSheet.tsx:127:            ]}
+  src\components\TopicActivityLinkPicker.tsx:197:              {
+  src\components\TopicActivityLinkPicker.tsx:198:                opacity: progress,
+> src\components\TopicActivityLinkPicker.tsx:199:                transform: [{ translateY }],
+  src\components\TopicActivityLinkPicker.tsx:200:              },
+  src\components\TopicActivityLinkPicker.tsx:201:            ]}
+  src\components\TopicCard.tsx:62:  pressed: {
+  src\components\TopicCard.tsx:63:    opacity: 0.68,
+> src\components\TopicCard.tsx:64:    transform: [{ scale: 0.99 }],
+  src\components\TopicCard.tsx:65:  },
+  src\components\TopicCard.tsx:66:  monogram: {
+  src\components\TopicCard.tsx:100:    fontWeight: '700',
+  src\components\TopicCard.tsx:101:    letterSpacing: 0.4,
+> src\components\TopicCard.tsx:102:    textTransform: 'uppercase',
+  src\components\TopicCard.tsx:103:  },
+  src\components\TopicCard.tsx:104:  arrow: {
+  src\components\TopicCreateForm.tsx:112:    fontWeight: '800',
+  src\components\TopicCreateForm.tsx:113:    letterSpacing: 0.8,
+> src\components\TopicCreateForm.tsx:114:    textTransform: 'uppercase',
+  src\components\TopicCreateForm.tsx:115:  },
+  src\components\TopicCreateForm.tsx:116:  heading: {
+  src\components\WatchTimerCard.tsx:100:    fontWeight: '800',
+  src\components\WatchTimerCard.tsx:101:    letterSpacing: 0.8,
+> src\components\WatchTimerCard.tsx:102:    textTransform: 'uppercase',
+  src\components\WatchTimerCard.tsx:103:  },
+  src\components\WatchTimerCard.tsx:104:  title: {
+  src\games\components\GameCard.tsx:149:  pressed: {
+  src\games\components\GameCard.tsx:150:    opacity: 0.72,
+> src\games\components\GameCard.tsx:151:    transform: [{ scale: 0.995 }],
+  src\games\components\GameCard.tsx:152:  },
+  src\games\components\GameCard.tsx:153:  cover: {
+  src\games\components\GameTimerCard.tsx:99:    fontWeight: '800',
+  src\games\components\GameTimerCard.tsx:100:    letterSpacing: 0.8,
+> src\games\components\GameTimerCard.tsx:101:    textTransform: 'uppercase',
+  src\games\components\GameTimerCard.tsx:102:  },
+  src\games\components\GameTimerCard.tsx:103:  title: {
+  src\games\screens\GameDetailsScreen.tsx:372:    fontSize: 12,
+  src\games\screens\GameDetailsScreen.tsx:373:    fontWeight: '800',
+> src\games\screens\GameDetailsScreen.tsx:374:    textTransform: 'uppercase',
+  src\games\screens\GameDetailsScreen.tsx:375:    letterSpacing: 0.8,
+  src\games\screens\GameDetailsScreen.tsx:376:  },
+  src\games\screens\GameDetailsScreen.tsx:456:  },
+  src\games\screens\GameDetailsScreen.tsx:457:  detailRow: { paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+> src\games\screens\GameDetailsScreen.tsx:458:  detailLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.
+8 },
+  src\games\screens\GameDetailsScreen.tsx:459:  detailValue: { color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '600', marginTop: 5 },
+  src\games\screens\GameDetailsScreen.tsx:460:  actions: { marginTop: 24 },
+  src\motion\uiMotion.ts:24:export function fadeSlideIn(
+  src\motion\uiMotion.ts:25:  opacity: Animated.Value,
+> src\motion\uiMotion.ts:26:  translateY: Animated.Value,
+  src\motion\uiMotion.ts:27:  delay = 0,
+  src\motion\uiMotion.ts:28:) {
+  src\motion\uiMotion.ts:110:
+  src\motion\uiMotion.ts:111:export function meadowFloat(
+> src\motion\uiMotion.ts:112:  translateY: Animated.Value,
+  src\motion\uiMotion.ts:113:) {
+  src\motion\uiMotion.ts:114:  // Intentionally disabled on web: CSS/browser rendering can make
+  src\motion\useScreenEntrance.ts:33:  return {
+  src\motion\useScreenEntrance.ts:34:    opacity,
+> src\motion\useScreenEntrance.ts:35:    transform: [{ translateY }],
+  src\motion\useScreenEntrance.ts:36:  } as const;
+  src\motion\useScreenEntrance.ts:37:}
+  src\screens\BookDetailsScreen.tsx:610:    fontSize: 12,
+  src\screens\BookDetailsScreen.tsx:611:    fontWeight: '800',
+> src\screens\BookDetailsScreen.tsx:612:    textTransform: 'uppercase',
+  src\screens\BookDetailsScreen.tsx:613:    letterSpacing: 0.8,
+  src\screens\BookDetailsScreen.tsx:614:  },
+  src\screens\BookDetailsScreen.tsx:813:    fontSize: 12,
+  src\screens\BookDetailsScreen.tsx:814:    fontWeight: '800',
+> src\screens\BookDetailsScreen.tsx:815:    textTransform: 'uppercase',
+  src\screens\BookDetailsScreen.tsx:816:    letterSpacing: 0.8,
+  src\screens\BookDetailsScreen.tsx:817:  },
+  src\screens\BookListScreen.tsx:440:  fabPressed: {
+  src\screens\BookListScreen.tsx:441:    opacity: 0.86,
+> src\screens\BookListScreen.tsx:442:    transform: [{ scale: 0.98 }],
+  src\screens\BookListScreen.tsx:443:  },
+  src\screens\BookListScreen.tsx:444:  fabPlus: {
+  src\screens\BookSearchScreen.tsx:91:  card: { minHeight: 84, marginBottom: 10, padding: 14, flexDirection: 'row', alignItems: 'center', borderRadius: 19, borderWidt
+h: 1, borderColor: colors.separator, backgroundColor: colors.surface },
+  src\screens\BookSearchScreen.tsx:92:  kind: { minWidth: 88, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 10, backgroundColor: colors.fillStrong }, kindTe
+xt: { color: colors.black, fontSize: 10, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5 },
+> src\screens\BookSearchScreen.tsx:93:  copy: { flex: 1, marginLeft: 13 }, title: { color: colors.text, fontSize: 17, fontWeight: '800' }, detail: { marginTop: 4, col
+or: colors.textMuted, fontSize: 12 }, arrow: { color: colors.textMuted, fontSize: 28 }, pressed: { opacity: 0.68, transform: [{ scale: 0.99 }] },
+  src\screens\BookSearchScreen.tsx:94:  error: { margin: 20, padding: 18, borderRadius: 18, backgroundColor: colors.dangerSoft }, errorText: { color: colors.danger, f
+ontSize: 14 }, retry: { marginTop: 8, color: colors.danger, fontWeight: '800' },
+  src\screens\BookSearchScreen.tsx:95:  empty: { alignItems: 'center', paddingTop: 90 }, emptyTitle: { color: colors.text, fontSize: 22, fontWeight: '900' }, emptyTex
+t: { marginTop: 8, color: colors.textMuted, fontSize: 14, textAlign: 'center' },
+  src\screens\CatalogueHomeScreen.tsx:1953:  autocompleteChipPressed: {
+  src\screens\CatalogueHomeScreen.tsx:1954:    opacity: 0.58,
+> src\screens\CatalogueHomeScreen.tsx:1955:    transform: [{ scale: 0.97 }],
+  src\screens\CatalogueHomeScreen.tsx:1956:  },
+  src\screens\CatalogueHomeScreen.tsx:1957:
+  src\screens\CatalogueHomeScreen.tsx:2097:  randomButtonPressed: {
+  src\screens\CatalogueHomeScreen.tsx:2098:    opacity: 0.68,
+> src\screens\CatalogueHomeScreen.tsx:2099:    transform: [{ scale: 0.995 }],
+  src\screens\CatalogueHomeScreen.tsx:2100:  },
+  src\screens\CatalogueHomeScreen.tsx:2101:
+  src\screens\CatalogueHomeScreen.tsx:2137:    fontWeight: '900',
+  src\screens\CatalogueHomeScreen.tsx:2138:    letterSpacing: 0.8,
+> src\screens\CatalogueHomeScreen.tsx:2139:    textTransform: 'uppercase',
+  src\screens\CatalogueHomeScreen.tsx:2140:  },
+  src\screens\CatalogueHomeScreen.tsx:2141:
+  src\screens\CatalogueHomeScreen.tsx:2221:    // finalJingleHomeCatalogueControlsV2:motion
+  src\screens\CatalogueHomeScreen.tsx:2222:    opacity: 0.96,
+> src\screens\CatalogueHomeScreen.tsx:2223:    transform: [{ scale: 0.988 }],
+  src\screens\CatalogueHomeScreen.tsx:2224:  },
+  src\screens\CatalogueHomeScreen.tsx:2225:
+  src\screens\CatalogueHomeScreen.tsx:2252:    borderTopRightRadius: 1,
+  src\screens\CatalogueHomeScreen.tsx:2253:    borderBottomRightRadius: 1,
+> src\screens\CatalogueHomeScreen.tsx:2254:    transform: [{ rotate: '-2deg' }],
+  src\screens\CatalogueHomeScreen.tsx:2255:  },
+  src\screens\CatalogueHomeScreen.tsx:2256:  catalogueBookRightV2: {
+  src\screens\CatalogueHomeScreen.tsx:2259:    borderTopLeftRadius: 1,
+  src\screens\CatalogueHomeScreen.tsx:2260:    borderBottomLeftRadius: 1,
+> src\screens\CatalogueHomeScreen.tsx:2261:    transform: [{ rotate: '2deg' }],
+  src\screens\CatalogueHomeScreen.tsx:2262:  },
+  src\screens\CatalogueHomeScreen.tsx:2263:  catalogueBookSpineV2: {
+  src\screens\ChronologyScreen.tsx:987:    fontSize: 26,
+  src\screens\ChronologyScreen.tsx:988:    fontWeight: '900',
+> src\screens\ChronologyScreen.tsx:989:    textTransform: 'capitalize',
+  src\screens\ChronologyScreen.tsx:990:    letterSpacing: -0.5,
+  src\screens\ChronologyScreen.tsx:991:  },
+  src\screens\ChronologyScreen.tsx:995:    fontSize: 22,
+  src\screens\ChronologyScreen.tsx:996:    fontWeight: '900',
+> src\screens\ChronologyScreen.tsx:997:    textTransform: 'capitalize',
+  src\screens\ChronologyScreen.tsx:998:    letterSpacing: -0.3,
+  src\screens\ChronologyScreen.tsx:999:  },
+  src\screens\CollectionDetailsScreen.tsx:929:    fontWeight: '900',
+  src\screens\CollectionDetailsScreen.tsx:930:    letterSpacing: 1.15,
+> src\screens\CollectionDetailsScreen.tsx:931:    textTransform: 'uppercase',
+  src\screens\CollectionDetailsScreen.tsx:932:  },
+  src\screens\CollectionDetailsScreen.tsx:933:  heading: { marginTop: 3, color: colors.text, fontSize: 36, lineHeight: 42, fontWeight: '900', letterSpacing: -1 },
+  src\screens\CollectionDetailsScreen.tsx:1034:    backgroundColor: colors.fill,
+  src\screens\CollectionDetailsScreen.tsx:1035:  },
+> src\screens\CollectionDetailsScreen.tsx:1036:  typeBadgeText: { color: colors.text, fontSize: 9, fontWeight: '900', textAlign: 'center', textTransform: 'uppercase' 
+},
+  src\screens\CollectionDetailsScreen.tsx:1037:  itemCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  src\screens\CollectionDetailsScreen.tsx:1038:  itemTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  src\screens\CollectionDetailsScreen.tsx:1048:  modalSafe: { flex: 1, backgroundColor: colors.background },
+  src\screens\CollectionDetailsScreen.tsx:1049:  modalHeader: { padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundCo
+lor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.separator },
+> src\screens\CollectionDetailsScreen.tsx:1050:  modalEyebrow: { color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.8, textTransform: 'upperca
+se' },
+  src\screens\CollectionDetailsScreen.tsx:1051:  modalTitle: { marginTop: 3, color: colors.text, fontSize: 21, fontWeight: '900' },
+  src\screens\CollectionDetailsScreen.tsx:1052:  doneButton: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.black },
+  src\screens\CollectionDetailsScreen.tsx:1058:  referenceSelected: { opacity: 0.55 },
+  src\screens\CollectionDetailsScreen.tsx:1059:  referenceType: { width: 70 },
+> src\screens\CollectionDetailsScreen.tsx:1060:  referenceTypeText: { color: colors.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
+  src\screens\CollectionDetailsScreen.tsx:1061:  referenceCopy: { flex: 1, minWidth: 0 },
+  src\screens\CollectionDetailsScreen.tsx:1062:  referenceTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  src\screens\CollectionDetailsScreen.tsx:1107:    color: CELESTIAL_GOLD,
+  src\screens\CollectionDetailsScreen.tsx:1108:    letterSpacing: 0.7,
+> src\screens\CollectionDetailsScreen.tsx:1109:    textTransform: 'uppercase',
+  src\screens\CollectionDetailsScreen.tsx:1110:  },
+  src\screens\CollectionDetailsScreen.tsx:1111:  addButtonCelestial: {
+  src\screens\CollectionsScreen.tsx:1152:    borderRadius: 1,
+  src\screens\CollectionsScreen.tsx:1153:    backgroundColor: activeAccentColor,
+> src\screens\CollectionsScreen.tsx:1154:    transform: [{ translateY: -1.5 }],
+  src\screens\CollectionsScreen.tsx:1155:  },
+  src\screens\CollectionsScreen.tsx:1156:  memoryCapsuleClockHandShort: {
+  src\screens\CollectionsScreen.tsx:1160:    borderRadius: 1,
+  src\screens\CollectionsScreen.tsx:1161:    backgroundColor: activeAccentColor,
+> src\screens\CollectionsScreen.tsx:1162:    transform: [{ translateX: 1.5 }],
+  src\screens\CollectionsScreen.tsx:1163:  },
+  src\screens\CollectionsScreen.tsx:1164:  memoryCapsuleCreateTitle: {
+  src\screens\CollectionsScreen.tsx:1273:    height: 1.5,
+  src\screens\CollectionsScreen.tsx:1274:    backgroundColor: activeAccentColor,
+> src\screens\CollectionsScreen.tsx:1275:    transform: [{ rotate: '27deg' }],
+  src\screens\CollectionsScreen.tsx:1276:  },
+  src\screens\CollectionsScreen.tsx:1277:  bigBoxParcelFoldRight: {
+  src\screens\CollectionsScreen.tsx:1282:    height: 1.5,
+  src\screens\CollectionsScreen.tsx:1283:    backgroundColor: activeAccentColor,
+> src\screens\CollectionsScreen.tsx:1284:    transform: [{ rotate: '-27deg' }],
+  src\screens\CollectionsScreen.tsx:1285:  },
+  src\screens\CollectionsScreen.tsx:1286:  bigBoxCreateGlyphText: {
+  src\screens\CollectionsScreen.tsx:1498:    color: CELESTIAL_GOLD,
+  src\screens\CollectionsScreen.tsx:1499:    letterSpacing: 0.55,
+> src\screens\CollectionsScreen.tsx:1500:    textTransform: 'uppercase',
+  src\screens\CollectionsScreen.tsx:1501:  },
+  src\screens\CollectionsScreen.tsx:1502:});
+  src\screens\EntryFormScreen.tsx:788:    fontWeight: '800',
+  src\screens\EntryFormScreen.tsx:789:    letterSpacing: 1.35,
+> src\screens\EntryFormScreen.tsx:790:    textTransform: 'uppercase',
+  src\screens\EntryFormScreen.tsx:791:  },
+  src\screens\EntryFormScreen.tsx:792:  vaultTypeScrollerRepairR2: {
+  src\screens\EntryFormScreen.tsx:1050:    fontWeight: '700',
+  src\screens\EntryFormScreen.tsx:1051:    letterSpacing: 0.8,
+> src\screens\EntryFormScreen.tsx:1052:    textTransform: 'uppercase',
+  src\screens\EntryFormScreen.tsx:1053:  },
+  src\screens\EntryFormScreen.tsx:1054:  heading: {
+  src\screens\EntryListScreen.tsx:738:    fontWeight: '700',
+  src\screens\EntryListScreen.tsx:739:    letterSpacing: 0.8,
+> src\screens\EntryListScreen.tsx:740:    textTransform: 'uppercase',
+  src\screens\EntryListScreen.tsx:741:  },
+  src\screens\EntryListScreen.tsx:742:  heading: {
+  src\screens\EntryListScreen.tsx:781:  addCardPressed: {
+  src\screens\EntryListScreen.tsx:782:    opacity: 0.86,
+> src\screens\EntryListScreen.tsx:783:    transform: [{ scale: 0.995 }],
+  src\screens\EntryListScreen.tsx:784:  },
+  src\screens\EntryListScreen.tsx:785:  addIcon: {
+  src\screens\HistoryScreen.tsx:883:    fontSize: 17,
+  src\screens\HistoryScreen.tsx:884:    fontWeight: '700',
+> src\screens\HistoryScreen.tsx:885:    textTransform: 'capitalize',
+  src\screens\HistoryScreen.tsx:886:  },
+  src\screens\HistoryScreen.tsx:887:  sectionCount: {
+  src\screens\HistoryScreen.tsx:965:    fontSize: 15,
+  src\screens\HistoryScreen.tsx:966:    fontWeight: '800',
+> src\screens\HistoryScreen.tsx:967:    textTransform: 'capitalize',
+  src\screens\HistoryScreen.tsx:968:  },
+  src\screens\HistoryScreen.tsx:969:  archiveWeekCopy: {
+  src\screens\JingleNetworkScreen.tsx:502:  hero: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 22, borderBottomWidth: StyleSheet.hair
+lineWidth, borderBottomColor: colors.separator, backgroundColor: colors.fillStrong },
+  src\screens\JingleNetworkScreen.tsx:503:  constellation: { position: 'absolute', left: 24, right: 24, top: 22, flexDirection: 'row', alignItems: 'center', justifyCo
+ntent: 'center', opacity: 0.35 },
+> src\screens\JingleNetworkScreen.tsx:504:  line: { width: 92, height: StyleSheet.hairlineWidth, backgroundColor: colors.gold, marginHorizontal: 10, transform: [{ rot
+ate: '-5deg' }] },
+  src\screens\JingleNetworkScreen.tsx:505:  heroStar: { color: colors.gold, fontSize: 13 },
+  src\screens\JingleNetworkScreen.tsx:506:  heroBell: { width: 50, height: 50 },
+  src\screens\JingleProfileScreen.tsx:541:  entryCard: { marginBottom: 13, borderRadius: 20, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.su
+rface, padding: 15 },
+  src\screens\JingleProfileScreen.tsx:542:  entryHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+> src\screens\JingleProfileScreen.tsx:543:  entryKind: { color: colors.gold, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' },
+  src\screens\JingleProfileScreen.tsx:544:  entryDate: { color: colors.textMuted, fontSize: 9, fontWeight: '700' },
+  src\screens\JingleProfileScreen.tsx:545:  entryTitle: { color: colors.text, fontSize: 18, lineHeight: 23, fontWeight: '800', marginTop: 8 },
+  src\screens\MediaDetailsScreen.tsx:393:    fontSize: 12,
+  src\screens\MediaDetailsScreen.tsx:394:    fontWeight: '800',
+> src\screens\MediaDetailsScreen.tsx:395:    textTransform: 'uppercase',
+  src\screens\MediaDetailsScreen.tsx:396:    letterSpacing: 0.8,
+  src\screens\MediaDetailsScreen.tsx:397:  },
+  src\screens\MediaDetailsScreen.tsx:417:  progressCard: { marginTop: 20, padding: 17, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor:
+ colors.separator },
+  src\screens\MediaDetailsScreen.tsx:418:  progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+> src\screens\MediaDetailsScreen.tsx:419:  sectionLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
+  src\screens\MediaDetailsScreen.tsx:420:  progressValue: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  src\screens\MediaDetailsScreen.tsx:421:  progressTrack: { height: 8, overflow: 'hidden', borderRadius: 4, backgroundColor: colors.fillStrong, marginTop: 12 },
+  src\screens\MediaDetailsScreen.tsx:424:  overview: { color: colors.text, fontSize: 15, lineHeight: 23, marginTop: 10, marginBottom: 18 },
+  src\screens\MediaDetailsScreen.tsx:425:  detailRow: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+> src\screens\MediaDetailsScreen.tsx:426:  detailLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
+  src\screens\MediaDetailsScreen.tsx:427:  detailValue: { color: colors.text, fontSize: 15, fontWeight: '600', marginTop: 5 },
+  src\screens\MediaDetailsScreen.tsx:428:  actions: { marginTop: 24 },
+  src\screens\MediaFormScreen.tsx:558:  tmdbNote: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 12 },
+  src\screens\MediaFormScreen.tsx:559:  section: { marginBottom: 18 },
+> src\screens\MediaFormScreen.tsx:560:  sectionLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marg
+inBottom: 9 },
+  src\screens\MediaFormScreen.tsx:561:  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  src\screens\MediaFormScreen.tsx:562:  chip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderC
+olor: colors.separator },
+  src\screens\MediaListScreen.tsx:769:    borderWidth: 0,
+  src\screens\MediaListScreen.tsx:770:  },
+> src\screens\MediaListScreen.tsx:771:  jingleButtonPressed: { opacity: 0.72, transform: [{ scale: 0.95 }] },
+  src\screens\MediaListScreen.tsx:772:  jingleIcon: {
+  src\screens\MediaListScreen.tsx:773:    width: 62,
+  src\screens\MemoryRadioScreen.tsx:1068:              {
+  src\screens\MemoryRadioScreen.tsx:1069:                opacity: bass.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.22] }),
+> src\screens\MemoryRadioScreen.tsx:1070:                transform: [{ scale: bass.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }],
+  src\screens\MemoryRadioScreen.tsx:1071:              },
+  src\screens\MemoryRadioScreen.tsx:1072:            ]}
+  src\screens\ReconstructionScreen.tsx:649:    fontSize: 38,
+  src\screens\ReconstructionScreen.tsx:650:    fontWeight: '900',
+> src\screens\ReconstructionScreen.tsx:651:    textTransform: 'capitalize',
+  src\screens\ReconstructionScreen.tsx:652:  },
+  src\screens\ReconstructionScreen.tsx:653:
+  src\screens\StatsScreen.tsx:641:  profileSettingsButtonPressedFinalV1: {
+  src\screens\StatsScreen.tsx:642:    opacity: 0.62,
+> src\screens\StatsScreen.tsx:643:    transform: [{ scale: 0.96 }],
+  src\screens\StatsScreen.tsx:644:  },
+  src\screens\StatsScreen.tsx:645:  profileSettingsIconFinalV1: {
+  src\screens\StatsScreen.tsx:738:    lineHeight: 13,
+  src\screens\StatsScreen.tsx:739:    fontWeight: '800',
+> src\screens\StatsScreen.tsx:740:    textTransform: 'uppercase',
+  src\screens\StatsScreen.tsx:741:    letterSpacing: 0.35,
+  src\screens\StatsScreen.tsx:742:  },
+  src\screens\StatsScreen.tsx:1161:    fontWeight: '900',
+  src\screens\StatsScreen.tsx:1162:    letterSpacing: 0.5,
+> src\screens\StatsScreen.tsx:1163:    textTransform: 'uppercase',
+  src\screens\StatsScreen.tsx:1164:  },
+  src\screens\StatsScreen.tsx:1165:  bookRangeTitle: {
+  src\screens\ThemePickerScreen.tsx:2284:    shadowRadius: 2,
+  src\screens\ThemePickerScreen.tsx:2285:    elevation: 2,
+> src\screens\ThemePickerScreen.tsx:2286:    transform: [{ translateX: 0 }],
+  src\screens\ThemePickerScreen.tsx:2287:  },
+  src\screens\ThemePickerScreen.tsx:2288:  accentToggleThumbOn: {
+> src\screens\ThemePickerScreen.tsx:2289:    transform: [{ translateX: 16 }],
+  src\screens\ThemePickerScreen.tsx:2290:  },
+  src\screens\ThemePickerScreen.tsx:2291:  safeArea: { flex: 1, backgroundColor: colors.background },
+  src\screens\ThemePickerScreen.tsx:2339:  },
+  src\screens\ThemePickerScreen.tsx:2340:  hero: { paddingHorizontal: 3, paddingBottom: 24 },
+> src\screens\ThemePickerScreen.tsx:2341:  eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
+  src\screens\ThemePickerScreen.tsx:2342:  heading: { color: colors.text, fontSize: 38, lineHeight: 45, fontWeight: '900', letterSpacing: -1, marginTop: 4 },
+  src\screens\ThemePickerScreen.tsx:2343:  intro: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: 8, maxWidth: 500 },
+  src\screens\ThemePickerScreen.tsx:2611:  mapPixel: { flex: 1 },
+  src\screens\ThemePickerScreen.tsx:2612:  mapCursor: { position: 'absolute', width: 28, height: 28, marginLeft: -14, marginTop: -14, borderRadius: 14, borderWidth: 3
+, borderColor: '#FFFFFF', backgroundColor: 'transparent', shadowColor: '#000000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+> src\screens\ThemePickerScreen.tsx:2613:  hueLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8, margi
+nTop: 18, marginBottom: 8 },
+  src\screens\ThemePickerScreen.tsx:2614:  hueStrip: { height: 42, overflow: 'hidden', borderRadius: 12 },
+  src\screens\ThemePickerScreen.tsx:2615:  huePixels: { ...StyleSheet.absoluteFillObject, flexDirection: 'row' },
+  src\screens\ThemePickerScreen.tsx:2618:  previewCard: { flexDirection: 'row', alignItems: 'center', padding: 17, marginTop: 15, borderRadius: 19, backgroundColor: c
+olors.surface, borderWidth: 1, borderColor: colors.separator },
+  src\screens\ThemePickerScreen.tsx:2619:  previewCopy: { flex: 1, paddingRight: 12 },
+> src\screens\ThemePickerScreen.tsx:2620:  previewEyebrow: { color: colors.textMuted, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 
+},
+  src\screens\ThemePickerScreen.tsx:2621:  previewTitle: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 3 },
+  src\screens\ThemePickerScreen.tsx:2622:  previewSubtitle: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  src\screens\ThemePickerScreen.tsx:3083:    fontWeight: '900',
+  src\screens\ThemePickerScreen.tsx:3084:  },
+> src\screens\ThemePickerScreen.tsx:3085:  pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
+  src\screens\ThemePickerScreen.tsx:3086:});
+  src\screens\ThemePickerScreen.tsx:3087:
+  src\screens\TodayScreen.before-final-polish-v3.tsx:78:        style,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:79:        {
+> src\screens\TodayScreen.before-final-polish-v3.tsx:80:          transform: [
+> src\screens\TodayScreen.before-final-polish-v3.tsx:81:            { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [18, -32] }) },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:82:            { scale: float.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.92, 1.04, 0.92] }) },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:83:          ],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:96:        styles.aeroFish,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:97:        style,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:98:        { transform: [{ translateX: swim.interpolate({ inputRange: [0, 1], outputRange: [-120, 920] }) }] },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:99:      ]}
+  src\screens\TodayScreen.before-final-polish-v3.tsx:100:    >
+  src\screens\TodayScreen.before-final-polish-v3.tsx:178:            bubbleStyle,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:179:            {
+> src\screens\TodayScreen.before-final-polish-v3.tsx:180:              transform: [
+> src\screens\TodayScreen.before-final-polish-v3.tsx:181:                { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [980 + offset, -420 + offs
+et] }) },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:182:                { translateX: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, index % 2 ? 34 : 
+-28, 0] }) },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:183:                { scale: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.86, 1.06, 0.9] }) },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:210:              opacity: 0.42 + (index % 4) * 0.12,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:211:              backgroundColor: index % 7 === 0 ? '#D8FF66' : index % 3 === 0 ? '#67C84A' : '#218540',
+> src\screens\TodayScreen.before-final-polish-v3.tsx:212:              transform: [{ rotate: index % 2 ? '9deg' : '-7deg' }],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:213:            },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:214:          ]}
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1047:
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1048:  aeroCatalogueIconMobileFix: {
+> src\screens\TodayScreen.before-final-polish-v3.tsx:1049:    transform: [
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1050:      { scale: 0.72 },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1051:    ],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1139:    shadowRadius: 10,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1140:
+> src\screens\TodayScreen.before-final-polish-v3.tsx:1141:    transform: [
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1142:      {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1143:        rotate: '-8deg',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1154:    right: '6%',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1155:
+> src\screens\TodayScreen.before-final-polish-v3.tsx:1156:    transform: [
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1157:      {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1158:        rotate: '8deg',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1202:    shadowRadius: 6,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1203:
+> src\screens\TodayScreen.before-final-polish-v3.tsx:1204:    transform: [
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1205:      {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1206:        rotate: '-9deg',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1217:    right: '10%',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1218:
+> src\screens\TodayScreen.before-final-polish-v3.tsx:1219:    transform: [
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1220:      {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1221:        rotate: '9deg',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1785:    opacity: 0.94,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1786:
+> src\screens\TodayScreen.before-final-polish-v3.tsx:1787:    transform: [
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1788:      { rotate: '-24deg' },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:1789:    ],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2137:  screenBubble: { position: 'absolute', borderRadius: 999, borderWidth: 2, shadowColor: '#693CC5', shadowOff
+set: { width: 4, height: 8 }, shadowOpacity: 0.19, shadowRadius: 12, elevation: 8 },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2138:  screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: 'r
+gba(255,255,255,0.9)', borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2139:  screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRad
+ius: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-28deg' }] },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2140:  screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderCo
+lor: 'rgba(255,166,224,0.72)' },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2141:  screenBubbleGold: { right: '9%', width: 92, height: 92, backgroundColor: 'rgba(255,222,105,0.16)', borderC
+olor: 'rgba(255,231,139,0.76)' },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2278:  aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, b
+ackgroundColor: 'rgba(21,115,218,0.14)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2279:  aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', border
+Width: 2, borderColor: 'rgba(255,255,255,0.78)', shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2280:  aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadiu
+s: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-24deg' }] },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2281:  aeroBubbleA: { width: 46, height: 46, left: '7%', bottom: 18 },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2282:  aeroBubbleB: { width: 25, height: 25, left: '22%', bottom: 92 },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2286:  aeroFish: { position: 'absolute', width: 72, height: 38, opacity: 0.72 },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2287:  aeroFishOne: { top: 68, left: 0 },
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2288:  aeroFishTwo: { bottom: 23, left: -310, transform: [{ scale: 0.72 }] },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2289:  aeroFishBody: { position: 'absolute', right: 0, top: 4, width: 53, height: 30, borderRadius: 19, backgroun
+dColor: '#FF7A21', borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2290:  aeroFishTail: { position: 'absolute', left: 0, top: 8, width: 0, height: 0, borderTopWidth: 11, borderBott
+omWidth: 11, borderRightWidth: 20, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FF7A21' },
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2291:  aeroFishStripeOne: { position: 'absolute', left: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFF
+FFF', transform: [{ rotate: '8deg' }] },
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2292:  aeroFishStripeTwo: { position: 'absolute', right: 12, top: -2, width: 7, height: 34, backgroundColor: '#FF
+FFFF', transform: [{ rotate: '-8deg' }] },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2293:  aeroFishEye: { position: 'absolute', right: 6, top: 7, width: 5, height: 5, borderRadius: 3, backgroundCol
+or: '#132B38' },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2294:  aeroGlassCard: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2398:        : {}),
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2399:    } : {}),},
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2400:  themeButtonPressed: { opacity: 0.65, transform: [{ scale: 0.96 }] },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2401:  themeButtonIcon: { color: colors.black, fontSize: 22, fontWeight: '800' ,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2402:    // aeroBreathingRoomV1
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2428:    
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2429:    
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2430:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2431:  
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2432:    // aeroV3Override
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2851:  cataloguePressed: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2852:    opacity: 0.7,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2853:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2854:  },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2855:  catalogueIcon: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2894:    fontWeight: '800',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2895:    letterSpacing: 0.7,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2896:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2897:  },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2898:  catalogueTitle: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2984:    fontWeight: '800',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2985:    letterSpacing: 0.7,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:2986:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2987:  
+  src\screens\TodayScreen.before-final-polish-v3.tsx:2988:    // aeroV3Override
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3012:      fontWeight: '700',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3013:      letterSpacing: 2.1,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:3014:      textTransform: 'uppercase',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3015:    } : {}),},
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3016:  dailyTotal: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3290:  // classicMobileRadioCompactV1
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3291:  classicMobileRadioCompact: {
+> src\screens\TodayScreen.before-final-polish-v3.tsx:3292:    transform: [{ scale: 0.88 }],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3293:    marginTop: 18,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3294:    marginBottom: -10,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3303:    borderRadius: pixelMode ? 0 : 3,
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3304:    backgroundColor: colors.text,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:3305:    transform: [{ rotate: '-7deg' }],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3306:  },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3307:  radioSpeaker: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3453:  quickPressed: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3454:    opacity: 0.7,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:3455:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3456:  },
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3457:  quickSymbol: {
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3951:    fontWeight: '900',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3952:    letterSpacing: 0.8,
+> src\screens\TodayScreen.before-final-polish-v3.tsx:3953:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3954:  
+  src\screens\TodayScreen.before-final-polish-v3.tsx:3955:    // aeroBottomTune
+  src\screens\TodayScreen.before-meadow-polish.tsx:78:        style,
+  src\screens\TodayScreen.before-meadow-polish.tsx:79:        {
+> src\screens\TodayScreen.before-meadow-polish.tsx:80:          transform: [
+> src\screens\TodayScreen.before-meadow-polish.tsx:81:            { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [18, -32] }) },
+  src\screens\TodayScreen.before-meadow-polish.tsx:82:            { scale: float.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.92, 1.04, 0.92] }) },
+  src\screens\TodayScreen.before-meadow-polish.tsx:83:          ],
+  src\screens\TodayScreen.before-meadow-polish.tsx:96:        styles.aeroFish,
+  src\screens\TodayScreen.before-meadow-polish.tsx:97:        style,
+> src\screens\TodayScreen.before-meadow-polish.tsx:98:        { transform: [{ translateX: swim.interpolate({ inputRange: [0, 1], outputRange: [-120, 920] }) }] },
+  src\screens\TodayScreen.before-meadow-polish.tsx:99:      ]}
+  src\screens\TodayScreen.before-meadow-polish.tsx:100:    >
+  src\screens\TodayScreen.before-meadow-polish.tsx:178:            bubbleStyle,
+  src\screens\TodayScreen.before-meadow-polish.tsx:179:            {
+> src\screens\TodayScreen.before-meadow-polish.tsx:180:              transform: [
+> src\screens\TodayScreen.before-meadow-polish.tsx:181:                { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [980 + offset, -420 + offset
+] }) },
+  src\screens\TodayScreen.before-meadow-polish.tsx:182:                { translateX: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, index % 2 ? 34 : -2
+8, 0] }) },
+  src\screens\TodayScreen.before-meadow-polish.tsx:183:                { scale: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.86, 1.06, 0.9] }) },
+  src\screens\TodayScreen.before-meadow-polish.tsx:210:              opacity: 0.42 + (index % 4) * 0.12,
+  src\screens\TodayScreen.before-meadow-polish.tsx:211:              backgroundColor: index % 7 === 0 ? '#D8FF66' : index % 3 === 0 ? '#67C84A' : '#218540',
+> src\screens\TodayScreen.before-meadow-polish.tsx:212:              transform: [{ rotate: index % 2 ? '9deg' : '-7deg' }],
+  src\screens\TodayScreen.before-meadow-polish.tsx:213:            },
+  src\screens\TodayScreen.before-meadow-polish.tsx:214:          ]}
+  src\screens\TodayScreen.before-meadow-polish.tsx:1032:
+  src\screens\TodayScreen.before-meadow-polish.tsx:1033:  aeroCatalogueIconMobileFix: {
+> src\screens\TodayScreen.before-meadow-polish.tsx:1034:    transform: [
+  src\screens\TodayScreen.before-meadow-polish.tsx:1035:      { scale: 0.72 },
+  src\screens\TodayScreen.before-meadow-polish.tsx:1036:    ],
+  src\screens\TodayScreen.before-meadow-polish.tsx:1124:    shadowRadius: 10,
+  src\screens\TodayScreen.before-meadow-polish.tsx:1125:
+> src\screens\TodayScreen.before-meadow-polish.tsx:1126:    transform: [
+  src\screens\TodayScreen.before-meadow-polish.tsx:1127:      {
+  src\screens\TodayScreen.before-meadow-polish.tsx:1128:        rotate: '-8deg',
+  src\screens\TodayScreen.before-meadow-polish.tsx:1139:    right: '6%',
+  src\screens\TodayScreen.before-meadow-polish.tsx:1140:
+> src\screens\TodayScreen.before-meadow-polish.tsx:1141:    transform: [
+  src\screens\TodayScreen.before-meadow-polish.tsx:1142:      {
+  src\screens\TodayScreen.before-meadow-polish.tsx:1143:        rotate: '8deg',
+  src\screens\TodayScreen.before-meadow-polish.tsx:1187:    shadowRadius: 6,
+  src\screens\TodayScreen.before-meadow-polish.tsx:1188:
+> src\screens\TodayScreen.before-meadow-polish.tsx:1189:    transform: [
+  src\screens\TodayScreen.before-meadow-polish.tsx:1190:      {
+  src\screens\TodayScreen.before-meadow-polish.tsx:1191:        rotate: '-9deg',
+  src\screens\TodayScreen.before-meadow-polish.tsx:1202:    right: '10%',
+  src\screens\TodayScreen.before-meadow-polish.tsx:1203:
+> src\screens\TodayScreen.before-meadow-polish.tsx:1204:    transform: [
+  src\screens\TodayScreen.before-meadow-polish.tsx:1205:      {
+  src\screens\TodayScreen.before-meadow-polish.tsx:1206:        rotate: '9deg',
+  src\screens\TodayScreen.before-meadow-polish.tsx:1741:    opacity: 0.94,
+  src\screens\TodayScreen.before-meadow-polish.tsx:1742:
+> src\screens\TodayScreen.before-meadow-polish.tsx:1743:    transform: [
+  src\screens\TodayScreen.before-meadow-polish.tsx:1744:      { rotate: '-24deg' },
+  src\screens\TodayScreen.before-meadow-polish.tsx:1745:    ],
+  src\screens\TodayScreen.before-meadow-polish.tsx:2093:  screenBubble: { position: 'absolute', borderRadius: 999, borderWidth: 2, shadowColor: '#693CC5', shadowOffse
+t: { width: 4, height: 8 }, shadowOpacity: 0.19, shadowRadius: 12, elevation: 8 },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2094:  screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: 'rgb
+a(255,255,255,0.9)', borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
+> src\screens\TodayScreen.before-meadow-polish.tsx:2095:  screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadiu
+s: 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-28deg' }] },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2096:  screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderColo
+r: 'rgba(255,166,224,0.72)' },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2097:  screenBubbleGold: { right: '9%', width: 92, height: 92, backgroundColor: 'rgba(255,222,105,0.16)', borderCol
+or: 'rgba(255,231,139,0.76)' },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2234:  aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, bac
+kgroundColor: 'rgba(21,115,218,0.14)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2235:  aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', borderWi
+dth: 2, borderColor: 'rgba(255,255,255,0.78)', shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
+> src\screens\TodayScreen.before-meadow-polish.tsx:2236:  aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadius:
+ 999, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-24deg' }] },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2237:  aeroBubbleA: { width: 46, height: 46, left: '7%', bottom: 18 },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2238:  aeroBubbleB: { width: 25, height: 25, left: '22%', bottom: 92 },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2242:  aeroFish: { position: 'absolute', width: 72, height: 38, opacity: 0.72 },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2243:  aeroFishOne: { top: 68, left: 0 },
+> src\screens\TodayScreen.before-meadow-polish.tsx:2244:  aeroFishTwo: { bottom: 23, left: -310, transform: [{ scale: 0.72 }] },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2245:  aeroFishBody: { position: 'absolute', right: 0, top: 4, width: 53, height: 30, borderRadius: 19, backgroundC
+olor: '#FF7A21', borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2246:  aeroFishTail: { position: 'absolute', left: 0, top: 8, width: 0, height: 0, borderTopWidth: 11, borderBottom
+Width: 11, borderRightWidth: 20, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FF7A21' },
+> src\screens\TodayScreen.before-meadow-polish.tsx:2247:  aeroFishStripeOne: { position: 'absolute', left: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFF
+F', transform: [{ rotate: '8deg' }] },
+> src\screens\TodayScreen.before-meadow-polish.tsx:2248:  aeroFishStripeTwo: { position: 'absolute', right: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFF
+FF', transform: [{ rotate: '-8deg' }] },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2249:  aeroFishEye: { position: 'absolute', right: 6, top: 7, width: 5, height: 5, borderRadius: 3, backgroundColor
+: '#132B38' },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2250:  aeroGlassCard: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:2354:        : {}),
+  src\screens\TodayScreen.before-meadow-polish.tsx:2355:    } : {}),},
+> src\screens\TodayScreen.before-meadow-polish.tsx:2356:  themeButtonPressed: { opacity: 0.65, transform: [{ scale: 0.96 }] },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2357:  themeButtonIcon: { color: colors.black, fontSize: 22, fontWeight: '800' ,
+  src\screens\TodayScreen.before-meadow-polish.tsx:2358:    // aeroBreathingRoomV1
+  src\screens\TodayScreen.before-meadow-polish.tsx:2384:    
+  src\screens\TodayScreen.before-meadow-polish.tsx:2385:    
+> src\screens\TodayScreen.before-meadow-polish.tsx:2386:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2387:  
+  src\screens\TodayScreen.before-meadow-polish.tsx:2388:    // aeroV3Override
+  src\screens\TodayScreen.before-meadow-polish.tsx:2807:  cataloguePressed: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:2808:    opacity: 0.7,
+> src\screens\TodayScreen.before-meadow-polish.tsx:2809:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.before-meadow-polish.tsx:2810:  },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2811:  catalogueIcon: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:2850:    fontWeight: '800',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2851:    letterSpacing: 0.7,
+> src\screens\TodayScreen.before-meadow-polish.tsx:2852:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2853:  },
+  src\screens\TodayScreen.before-meadow-polish.tsx:2854:  catalogueTitle: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:2940:    fontWeight: '800',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2941:    letterSpacing: 0.7,
+> src\screens\TodayScreen.before-meadow-polish.tsx:2942:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2943:  
+  src\screens\TodayScreen.before-meadow-polish.tsx:2944:    // aeroV3Override
+  src\screens\TodayScreen.before-meadow-polish.tsx:2968:      fontWeight: '700',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2969:      letterSpacing: 2.1,
+> src\screens\TodayScreen.before-meadow-polish.tsx:2970:      textTransform: 'uppercase',
+  src\screens\TodayScreen.before-meadow-polish.tsx:2971:    } : {}),},
+  src\screens\TodayScreen.before-meadow-polish.tsx:2972:  dailyTotal: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:3246:  // classicMobileRadioCompactV1
+  src\screens\TodayScreen.before-meadow-polish.tsx:3247:  classicMobileRadioCompact: {
+> src\screens\TodayScreen.before-meadow-polish.tsx:3248:    transform: [{ scale: 0.88 }],
+  src\screens\TodayScreen.before-meadow-polish.tsx:3249:    marginTop: 18,
+  src\screens\TodayScreen.before-meadow-polish.tsx:3250:    marginBottom: -10,
+  src\screens\TodayScreen.before-meadow-polish.tsx:3259:    borderRadius: pixelMode ? 0 : 3,
+  src\screens\TodayScreen.before-meadow-polish.tsx:3260:    backgroundColor: colors.text,
+> src\screens\TodayScreen.before-meadow-polish.tsx:3261:    transform: [{ rotate: '-7deg' }],
+  src\screens\TodayScreen.before-meadow-polish.tsx:3262:  },
+  src\screens\TodayScreen.before-meadow-polish.tsx:3263:  radioSpeaker: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:3409:  quickPressed: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:3410:    opacity: 0.7,
+> src\screens\TodayScreen.before-meadow-polish.tsx:3411:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.before-meadow-polish.tsx:3412:  },
+  src\screens\TodayScreen.before-meadow-polish.tsx:3413:  quickSymbol: {
+  src\screens\TodayScreen.before-meadow-polish.tsx:3907:    fontWeight: '900',
+  src\screens\TodayScreen.before-meadow-polish.tsx:3908:    letterSpacing: 0.8,
+> src\screens\TodayScreen.before-meadow-polish.tsx:3909:    textTransform: 'uppercase',
+  src\screens\TodayScreen.before-meadow-polish.tsx:3910:  
+  src\screens\TodayScreen.before-meadow-polish.tsx:3911:    // aeroBottomTune
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:78:        style,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:79:        {
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:80:          transform: [
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:81:            { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [18, -32] }) },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:82:            { scale: float.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.92, 1.04, 0.92] }) },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:83:          ],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:96:        styles.aeroFish,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:97:        style,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:98:        { transform: [{ translateX: swim.interpolate({ inputRange: [0, 1], outputRange: [-120, 920] }) }] },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:99:      ]}
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:100:    >
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:178:            bubbleStyle,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:179:            {
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:180:              transform: [
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:181:                { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [980 + offset, -420 + offset] }) 
+},
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:182:                { translateX: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, index % 2 ? 34 : -28, 0]
+ }) },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:183:                { scale: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.86, 1.06, 0.9] }) },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:210:              opacity: 0.42 + (index % 4) * 0.12,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:211:              backgroundColor: index % 7 === 0 ? '#D8FF66' : index % 3 === 0 ? '#67C84A' : '#218540',
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:212:              transform: [{ rotate: index % 2 ? '9deg' : '-7deg' }],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:213:            },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:214:          ]}
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1068:
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1069:  aeroCatalogueIconMobileFix: {
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1070:    transform: [
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1071:      { scale: 0.72 },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1072:    ],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1160:    shadowRadius: 10,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1161:
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1162:    transform: [
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1163:      {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1164:        rotate: '-8deg',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1175:    right: '6%',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1176:
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1177:    transform: [
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1178:      {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1179:        rotate: '8deg',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1223:    shadowRadius: 6,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1224:
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1225:    transform: [
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1226:      {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1227:        rotate: '-9deg',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1238:    right: '10%',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1239:
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1240:    transform: [
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1241:      {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1242:        rotate: '9deg',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1892:    opacity: 0.94,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1893:
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1894:    transform: [
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1895:      { rotate: '-24deg' },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:1896:    ],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2244:  screenBubble: { position: 'absolute', borderRadius: 999, borderWidth: 2, shadowColor: '#693CC5', shadowOffset: { 
+width: 4, height: 8 }, shadowOpacity: 0.19, shadowRadius: 12, elevation: 8 },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2245:  screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: 'rgba(255
+,255,255,0.9)', borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2246:  screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadius: 99
+9, backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-28deg' }] },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2247:  screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderColor: 'r
+gba(255,166,224,0.72)' },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2248:  screenBubbleGold: { right: '9%', width: 92, height: 92, backgroundColor: 'rgba(255,222,105,0.16)', borderColor: '
+rgba(255,231,139,0.76)' },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2385:  aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, backgrou
+ndColor: 'rgba(21,115,218,0.14)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2386:  aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', borderWidth: 
+2, borderColor: 'rgba(255,255,255,0.78)', shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2387:  aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadius: 999,
+ backgroundColor: 'rgba(255,255,255,0.82)', transform: [{ rotate: '-24deg' }] },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2388:  aeroBubbleA: { width: 46, height: 46, left: '7%', bottom: 18 },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2389:  aeroBubbleB: { width: 25, height: 25, left: '22%', bottom: 92 },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2393:  aeroFish: { position: 'absolute', width: 72, height: 38, opacity: 0.72 },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2394:  aeroFishOne: { top: 68, left: 0 },
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2395:  aeroFishTwo: { bottom: 23, left: -310, transform: [{ scale: 0.72 }] },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2396:  aeroFishBody: { position: 'absolute', right: 0, top: 4, width: 53, height: 30, borderRadius: 19, backgroundColor:
+ '#FF7A21', borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2397:  aeroFishTail: { position: 'absolute', left: 0, top: 8, width: 0, height: 0, borderTopWidth: 11, borderBottomWidth
+: 11, borderRightWidth: 20, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FF7A21' },
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2398:  aeroFishStripeOne: { position: 'absolute', left: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFFF', t
+ransform: [{ rotate: '8deg' }] },
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2399:  aeroFishStripeTwo: { position: 'absolute', right: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFFF', 
+transform: [{ rotate: '-8deg' }] },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2400:  aeroFishEye: { position: 'absolute', right: 6, top: 7, width: 5, height: 5, borderRadius: 3, backgroundColor: '#1
+32B38' },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2401:  aeroGlassCard: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2505:        : {}),
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2506:    } : {}),},
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2507:  themeButtonPressed: { opacity: 0.65, transform: [{ scale: 0.96 }] },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2508:  themeButtonIcon: { color: colors.black, fontSize: 22, fontWeight: '800' ,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2509:    // aeroBreathingRoomV1
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2535:    
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2536:    
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2537:    textTransform: 'uppercase',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2538:  
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2539:    // aeroV3Override
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2958:  cataloguePressed: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2959:    opacity: 0.7,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2960:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2961:  },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:2962:  catalogueIcon: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3001:    fontWeight: '800',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3002:    letterSpacing: 0.7,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3003:    textTransform: 'uppercase',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3004:  },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3005:  catalogueTitle: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3091:    fontWeight: '800',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3092:    letterSpacing: 0.7,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3093:    textTransform: 'uppercase',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3094:  
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3095:    // aeroV3Override
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3119:      fontWeight: '700',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3120:      letterSpacing: 2.1,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3121:      textTransform: 'uppercase',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3122:    } : {}),},
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3123:  dailyTotal: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3397:  // classicMobileRadioCompactV1
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3398:  classicMobileRadioCompact: {
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3399:    transform: [{ scale: 0.90 }],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3400:    marginTop: 18,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3401:    marginBottom: -10,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3410:    borderRadius: pixelMode ? 0 : 3,
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3411:    backgroundColor: colors.text,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3412:    transform: [{ rotate: '-7deg' }],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3413:  },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3414:  radioSpeaker: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3560:  quickPressed: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3561:    opacity: 0.7,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3562:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3563:  },
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:3564:  quickSymbol: {
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:4058:    fontWeight: '900',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:4059:    letterSpacing: 0.8,
+> src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:4060:    textTransform: 'uppercase',
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:4061:  
+  src\screens\TodayScreen.PRE-CLEAN-GLASS.tsx:4062:    // aeroBottomTune
+  src\screens\TodayScreen.tsx:146:        style,
+  src\screens\TodayScreen.tsx:147:        {
+> src\screens\TodayScreen.tsx:148:          transform: [
+> src\screens\TodayScreen.tsx:149:            { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [18, -32] }) },
+  src\screens\TodayScreen.tsx:150:            { scale: float.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.92, 1.04, 0.92] }) },
+  src\screens\TodayScreen.tsx:151:          ],
+  src\screens\TodayScreen.tsx:164:        styles.aeroFish,
+  src\screens\TodayScreen.tsx:165:        style,
+> src\screens\TodayScreen.tsx:166:        { transform: [{ translateX: swim.interpolate({ inputRange: [0, 1], outputRange: [-120, 920] }) }] },
+  src\screens\TodayScreen.tsx:167:      ]}
+  src\screens\TodayScreen.tsx:168:    >
+  src\screens\TodayScreen.tsx:246:            bubbleStyle,
+  src\screens\TodayScreen.tsx:247:            {
+> src\screens\TodayScreen.tsx:248:              transform: [
+> src\screens\TodayScreen.tsx:249:                { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [980 + offset, -420 + offset] }) },
+  src\screens\TodayScreen.tsx:250:                { translateX: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, index % 2 ? 34 : -28, 0] }) },
+  src\screens\TodayScreen.tsx:251:                { scale: drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.86, 1.06, 0.9] }) },
+  src\screens\TodayScreen.tsx:278:              opacity: 0.42 + (index % 4) * 0.12,
+  src\screens\TodayScreen.tsx:279:              backgroundColor: index % 7 === 0 ? '#D8FF66' : index % 3 === 0 ? '#67C84A' : '#218540',
+> src\screens\TodayScreen.tsx:280:              transform: [{ rotate: index % 2 ? '9deg' : '-7deg' }],
+  src\screens\TodayScreen.tsx:281:            },
+  src\screens\TodayScreen.tsx:282:          ]}
+  src\screens\TodayScreen.tsx:611:              width: '100%',
+  src\screens\TodayScreen.tsx:612:              opacity: 1,
+> src\screens\TodayScreen.tsx:613:              transform: [{ translateY: -14 }],
+  src\screens\TodayScreen.tsx:614:            },
+  src\screens\TodayScreen.tsx:615:          ]}
+  src\screens\TodayScreen.tsx:1657:
+  src\screens\TodayScreen.tsx:1658:  aeroCatalogueIconMobileFix: {
+> src\screens\TodayScreen.tsx:1659:    transform: [
+  src\screens\TodayScreen.tsx:1660:      { scale: 0.72 },
+  src\screens\TodayScreen.tsx:1661:    ],
+  src\screens\TodayScreen.tsx:1749:    shadowRadius: 10,
+  src\screens\TodayScreen.tsx:1750:
+> src\screens\TodayScreen.tsx:1751:    transform: [
+  src\screens\TodayScreen.tsx:1752:      {
+  src\screens\TodayScreen.tsx:1753:        rotate: '-8deg',
+  src\screens\TodayScreen.tsx:1764:    right: '6%',
+  src\screens\TodayScreen.tsx:1765:
+> src\screens\TodayScreen.tsx:1766:    transform: [
+  src\screens\TodayScreen.tsx:1767:      {
+  src\screens\TodayScreen.tsx:1768:        rotate: '8deg',
+  src\screens\TodayScreen.tsx:1812:    shadowRadius: 6,
+  src\screens\TodayScreen.tsx:1813:
+> src\screens\TodayScreen.tsx:1814:    transform: [
+  src\screens\TodayScreen.tsx:1815:      {
+  src\screens\TodayScreen.tsx:1816:        rotate: '-9deg',
+  src\screens\TodayScreen.tsx:1827:    right: '10%',
+  src\screens\TodayScreen.tsx:1828:
+> src\screens\TodayScreen.tsx:1829:    transform: [
+  src\screens\TodayScreen.tsx:1830:      {
+  src\screens\TodayScreen.tsx:1831:        rotate: '9deg',
+  src\screens\TodayScreen.tsx:2486:    opacity: 0.94,
+  src\screens\TodayScreen.tsx:2487:
+> src\screens\TodayScreen.tsx:2488:    transform: [
+  src\screens\TodayScreen.tsx:2489:      { rotate: '-24deg' },
+  src\screens\TodayScreen.tsx:2490:    ],
+  src\screens\TodayScreen.tsx:2899:  },
+  src\screens\TodayScreen.tsx:2900:  screenBubbleRim: { ...StyleSheet.absoluteFillObject, borderRadius: 999, borderWidth: 3, borderTopColor: celestialAlpha(celestial.
+ivory, 0.9), borderLeftColor: 'rgba(255,190,245,0.72)', borderRightColor: 'rgba(126,235,255,0.72)', borderBottomColor: 'rgba(255,235,130,0.58)' },
+> src\screens\TodayScreen.tsx:2901:  screenBubbleGlint: { position: 'absolute', top: '16%', left: '20%', width: '30%', height: '18%', borderRadius: 999, backgroundCol
+or: celestialAlpha(celestial.ivory, 0.82), transform: [{ rotate: '-28deg' }] },
+  src\screens\TodayScreen.tsx:2902:  screenBubblePink: { left: '5%', width: 66, height: 66, backgroundColor: 'rgba(255,132,211,0.19)', borderColor: 'rgba(255,166,224,
+0.72)' },
+  src\screens\TodayScreen.tsx:2903:  screenBubbleGold: { right: '9%', width: 92, height: 92, backgroundColor: 'rgba(255,222,105,0.16)', borderColor: 'rgba(255,231,139
+,0.76)' },
+  src\screens\TodayScreen.tsx:3069:  aeroGlassArc: { position: 'absolute', top: -155, right: -75, width: 310, height: 310, borderRadius: 155, backgroundColor: 'rgba(2
+55,255,255,0.10)', borderWidth: 3, borderColor: 'rgba(255,255,255,0.42)' },
+  src\screens\TodayScreen.tsx:3070:  aeroBubble3d: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(213,250,255,0.27)', borderWidth: 2, borderColor: 
+celestialAlpha(celestial.ivory, 0.78), shadowColor: '#006DA8', shadowOffset: { width: 3, height: 6 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 3 },
+> src\screens\TodayScreen.tsx:3071:  aeroBubbleShine: { position: 'absolute', top: '17%', left: '19%', width: '28%', height: '20%', borderRadius: 999, backgroundColor
+: celestialAlpha(celestial.ivory, 0.82), transform: [{ rotate: '-24deg' }] },
+  src\screens\TodayScreen.tsx:3072:  aeroBubbleA: { width: 46, height: 46, left: '7%', bottom: 18 },
+  src\screens\TodayScreen.tsx:3073:  aeroBubbleB: { width: 25, height: 25, left: '22%', bottom: 92 },
+  src\screens\TodayScreen.tsx:3077:  aeroFish: { position: 'absolute', width: 72, height: 38, opacity: 0.72 },
+  src\screens\TodayScreen.tsx:3078:  aeroFishOne: { top: 68, left: 0 },
+> src\screens\TodayScreen.tsx:3079:  aeroFishTwo: { bottom: 23, left: -310, transform: [{ scale: 0.72 }] },
+  src\screens\TodayScreen.tsx:3080:  aeroFishBody: { position: 'absolute', right: 0, top: 4, width: 53, height: 30, borderRadius: 19, backgroundColor: '#FF7A21', bord
+erWidth: 2, borderColor: celestialAlpha(celestial.ivory, 0.9), overflow: 'hidden' },
+  src\screens\TodayScreen.tsx:3081:  aeroFishTail: { position: 'absolute', left: 0, top: 8, width: 0, height: 0, borderTopWidth: 11, borderBottomWidth: 11, borderRigh
+tWidth: 20, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FF7A21' },
+> src\screens\TodayScreen.tsx:3082:  aeroFishStripeOne: { position: 'absolute', left: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFFF', transform: [{ rot
+ate: '8deg' }] },
+> src\screens\TodayScreen.tsx:3083:  aeroFishStripeTwo: { position: 'absolute', right: 12, top: -2, width: 7, height: 34, backgroundColor: '#FFFFFF', transform: [{ ro
+tate: '-8deg' }] },
+  src\screens\TodayScreen.tsx:3084:  aeroFishEye: { position: 'absolute', right: 6, top: 7, width: 5, height: 5, borderRadius: 3, backgroundColor: '#132B38' },
+  src\screens\TodayScreen.tsx:3085:  aeroGlassCard: {
+  src\screens\TodayScreen.tsx:3203:    } : {}),
+  src\screens\TodayScreen.tsx:3204:  },
+> src\screens\TodayScreen.tsx:3205:  themeButtonPressed: { opacity: 0.65, transform: [{ scale: 0.96 }] },
+  src\screens\TodayScreen.tsx:3206:  settingsGearIcon: {
+  src\screens\TodayScreen.tsx:3207:    width:
+  src\screens\TodayScreen.tsx:3266:    
+  src\screens\TodayScreen.tsx:3267:    
+> src\screens\TodayScreen.tsx:3268:    textTransform: 'uppercase',
+  src\screens\TodayScreen.tsx:3269:  
+  src\screens\TodayScreen.tsx:3270:    // aeroV3Override
+  src\screens\TodayScreen.tsx:3475:      letterSpacing: 1.2,
+  src\screens\TodayScreen.tsx:3476:      opacity: 1,
+> src\screens\TodayScreen.tsx:3477:      transform: [{ translateY: -14 }],
+  src\screens\TodayScreen.tsx:3478:    } : {}),
+  src\screens\TodayScreen.tsx:3479:},
+  src\screens\TodayScreen.tsx:3822:  cataloguePressed: {
+  src\screens\TodayScreen.tsx:3823:    opacity: 0.7,
+> src\screens\TodayScreen.tsx:3824:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.tsx:3825:  },
+  src\screens\TodayScreen.tsx:3826:  catalogueIcon: {
+  src\screens\TodayScreen.tsx:3866:    borderColor: homeAccent,
+  src\screens\TodayScreen.tsx:3867:    opacity: 0.46,
+> src\screens\TodayScreen.tsx:3868:    transform: [{ rotate: '-18deg' }],
+  src\screens\TodayScreen.tsx:3869:  },
+  src\screens\TodayScreen.tsx:3870:  catalogueJingleOrbitInnerV1: {
+  src\screens\TodayScreen.tsx:3876:    borderColor: homeAccent,
+  src\screens\TodayScreen.tsx:3877:    opacity: 0.72,
+> src\screens\TodayScreen.tsx:3878:    transform: [{ rotate: '22deg' }],
+  src\screens\TodayScreen.tsx:3879:  },
+  src\screens\TodayScreen.tsx:3880:  catalogueJingleShelfTopV1: {
+  src\screens\TodayScreen.tsx:3947:  },
+  src\screens\TodayScreen.tsx:3948:  catalogueCopy: {
+> src\screens\TodayScreen.tsx:3949:    transform: [{ translateY: -3 }],
+  src\screens\TodayScreen.tsx:3950:    flex: 1,
+  src\screens\TodayScreen.tsx:3951:    marginLeft: 15,
+  src\screens\TodayScreen.tsx:3958:    fontWeight: '800',
+  src\screens\TodayScreen.tsx:3959:    letterSpacing: 0.7,
+> src\screens\TodayScreen.tsx:3960:    textTransform: 'uppercase',
+  src\screens\TodayScreen.tsx:3961:    opacity: 0.9,
+  src\screens\TodayScreen.tsx:3962:  },
+  src\screens\TodayScreen.tsx:4034:  },
+  src\screens\TodayScreen.tsx:4035:  catalogueArrow: {
+> src\screens\TodayScreen.tsx:4036:    transform: [{ translateY: -3 }],
+  src\screens\TodayScreen.tsx:4037:    marginLeft: 8,
+  src\screens\TodayScreen.tsx:4038:    color: colors.textMuted,
+  src\screens\TodayScreen.tsx:4142:  dailyGlobalTimerButtonPressed: {
+  src\screens\TodayScreen.tsx:4143:    opacity: 0.72,
+> src\screens\TodayScreen.tsx:4144:    transform: [{ scale: 0.97 }],
+  src\screens\TodayScreen.tsx:4145:  },
+  src\screens\TodayScreen.tsx:4146:  dailyGlobalTimerButtonDisabled: {
+  src\screens\TodayScreen.tsx:4210:    fontWeight: '800',
+  src\screens\TodayScreen.tsx:4211:    letterSpacing: 0.7,
+> src\screens\TodayScreen.tsx:4212:    textTransform: 'uppercase',
+  src\screens\TodayScreen.tsx:4213:  
+  src\screens\TodayScreen.tsx:4214:    // aeroV3Override
+  src\screens\TodayScreen.tsx:4238:      fontWeight: '700',
+  src\screens\TodayScreen.tsx:4239:      letterSpacing: 2.1,
+> src\screens\TodayScreen.tsx:4240:      textTransform: 'uppercase',
+  src\screens\TodayScreen.tsx:4241:    } : {}),
+  src\screens\TodayScreen.tsx:4242:    // forkKDarkBackgroundContrastV1_dailyEyebrow
+  src\screens\TodayScreen.tsx:4556:  dailyHistoryPressedForkIV1: {
+  src\screens\TodayScreen.tsx:4557:    opacity: 0.82,
+> src\screens\TodayScreen.tsx:4558:    transform: [{ scale: 0.995 }],
+  src\screens\TodayScreen.tsx:4559:  },
+  src\screens\TodayScreen.tsx:4560:  profileCardForkIV1: {
+  src\screens\TodayScreen.tsx:4720:    // used to overwrite that transform with ~1.0, producing the big snap.
+  src\screens\TodayScreen.tsx:4721:    opacity: 0.90,
+> src\screens\TodayScreen.tsx:4722:    transform: [{ scale: 0.84 }],
+  src\screens\TodayScreen.tsx:4723:  },
+  src\screens\TodayScreen.tsx:4724:  profileCardCompactN51: {
+  src\screens\TodayScreen.tsx:4982:  // classicMobileRadioCompactV1
+  src\screens\TodayScreen.tsx:4983:  classicMobileRadioCompact: {
+> src\screens\TodayScreen.tsx:4984:    transform: [{ scale: 0.70 }],
+  src\screens\TodayScreen.tsx:4985:    marginTop: -4,
+  src\screens\TodayScreen.tsx:4986:    marginBottom: -30,
+  src\screens\TodayScreen.tsx:4995:    borderRadius: pixelMode ? 0 : 3,
+  src\screens\TodayScreen.tsx:4996:    backgroundColor: colors.text,
+> src\screens\TodayScreen.tsx:4997:    transform: [{ rotate: '-7deg' }],
+  src\screens\TodayScreen.tsx:4998:  
+  src\screens\TodayScreen.tsx:4999:    // forkN1CelestialHomeCommandBellV1_radioAntenna
+  src\screens\TodayScreen.tsx:5233:  quickPressed: {
+  src\screens\TodayScreen.tsx:5234:    opacity: 0.7,
+> src\screens\TodayScreen.tsx:5235:    transform: [{ scale: 0.99 }],
+  src\screens\TodayScreen.tsx:5236:  },
+  src\screens\TodayScreen.tsx:5237:  quickSymbol: {
+  src\screens\TodayScreen.tsx:5887:    fontWeight: '900',
+  src\screens\TodayScreen.tsx:5888:    letterSpacing: 0.8,
+> src\screens\TodayScreen.tsx:5889:    textTransform: 'uppercase',
+  src\screens\TodayScreen.tsx:5890:  
+  src\screens\TodayScreen.tsx:5891:    // aeroBottomTune
+  src\screens\TodayScreen.tsx:6342:      letterSpacing: 0,
+  src\screens\TodayScreen.tsx:6343:      opacity: 0.94,
+> src\screens\TodayScreen.tsx:6344:      transform: [
+  src\screens\TodayScreen.tsx:6345:        {
+> src\screens\TodayScreen.tsx:6346:          translateY:
+  src\screens\TodayScreen.tsx:6347:            Platform.OS === 'web'
+  src\screens\TodayScreen.tsx:6348:              ? 38
+  src\screens\TodayScreen.tsx:6552:  // ljingleTodayGreetingPlainLeftR3
+  src\screens\TodayScreen.tsx:6553:  greetingPlainLeftR3: {
+> src\screens\TodayScreen.tsx:6554:    transform: celestialMode ? [{ translateY: 12 }] : undefined,
+  src\screens\TodayScreen.tsx:6555:    alignItems: 'stretch',
+  src\screens\TodayScreen.tsx:6556:    justifyContent: 'center',
+  src\screens\TopicDetailsScreen.tsx:812:  activityActionPressed: {
+  src\screens\TopicDetailsScreen.tsx:813:    opacity: 0.7,
+> src\screens\TopicDetailsScreen.tsx:814:    transform: [{ scale: 0.99 }],
+  src\screens\TopicDetailsScreen.tsx:815:  },
+  src\screens\TopicDetailsScreen.tsx:816:  activityActionMark: {
+  src\screens\TopicDetailsScreen.tsx:875:    fontWeight: '900',
+  src\screens\TopicDetailsScreen.tsx:876:    letterSpacing: 0.4,
+> src\screens\TopicDetailsScreen.tsx:877:    textTransform: 'uppercase',
+  src\screens\TopicDetailsScreen.tsx:878:  },
+  src\screens\TopicDetailsScreen.tsx:879:  safeArea: {
+  src\screens\TopicDetailsScreen.tsx:934:  editTopicButtonPressed: {
+  src\screens\TopicDetailsScreen.tsx:935:    opacity: 0.72,
+> src\screens\TopicDetailsScreen.tsx:936:    transform: [{ scale: 0.985 }],
+  src\screens\TopicDetailsScreen.tsx:937:  },
+  src\screens\TopicDetailsScreen.tsx:938:  editTopicText: {
+  src\screens\TopicDetailsScreen.tsx:1041:  deleteTopicButtonPressed: {
+  src\screens\TopicDetailsScreen.tsx:1042:    opacity: 0.72,
+> src\screens\TopicDetailsScreen.tsx:1043:    transform: [{ scale: 0.985 }],
+  src\screens\TopicDetailsScreen.tsx:1044:  },
+  src\screens\TopicDetailsScreen.tsx:1045:  deleteTopicButtonDisabled: {
+  src\screens\TopicDetailsScreen.tsx:1056:    fontWeight: '800',
+  src\screens\TopicDetailsScreen.tsx:1057:    letterSpacing: 0.8,
+> src\screens\TopicDetailsScreen.tsx:1058:    textTransform: 'uppercase',
+  src\screens\TopicDetailsScreen.tsx:1059:  },
+  src\screens\TopicDetailsScreen.tsx:1060:  heading: {
+  src\screens\TopicDetailsScreen.tsx:1129:    fontSize: 10,
+  src\screens\TopicDetailsScreen.tsx:1130:    fontWeight: '700',
+> src\screens\TopicDetailsScreen.tsx:1131:    textTransform: 'uppercase',
+  src\screens\TopicDetailsScreen.tsx:1132:  },
+  src\screens\TopicDetailsScreen.tsx:1133:  addButton: {
+  src\screens\TopicDetailsScreen.tsx:1142:  addButtonPressed: {
+  src\screens\TopicDetailsScreen.tsx:1143:    opacity: 0.7,
+> src\screens\TopicDetailsScreen.tsx:1144:    transform: [{ scale: 0.99 }],
+  src\screens\TopicDetailsScreen.tsx:1145:  },
+  src\screens\TopicDetailsScreen.tsx:1146:  addPlus: {
+  src\screens\TopicDetailsScreen.tsx:1205:    fontSize: 10,
+  src\screens\TopicDetailsScreen.tsx:1206:    fontWeight: '800',
+> src\screens\TopicDetailsScreen.tsx:1207:    textTransform: 'uppercase',
+  src\screens\TopicDetailsScreen.tsx:1208:  },
+  src\screens\TopicDetailsScreen.tsx:1209:  errorBanner: {
+  src\screens\TopicListScreen.tsx:339:    fontWeight: '800',
+  src\screens\TopicListScreen.tsx:340:    letterSpacing: 0.7,
+> src\screens\TopicListScreen.tsx:341:    textTransform: 'uppercase',
+  src\screens\TopicListScreen.tsx:342:  },
+  src\screens\TopicListScreen.tsx:343:  heading: {
+  src\screens\TopicListScreen.tsx:391:  addCardPressed: {
+  src\screens\TopicListScreen.tsx:392:    opacity: 0.82,
+> src\screens\TopicListScreen.tsx:393:    transform: [{ scale: 0.99 }],
+  src\screens\TopicListScreen.tsx:394:  },
+  src\screens\TopicListScreen.tsx:395:  addIcon: {
+
+

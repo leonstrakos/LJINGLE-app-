@@ -247,6 +247,6 @@ const styles = StyleSheet.create({
     fontSize: 21,
     lineHeight: 25,
   },
-  symbolActive: { color: colors.white },
+  symbolActive: { color: colors.onAccent },
   pressed: { opacity: 0.62 },
 });

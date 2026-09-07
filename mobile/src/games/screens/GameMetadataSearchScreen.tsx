@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../../components/AeroAtmosphere';
 
 import { FeedbackView } from '../../components/FeedbackView';
 import { colors } from '../../theme/colors';
@@ -45,6 +46,7 @@ export function GameMetadataSearchScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <AeroAtmosphere variant="games" />
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Metapodaci</Text>
         <Text style={styles.heading}>Pronađi igru</Text>
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.black,
   },
-  coverMark: { color: colors.white, fontSize: 48, fontWeight: '900' },
+  coverMark: { color: colors.onAccent, fontSize: 48, fontWeight: '900' },
   resultCopy: { flex: 1, padding: 14 },
   title: { color: colors.text, fontSize: 17, lineHeight: 22, fontWeight: '800' },
   meta: { color: colors.textMuted, fontSize: 13, marginTop: 5 },

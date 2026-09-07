@@ -4,7 +4,6 @@ import { Alert, Platform } from 'react-native';
 
 import { getDatabase } from '../storage/database';
 import { sharePortableVisualCard } from './portableVisualShare';
-import { sendPackageToSavedBridge } from './bridgeApi';
 import { hydrateWebAudio } from '../audio/webAudioStore';
 
 let shareProbeStage = 'idle';
@@ -1114,21 +1113,6 @@ async function webPortableShareChoice(
 
       actions.appendChild(
         button(
-          'SHARE VISUAL GRAPH · PNG',
-          'visual',
-        ),
-      );
-
-      actions.appendChild(
-        button(
-          'BRIDGE · .LJINGLE',
-          'bridge',
-          true,
-        ),
-      );
-
-      actions.appendChild(
-        button(
           'SHARE .LJINGLE',
           'portable',
         ),
@@ -1190,21 +1174,7 @@ async function choosePortableShareUnlocked(
     );
   }
 
-  if (choice === 'bridge') {
-    const sent =
-      await sendPackageToSavedBridge(
-        pack,
-      );
 
-    Alert.alert(
-      'Sent through Bridge',
-      'Delivered to ' +
-        sent.toBridgeId +
-        '.',
-    );
-
-    return sent.messageId;
-  }
 
   if (choice === 'portable') {
     return sharePackage(pack);
@@ -1426,7 +1396,7 @@ async function sharePortableLazyWeb(
       }
     }
 
-    // Bridge and .ljingle intentionally build the complete canonical package.
+    // The .ljingle package intentionally builds the complete canonical package.
     // Put a hard timeout around that work so a broken asset can never leave
     // the whole app permanently stuck in "sharing".
     const pack =
@@ -1449,24 +1419,7 @@ async function sharePortableLazyWeb(
         }),
       ]);
 
-    if (choice === 'bridge') {
-      const sent =
-        await sendPackageToSavedBridge(
-          pack,
-        );
 
-      if (
-        typeof window !== 'undefined'
-      ) {
-        window.alert(
-          'Sent through Bridge to ' +
-            sent.toBridgeId +
-            '.',
-        );
-      }
-
-      return sent.messageId;
-    }
 
     if (choice === 'portable') {
       return sharePackage(pack);
@@ -1503,33 +1456,15 @@ export async function sharePortableEntry(
 }
 
 // forkBFrequencyShareV1
-export type PortableFrequencyShareMode =
-  | 'visual'
-  | 'bridge'
-  | 'portable';
+export type PortableFrequencyShareMode = 'portable';
 
 export async function sharePortableFrequencyAs(
   trackId: string,
   mode: PortableFrequencyShareMode,
 ): Promise<{
   mode: PortableFrequencyShareMode;
-  toBridgeId?: string;
 }> {
-  if (mode === 'visual') {
-    portableMetadataOnly = true;
 
-    try {
-      const pack =
-        await buildPortableFrequencyPackage(
-          trackId,
-        );
-
-      await sharePortableVisualCard(pack);
-      return { mode };
-    } finally {
-      portableMetadataOnly = false;
-    }
-  }
 
   const pack =
     await Promise.race([
@@ -1551,15 +1486,7 @@ export async function sharePortableFrequencyAs(
       }),
     ]);
 
-  if (mode === 'bridge') {
-    const sent =
-      await sendPackageToSavedBridge(pack);
 
-    return {
-      mode,
-      toBridgeId: sent.toBridgeId,
-    };
-  }
 
   await sharePackage(pack);
   return { mode };

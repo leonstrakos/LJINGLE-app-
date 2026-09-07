@@ -29,6 +29,8 @@ export type Entry = {
   title: string | null;
   content: string;
   type: EntryType;
+  // ljingleZapisiVaultR1: optional user-created filter chip
+  customLabel: string | null;
   bookId: string | null;
   topicId: string | null;
   activityId: string | null;
@@ -40,6 +42,7 @@ export type EntryRequest = {
   title?: string | null;
   content: string;
   type: EntryType;
+  customLabel?: string | null;
   bookId?: string | null;
   topicId?: string | null;
   activityId?: string | null;
@@ -50,6 +53,7 @@ export type EntryQuery = {
   topicId?: string;
   activityId?: string;
   type?: EntryType;
+  customLabel?: string;
 };
 
 export type EntryLinkOption = {

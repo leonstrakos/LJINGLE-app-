@@ -4,8 +4,7 @@ import {
   FlatList,
   Modal,
   Pressable,
-  SafeAreaView as ModalSafeAreaView,
-  StyleSheet,
+StyleSheet,
   Text,
   TextInput,
   View,
@@ -13,6 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AeroAtmosphere } from '../components/AeroAtmosphere';
 
 import { CollectionEditorForm } from '../components/CollectionEditorForm';
 import { CelestialAtmosphere } from '../components/CelestialAtmosphere';
@@ -21,7 +21,6 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { collectionApi } from '../services/collectionApi';
 // forkFCollectionManageV1
 import { DEFAULT_COLLECTION_SYMBOL } from '../utils/collectionSymbols';
-import { sharePortableCollection } from '../services/portableExport';
 import { colors } from '../theme/colors';
 import { activeVisualSkinId } from '../theme/visualSkins';
 import {
@@ -32,13 +31,15 @@ import {
 } from '../types/collection';
 import type { RootStackParamList } from '../types/navigation';
 import { deletedFeedback } from '../utils/crudFeedback';
-import { ShareGlyph } from '../components/ShareGlyph';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
+import { MemoryBoxGatherEntrance } from '../components/MemoryBoxGatherEntrance';
+import { emitSemanticAlive } from '../motion/semanticAlive';
+import { AnimatedPressable } from '../components/AnimatedPressable';
 type Props = NativeStackScreenProps<RootStackParamList, 'CollectionDetails'>;
 
 // forkN2CelestialCollectionsTopicsV2
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 const CELESTIAL_GOLD = celestial.gold;
 
 type Filter = 'ALL' | EntityReferenceType;
@@ -59,6 +60,8 @@ const COLLECTION_ENTITY_MARKS: Record<EntityReferenceType, string> = {
 
 const STAR_GOLD = '#D3A11B';
 
+// ljingleMemoryBoxVisualBugsR1
+// ljingleMemoryBoxDrawnPlusR3
 export function CollectionDetailsScreen({ route, navigation }: Props) {
   const { collectionId } = route.params;
   const [collection, setCollection] = useState<CollectionDetail | null>(null);
@@ -111,6 +114,55 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
     return filter === 'ALL' ? collection.items : collection.items.filter((item) => item.entityType === filter);
   }, [collection, filter]);
 
+  // ljingleCollectionChipsR1: restore the picker flow removed by an older visual cleanup.
+  const openPicker = async () => {
+    setPickerVisible(true);
+    setPickerLoading(true);
+    setQuery('');
+    setError(null);
+    try {
+      setReferences(await collectionApi.searchReferences(''));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Stavke se nisu učitale.');
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const search = async (value: string) => {
+    setQuery(value);
+    setPickerLoading(true);
+    try {
+      setReferences(await collectionApi.searchReferences(value));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Pretraga nije uspjela.');
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const add = async (reference: EntityReference) => {
+    if (busyId) return;
+    setBusyId(reference.entityId);
+    setError(null);
+    try {
+      const item = await collectionApi.addItem(
+        collectionId,
+        reference.entityType,
+        reference.entityId,
+      );
+      // ljingleSemanticAliveR1:collection-add
+      emitSemanticAlive({ type:'COLLECTION_ADD', entityKey:reference.entityType + ':' + reference.entityId });
+      setCollection((current) =>
+        current ? { ...current, items: [...current.items, item] } : current,
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Stavka nije dodana.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const groupedItems = useMemo(() => {
     if (!collection) return [];
 
@@ -150,57 +202,7 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
     });
   };
 
-  const shareCollection = async () => {
-    if (!collection || deleting) return;
 
-    setError(null);
-    try {
-      await sharePortableCollection(collectionId);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Share nije uspio.',
-      );
-    }
-  };
-
-  const openPicker = async () => {
-    setPickerVisible(true);
-    setPickerLoading(true);
-    setQuery('');
-    try {
-      setReferences(await collectionApi.searchReferences(''));
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Stavke se nisu učitale.');
-    } finally {
-      setPickerLoading(false);
-    }
-  };
-
-  const search = async (value: string) => {
-    setQuery(value);
-    setPickerLoading(true);
-    try {
-      setReferences(await collectionApi.searchReferences(value));
-    } finally {
-      setPickerLoading(false);
-    }
-  };
-
-  const add = async (reference: EntityReference) => {
-    if (busyId || !collection) return;
-    setBusyId(reference.entityId);
-    setError(null);
-    try {
-      const item = await collectionApi.addItem(collectionId, reference.entityType, reference.entityId);
-      setCollection({ ...collection, items: [...collection.items, item] });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Stavka nije dodana.');
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   const openCollectionItem = (
     item: CollectionDetail['items'][number],
@@ -214,8 +216,9 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
 
     switch (item.entityType) {
       case 'BOOK':
-        rootNavigation.navigate('BookDetails', {
-          bookId: item.entityId,
+        rootNavigation.navigate('BookList', {
+          collectionId,
+          focusBookId: item.entityId,
         });
         return;
 
@@ -226,22 +229,23 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
         return;
 
       case 'ENTRY':
-        rootNavigation.navigate('EntryForm', {
-          entryId: item.entityId,
+        rootNavigation.navigate('Entries', {
+          collectionId,
+          focusEntryId: item.entityId,
         });
         return;
 
       case 'GAME':
         rootNavigation.navigate('Games', {
-          screen: 'GameDetails',
-          params: { gameId: item.entityId },
+          screen: 'GameList',
+          params: { collectionId, focusGameId: item.entityId },
         });
         return;
 
       case 'MEDIA':
         rootNavigation.navigate('Media', {
-          screen: 'MediaDetails',
-          params: { mediaId: item.entityId },
+          screen: 'MediaList',
+          params: { collectionId, focusMediaId: item.entityId },
         });
         return;
 
@@ -337,15 +341,20 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
   const memberKeys = new Set(collection?.items.map((item) => `${item.entityType}:${item.entityId}`) ?? []);
 
   if (loading && !collection) {
-    return <SafeAreaView style={styles.center}><ActivityIndicator color={colors.black} size="large" /></SafeAreaView>;
+    return <SafeAreaView style={styles.center}>
+      <AeroAtmosphere variant="collections" /><ActivityIndicator color={colors.black} size="large" /></SafeAreaView>;
   }
 
   if (!collection) {
-    return <SafeAreaView style={styles.center}><Text style={styles.errorText}>{error ?? 'Kolekcija nije pronađena.'}</Text></SafeAreaView>;
+    return <SafeAreaView style={styles.center}>
+      <AeroAtmosphere variant="collections" /><Text style={styles.errorText}>{error ?? 'Kolekcija nije pronađena.'}</Text></SafeAreaView>;
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      {/* ljingleSemanticAliveR1:gather */}
+      <MemoryBoxGatherEntrance identity={collectionId} />
+      <AeroAtmosphere variant="collections" />
       <FlatList
         data={
           filter === 'ALL'
@@ -386,17 +395,6 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
                       {collection.name}
                     </Text>
 
-                    <Pressable
-                      accessibilityLabel="Share collection"
-                      accessibilityRole="button"
-                      onPress={() => void shareCollection()}
-                      style={({ pressed }) => [
-                        styles.portableShare,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <ShareGlyph />
-                    </Pressable>
                   </View>
                 </View>
               </View>
@@ -431,7 +429,14 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
               ]}
             >
               {celestialMode ? <Text pointerEvents="none" style={styles.addButtonStar}>✦</Text> : null}
-              <Text style={[styles.addPlus, celestialMode && styles.addPlusCelestial]}>＋</Text>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                style={styles.addPlusGlyph}
+              >
+                <View style={styles.addPlusHorizontal} />
+                <View style={styles.addPlusVertical} />
+              </View>
               <View style={styles.addCopy}>
                 <Text style={styles.addTitle}>Dodaj u Memory Box</Text>
                 <Text style={styles.addSubtitle}>Knjigu, film, igru, temu, zapis ili frekvenciju</Text>
@@ -446,14 +451,16 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.filters}
               renderItem={({ item }) => (
-                <Pressable onPress={() => setFilter(item)} style={[
+                <AnimatedPressable
+      cue="tap" onPress={() => setFilter(item)} style={[
                   styles.filter,
                   celestialMode && styles.filterCelestial,
                   filter === item && styles.filterActive,
                   celestialMode && filter === item && styles.filterActiveCelestial,
                 ]}>
+        {/* ljingleSemanticAliveR1:chips-collection */}
                   <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>{filterLabels[item]}</Text>
-                </Pressable>
+                </AnimatedPressable>
               )}
             />
 
@@ -654,7 +661,7 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
       />
 
       <Modal animationType="slide" visible={pickerVisible} onRequestClose={() => setPickerVisible(false)}>
-        <ModalSafeAreaView style={styles.modalSafe}>
+        <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.modalSafe}>
           <View style={styles.modalHeader}>
             <View><Text style={styles.modalEyebrow}>MEMORY BOX · DODAJ</Text><Text style={styles.modalTitle}>{collection.name}</Text></View>
             <Pressable onPress={() => setPickerVisible(false)} style={styles.doneButton}><Text style={styles.doneText}>Gotovo</Text></Pressable>
@@ -687,7 +694,7 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
               );
             }}
           />
-        </ModalSafeAreaView>
+        </SafeAreaView>
       </Modal>
 
       <Modal
@@ -697,7 +704,7 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
           if (!editSaving) setEditVisible(false);
         }}
       >
-        <ModalSafeAreaView style={styles.modalSafe}>
+        <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.modalSafe}>
           <View style={styles.modalHeader}>
             <View>
               <Text style={styles.modalEyebrow}>MEMORY BOX</Text>
@@ -727,7 +734,7 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
             onSymbolChange={setEditSymbol}
             onSubmit={() => void saveEdit()}
           />
-        </ModalSafeAreaView>
+        </SafeAreaView>
       </Modal>
 
       <DeleteConfirmationModal
@@ -750,6 +757,27 @@ export function CollectionDetailsScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  addPlusGlyph: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  addPlusHorizontal: {
+    position: 'absolute',
+    width: 24,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+  },
+  addPlusVertical: {
+    position: 'absolute',
+    width: 3,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+  },
   heroStars: {
     position: 'absolute',
     right: 16,
@@ -979,7 +1007,7 @@ const styles = StyleSheet.create({
   filter: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.fill },
   filterActive: { backgroundColor: colors.black },
   filterText: { color: colors.text, fontSize: 11, fontWeight: '800' },
-  filterTextActive: { color: colors.white },
+  filterTextActive: { color: colors.onAccent },
   inlineError: { marginBottom: 12, color: colors.danger, fontSize: 12 },
   itemCard: {
     minHeight: 76,
@@ -1022,7 +1050,7 @@ const styles = StyleSheet.create({
   modalEyebrow: { color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
   modalTitle: { marginTop: 3, color: colors.text, fontSize: 21, fontWeight: '900' },
   doneButton: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.black },
-  doneText: { color: colors.white, fontSize: 13, fontWeight: '800' },
+  doneText: { color: colors.onAccent, fontSize: 13, fontWeight: '800' },
   searchInput: { minHeight: 50, margin: 16, marginBottom: 8, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.surface, color: colors.text, fontSize: 15 },
   pickerLoader: { marginVertical: 8 },
   referenceList: { padding: 16, paddingTop: 8 },

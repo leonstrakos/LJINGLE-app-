@@ -19,6 +19,12 @@ const TYPE_HINTS: Array<{
   { pattern: /\b(topic|topics|tema|teme|temu)\b/iu, types: ['TOPIC'] },
   { pattern: /\b(note|notes|entry|entries|zapis|zapisi|biljeska|bilješka|biljeske|bilješke)\b/iu, types: ['ENTRY'] },
   { pattern: /\b(song|songs|music|track|tracks|pjesma|pjesme|glazba|muzika|frequency|frekvencija|frekvencije)\b/iu, types: ['FREQUENCY'] },
+  // ljingleBrainArchiveSearchR2:intent
+  {
+    pattern:
+      /\b(collection|collections|kolekcija|kolekcije|memory\s*box|memory\s*boxes|zbirka|zbirke)\b/iu,
+    types: ['COLLECTION'],
+  },
 ];
 
 const NATURAL_PREFIX = /^(?:please\s+)?(?:find|show(?:\s+me)?|open|search(?:\s+for)?|where(?:'s|\s+is)|locate|nađi|nadi|pronađi|pronadi|pokaži|pokazi|otvori|traži|trazi|gdje\s+je)\b/iu;
@@ -50,6 +56,29 @@ export function planQuietSearch(value: string): QuietSearchPlan | null {
   working = working
     .replace(/^(?:about|regarding|related\s+to|vezano\s+za|o)\b/iu, '')
     .trim();
+
+  // ljingleSearchSnippetsBrainContextR2:intent
+  if (naturalLanguage) {
+    working = working
+      .replace(
+        /\bwhere\s+i\s+(?:wrote|mentioned|noted)(?:\s+about)?\b/giu,
+        ' ',
+      )
+      .replace(
+        /\bgdje\s+sam\s+(?:pisao|pisala|zapisao|zapisala)(?:\s+o)?\b/giu,
+        ' ',
+      )
+      .replace(
+        /\b(?:after|while|when)\s+(?:i\s+)?(?:read|reading|watched|watching|played|playing)\b/giu,
+        ' ',
+      )
+      .replace(
+        /\b(?:nakon|dok\s+sam|kad\s+sam)\s+(?:čitao|citao|čitala|citala|gledao|gledala|igrao|igrala)\b/giu,
+        ' ',
+      )
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 
   const query = cleanWords(working) || raw;
   if (query.length < 2) return null;

@@ -727,7 +727,7 @@ const styles =
 
     chipTextActive: {
       color:
-        colors.white,
+        colors.onAccent,
     },
 
     input: {
@@ -786,7 +786,7 @@ const styles =
 
     monthTextActive: {
       color:
-        colors.white,
+        colors.onAccent,
     },
 
     actions: {
@@ -807,7 +807,7 @@ const styles =
 
     saveText: {
       color:
-        colors.white,
+        colors.onAccent,
       fontSize: 10,
       fontWeight: '900',
     },

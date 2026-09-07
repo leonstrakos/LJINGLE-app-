@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 4,
   },
-  runningText: { color: colors.white },
+  runningText: { color: colors.onAccent },
   runningMuted: { color: '#AEAEB2' },
   error: {
     color: colors.danger,

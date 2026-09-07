@@ -1,11 +1,17 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
+import type { LjingleUser } from './types';
+
+// authOfflineLocalFirstV1
+
 const TOKEN_KEY = 'ljingle.auth.token.v1';
 const INSTALL_OWNER_KEY = 'ljingle.install.owner.v1';
+const USER_KEY = 'ljingle.auth.user.v1';
 
 let tokenCache: string | null = null;
 let installOwnerCache: string | null = null;
+let userCache: LjingleUser | null = null;
 let restored = false;
 
 function webGet(key: string) {
@@ -48,20 +54,41 @@ export async function restoreAuthCache() {
     return {
       token: tokenCache,
       installOwnerId: installOwnerCache,
+      user: userCache,
     };
   }
+
+  let rawUser: string | null = null;
 
   if (Platform.OS === 'web') {
     tokenCache = webGet(TOKEN_KEY);
     installOwnerCache = webGet(INSTALL_OWNER_KEY);
+    rawUser = webGet(USER_KEY);
   } else {
-    const [token, owner] = await Promise.all([
+    const [token, owner, storedUser] = await Promise.all([
       nativeGet(TOKEN_KEY),
       nativeGet(INSTALL_OWNER_KEY),
+      nativeGet(USER_KEY),
     ]);
 
     tokenCache = token;
     installOwnerCache = owner;
+    rawUser = storedUser;
+  }
+
+  if (rawUser) {
+    try {
+      const parsed = JSON.parse(rawUser) as Partial<LjingleUser>;
+      if (
+        typeof parsed.id === 'string' &&
+        typeof parsed.email === 'string' &&
+        typeof parsed.username === 'string'
+      ) {
+        userCache = parsed as LjingleUser;
+      }
+    } catch {
+      userCache = null;
+    }
   }
 
   restored = true;
@@ -69,6 +96,7 @@ export async function restoreAuthCache() {
   return {
     token: tokenCache,
     installOwnerId: installOwnerCache,
+    user: userCache,
   };
 }
 
@@ -89,6 +117,19 @@ export async function setAuthToken(
     webSet(TOKEN_KEY, token);
   } else {
     await nativeSet(TOKEN_KEY, token);
+  }
+}
+
+export async function setAuthUser(
+  user: LjingleUser | null,
+) {
+  userCache = user;
+  const serialized = user ? JSON.stringify(user) : null;
+
+  if (Platform.OS === 'web') {
+    webSet(USER_KEY, serialized);
+  } else {
+    await nativeSet(USER_KEY, serialized);
   }
 }
 

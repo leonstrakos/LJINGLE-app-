@@ -20,6 +20,7 @@ import type {
 import type { GameRequest, GameResponse } from '../games/types/game';
 import type {
   CollectionDetail,
+  CollectionFilterChip,
   CollectionItem,
   CollectionRequest,
   CollectionSummary,
@@ -167,6 +168,8 @@ function mapEntry(row: SqlRow): Entry {
     title: row.title as string | null,
     content: String(row.content),
     type: row.entry_type as Entry['type'],
+    // ljingleZapisiVaultR1: custom filter chip
+    customLabel: row.custom_label as string | null,
     bookId: row.book_id as string | null,
     topicId: row.topic_id as string | null,
     activityId: row.activity_id as string | null,
@@ -992,16 +995,20 @@ async function handleActivities(database: SQLiteDatabase, url: URL, method: stri
       (url.searchParams.get('query') ?? '')
         .trim()
         .toLocaleLowerCase('hr');
+    const includeAll =
+      url.searchParams.get('all') === '1';
 
+    // settingsApplyNotesSpeedV1: Entry labels need one flat activity index, not N timer calls.
     const rows = await database.getAllAsync<SqlRow>(
       `SELECT *
        FROM activities
        WHERE activity_type <> 'GLOBAL'
        ORDER BY modified_at DESC, label COLLATE NOCASE
-       LIMIT 250`,
+       LIMIT ?`,
+      includeAll ? 5000 : 250,
     );
 
-    return rows
+    const matches = rows
       .map(mapTopicActivity)
       .filter((activity) =>
         !query ||
@@ -1012,8 +1019,11 @@ async function handleActivities(database: SQLiteDatabase, url: URL, method: stri
         )
           .toLocaleLowerCase('hr')
           .includes(query),
-      )
-      .slice(0, 80);
+      );
+
+    return includeAll
+      ? matches
+      : matches.slice(0, 80);
   }
 
 
@@ -1168,11 +1178,12 @@ async function handleActivities(database: SQLiteDatabase, url: URL, method: stri
 }
 
 async function handleEntries(database: SQLiteDatabase, url: URL, method: string, options?: RequestInit) {
+  // ljingleEntryObsidianUxR1:local-api — blank drafts are valid persisted entries.
   const match = url.pathname.match(/^\/entries\/([^/]+)$/);
   if (!match && method === 'GET') {
     const filters: string[] = [];
     const params: string[] = [];
-    const mapping = { bookId: 'book_id', topicId: 'topic_id', activityId: 'activity_id', type: 'entry_type' };
+    const mapping = { bookId: 'book_id', topicId: 'topic_id', activityId: 'activity_id', type: 'entry_type', customLabel: 'custom_label' };
     Object.entries(mapping).forEach(([queryName, column]) => {
       const value = url.searchParams.get(queryName);
       if (value) {
@@ -1193,12 +1204,13 @@ async function handleEntries(database: SQLiteDatabase, url: URL, method: string,
     const now = nowIso();
     await database.runAsync(
       `INSERT INTO entries
-       (entry_id, title, content, entry_type, book_id, topic_id, activity_id, created_at, modified_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (entry_id, title, content, entry_type, custom_label, book_id, topic_id, activity_id, created_at, modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       payload.title?.trim() || null,
-      requiredText(payload.content, 'Sadržaj'),
+      String(payload.content ?? ''),
       payload.type,
+      payload.customLabel?.trim() || null,
       payload.bookId ?? null,
       payload.topicId ?? null,
       payload.activityId ?? null,
@@ -1215,11 +1227,12 @@ async function handleEntries(database: SQLiteDatabase, url: URL, method: string,
   if (method === 'PUT') {
     const payload = parsePayload<EntryRequest>(options);
     await database.runAsync(
-      `UPDATE entries SET title=?, content=?, entry_type=?, book_id=?, topic_id=?, activity_id=?,
+      `UPDATE entries SET title=?, content=?, entry_type=?, custom_label=?, book_id=?, topic_id=?, activity_id=?,
        modified_at=? WHERE entry_id=?`,
       payload.title?.trim() || null,
-      requiredText(payload.content, 'Sadržaj'),
+      String(payload.content ?? ''),
       payload.type,
+      payload.customLabel?.trim() || null,
       payload.bookId ?? null,
       payload.topicId ?? null,
       payload.activityId ?? null,
@@ -1419,6 +1432,51 @@ async function handleGames(database: SQLiteDatabase, url: URL, method: string, o
 }
 
 async function handleMedia(database: SQLiteDatabase, url: URL, method: string, options?: RequestInit) {
+  // catalogueFinalPolishV1: Nebitno can be added or removed from the UI.
+  const ignoredMatch = url.pathname.match(/^\/media\/([^/]+)\/ignored$/);
+  if (ignoredMatch) {
+    const mediaId = decodeURIComponent(ignoredMatch[1]!);
+    await rowOr404(database, 'media_items', 'media_id', mediaId);
+
+    if (method === 'GET') {
+      const row = await database.getFirstAsync<{ count: number }>(
+        `SELECT COUNT(*) AS count
+           FROM external_media_flags
+          WHERE media_id=? AND flag='NEBITNO'`,
+        mediaId,
+      );
+      return { ignored: Number(row?.count ?? 0) > 0 };
+    }
+
+    if (method === 'PATCH') {
+      const payload = parsePayload<{ ignored: boolean }>(options);
+      const ignored = Boolean(payload.ignored);
+      const now = nowIso();
+
+      if (ignored) {
+        await database.runAsync(
+          `INSERT INTO external_media_flags
+             (source, source_media_key, media_id, flag, flagged_at, created_at, modified_at)
+           VALUES ('LJINGLE', ?, ?, 'NEBITNO', ?, ?, ?)
+           ON CONFLICT(source, source_media_key, flag) DO UPDATE SET
+             media_id=excluded.media_id,
+             flagged_at=excluded.flagged_at,
+             modified_at=excluded.modified_at`,
+          mediaId, mediaId, now, now, now,
+        );
+      } else {
+        await database.runAsync(
+          `DELETE FROM external_media_flags WHERE media_id=? AND flag='NEBITNO'`,
+          mediaId,
+        );
+      }
+
+      return { ignored };
+    }
+
+    throw new LocalApiFailure('Metoda nije podržana.', 405);
+  }
+
   // jingleCatalogueV3
   const favouriteMatch = url.pathname.match(/^\/media\/([^/]+)\/favourite$/);
   if (favouriteMatch) {
@@ -1509,9 +1567,9 @@ async function handleMedia(database: SQLiteDatabase, url: URL, method: string, o
 
     const ignored = url.searchParams.get('ignored');
     if (ignored === 'NEBITNO') {
-      filters.push("EXISTS (SELECT 1 FROM external_media_flags f WHERE f.media_id = media_items.media_id AND f.source = 'TV_TIME' AND f.flag = 'NEBITNO')");
+      filters.push("EXISTS (SELECT 1 FROM external_media_flags f WHERE f.media_id = media_items.media_id AND f.flag = 'NEBITNO')");
     } else if (url.searchParams.get('includeIgnored') !== '1') {
-      filters.push("NOT EXISTS (SELECT 1 FROM external_media_flags f WHERE f.media_id = media_items.media_id AND f.source = 'TV_TIME' AND f.flag = 'NEBITNO')");
+      filters.push("NOT EXISTS (SELECT 1 FROM external_media_flags f WHERE f.media_id = media_items.media_id AND f.flag = 'NEBITNO')");
     }
     const mediaType = url.searchParams.get('mediaType');
     const status = url.searchParams.get('status');
@@ -1841,6 +1899,51 @@ async function handleCollections(
   method: string,
   options?: RequestInit,
 ) {
+  // ljingleCollectionChipsR1: lightweight collection chips grouped in one query.
+  if (url.pathname === '/collections/filters' && method === 'GET') {
+    const entityType = requiredText(
+      url.searchParams.get('entityType'),
+      'Vrsta stavke',
+    ) as EntityReferenceType;
+    const allowedTypes: EntityReferenceType[] = [
+      'BOOK',
+      'MEDIA',
+      'GAME',
+      'TOPIC',
+      'ENTRY',
+      'FREQUENCY',
+    ];
+    if (!allowedTypes.includes(entityType)) {
+      throw new LocalApiFailure('Nepoznata vrsta stavke.', 400);
+    }
+
+    const rows = await database.getAllAsync<SqlRow>(
+      `SELECT c.collection_id, c.name, c.symbol, ci.entity_id
+       FROM collections c
+       JOIN collection_items ci ON ci.collection_id=c.collection_id
+       WHERE ci.entity_type=?
+       ORDER BY c.position, c.created_at, c.name COLLATE NOCASE,
+                ci.position, ci.created_at`,
+      entityType,
+    );
+    const chips = new Map<string, CollectionFilterChip>();
+    for (const row of rows) {
+      const collectionId = String(row.collection_id);
+      let chip = chips.get(collectionId);
+      if (!chip) {
+        chip = {
+          collectionId,
+          name: String(row.name),
+          symbol: row.symbol === null ? null : String(row.symbol),
+          itemIds: [],
+        };
+        chips.set(collectionId, chip);
+      }
+      chip.itemIds.push(String(row.entity_id));
+    }
+    return [...chips.values()];
+  }
+
   if (url.pathname === '/collections/for-entity' && method === 'GET') {
     const entityType = requiredText(url.searchParams.get('entityType'), 'Vrsta stavke') as EntityReferenceType;
     const entityId = requiredText(url.searchParams.get('entityId'), 'Identifikator stavke');

@@ -134,8 +134,7 @@ export const authApi = {
         body: JSON.stringify({
           email: input.email.trim(),
           username: input.username.trim(),
-          password: input.password,
-          inviteCode: input.inviteCode.trim(),
+          password: input.password, // authVisualCardCelestialV1
         }),
       },
       null,

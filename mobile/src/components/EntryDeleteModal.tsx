@@ -6,7 +6,7 @@ import type { Entry } from '../types/entry';
 
 import { celestial, celestialAlpha } from '../theme/celestial';
 // forkMCelestialSharedComponentsV1
-const celestialMode = activeVisualSkinId === 'classic';
+const celestialMode = (activeVisualSkinId === 'classic' || activeVisualSkinId === 'classic-ljingle');
 
 type Props = {
   entry: Entry | null;

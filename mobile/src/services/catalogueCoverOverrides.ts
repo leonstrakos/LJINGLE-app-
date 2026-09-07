@@ -3,6 +3,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 import { getDatabase } from '../storage/database';
+import {
+  deleteCustomCoverFromServer,
+  downloadCustomCoverFromServer,
+  localCoverUriExists,
+  uploadCustomCoverToServer,
+} from './coverAssetServer';
+// ljingleCoverAssetsMobileR1
 
 export type CatalogueCoverEntityType =
   | 'BOOK'
@@ -101,25 +108,101 @@ export async function getCatalogueCoverOverride(
   const key = cacheKey(entityType, entityId);
 
   if (cache.has(key)) {
-    return cache.get(key) ?? null;
+    const cached = cache.get(key) ?? null;
+    if (cached && await localCoverUriExists(cached)) {
+      void uploadCustomCoverToServer(
+        entityType,
+        entityId,
+        cached,
+        null,
+        null,
+      ).catch(() => undefined);
+      return cached;
+    }
+    if (cached) cache.delete(key);
   }
 
   const database = await databaseWithCoverOverrides();
+  await database.execAsync(
+    'CREATE TABLE IF NOT EXISTS catalogue_cover_remote_deletes (' +
+      'entity_type TEXT NOT NULL,' +
+      'entity_id TEXT NOT NULL,' +
+      'created_at TEXT NOT NULL,' +
+      'PRIMARY KEY (entity_type, entity_id)' +
+    ');'
+  );
 
-  const row = await database.getFirstAsync<CoverRow>(
-    'SELECT * FROM catalogue_cover_overrides ' +
-      'WHERE entity_type = ? AND entity_id = ?',
+  const tombstone = await database.getFirstAsync<{ created_at: string }>(
+    'SELECT created_at FROM catalogue_cover_remote_deletes WHERE entity_type = ? AND entity_id = ?',
     entityType,
     entityId,
   );
 
-  const uri = row?.local_uri
-    ? String(row.local_uri)
-    : null;
+  if (tombstone) {
+    const deleted = await deleteCustomCoverFromServer(entityType, entityId).catch(() => false);
+    if (deleted) {
+      await database.runAsync(
+        'DELETE FROM catalogue_cover_remote_deletes WHERE entity_type = ? AND entity_id = ?',
+        entityType,
+        entityId,
+      );
+    }
+    cache.set(key, null);
+    return null;
+  }
 
-  cache.set(key, uri);
+  const row = await database.getFirstAsync<CoverRow>(
+    'SELECT * FROM catalogue_cover_overrides WHERE entity_type = ? AND entity_id = ?',
+    entityType,
+    entityId,
+  );
 
-  return uri;
+  const localUri = row?.local_uri ? String(row.local_uri) : null;
+  if (localUri && await localCoverUriExists(localUri)) {
+    cache.set(key, localUri);
+    void uploadCustomCoverToServer(
+      entityType,
+      entityId,
+      localUri,
+      row?.mime_type ?? null,
+      row?.source_filename ?? null,
+    ).catch(() => undefined);
+    return localUri;
+  }
+
+  if (localUri) {
+    await database.runAsync(
+      'DELETE FROM catalogue_cover_overrides WHERE entity_type = ? AND entity_id = ?',
+      entityType,
+      entityId,
+    );
+  }
+
+  const remote = await downloadCustomCoverFromServer(entityType, entityId).catch(() => null);
+  if (!remote) {
+    cache.set(key, null);
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  await database.runAsync(
+    'INSERT INTO catalogue_cover_overrides (' +
+      'entity_type, entity_id, local_uri, source_filename, mime_type, created_at, modified_at' +
+    ') VALUES (?, ?, ?, ?, ?, ?, ?) ' +
+    'ON CONFLICT(entity_type, entity_id) DO UPDATE SET ' +
+      'local_uri=excluded.local_uri, source_filename=excluded.source_filename, ' +
+      'mime_type=excluded.mime_type, modified_at=excluded.modified_at',
+    entityType,
+    entityId,
+    remote.uri,
+    row?.source_filename ?? 'server-restored-cover',
+    remote.mimeType ?? row?.mime_type ?? null,
+    row?.created_at ?? now,
+    now,
+  );
+
+  cache.set(key, remote.uri);
+  return remote.uri;
 }
 
 export async function pickCatalogueCover():
@@ -246,14 +329,25 @@ export async function saveCatalogueCoverOverride(
   pending: PendingCatalogueCover,
 ) {
   const database = await databaseWithCoverOverrides();
+  await database.execAsync(
+    'CREATE TABLE IF NOT EXISTS catalogue_cover_remote_deletes (' +
+      'entity_type TEXT NOT NULL,' +
+      'entity_id TEXT NOT NULL,' +
+      'created_at TEXT NOT NULL,' +
+      'PRIMARY KEY (entity_type, entity_id)' +
+    ');'
+  );
+  await database.runAsync(
+    'DELETE FROM catalogue_cover_remote_deletes WHERE entity_type = ? AND entity_id = ?',
+    entityType,
+    entityId,
+  );
 
-  const existing =
-    await database.getFirstAsync<CoverRow>(
-      'SELECT * FROM catalogue_cover_overrides ' +
-        'WHERE entity_type = ? AND entity_id = ?',
-      entityType,
-      entityId,
-    );
+  const existing = await database.getFirstAsync<CoverRow>(
+    'SELECT * FROM catalogue_cover_overrides WHERE entity_type = ? AND entity_id = ?',
+    entityType,
+    entityId,
+  );
 
   const persistedUri = await persistCover(pending);
   const now = new Date().toISOString();
@@ -261,40 +355,36 @@ export async function saveCatalogueCoverOverride(
   try {
     await database.runAsync(
       'INSERT INTO catalogue_cover_overrides (' +
-        'entity_type, entity_id, local_uri, ' +
-        'source_filename, mime_type, created_at, modified_at' +
+        'entity_type, entity_id, local_uri, source_filename, mime_type, created_at, modified_at' +
       ') VALUES (?, ?, ?, ?, ?, ?, ?) ' +
       'ON CONFLICT(entity_type, entity_id) DO UPDATE SET ' +
-        'local_uri = excluded.local_uri, ' +
-        'source_filename = excluded.source_filename, ' +
-        'mime_type = excluded.mime_type, ' +
-        'modified_at = excluded.modified_at',
+        'local_uri = excluded.local_uri, source_filename = excluded.source_filename, ' +
+        'mime_type = excluded.mime_type, modified_at = excluded.modified_at',
       entityType,
       entityId,
       persistedUri,
       pending.fileName,
       pending.mimeType,
-      now,
+      existing?.created_at ?? now,
       now,
     );
   } catch (error) {
-    await deleteOwnedUri(persistedUri).catch(
-      () => undefined,
-    );
-
+    await deleteOwnedUri(persistedUri).catch(() => undefined);
     throw error;
   }
 
-  if (
-    existing?.local_uri &&
-    existing.local_uri !== persistedUri
-  ) {
-    await deleteOwnedUri(
-      String(existing.local_uri),
-    ).catch(() => undefined);
+  if (existing?.local_uri && existing.local_uri !== persistedUri) {
+    await deleteOwnedUri(String(existing.local_uri)).catch(() => undefined);
   }
 
   emit(entityType, entityId, persistedUri);
+  void uploadCustomCoverToServer(
+    entityType,
+    entityId,
+    persistedUri,
+    pending.mimeType,
+    pending.fileName,
+  ).catch(() => undefined);
 
   return persistedUri;
 }
@@ -304,27 +394,46 @@ export async function deleteCatalogueCoverOverride(
   entityId: string,
 ) {
   const database = await databaseWithCoverOverrides();
+  await database.execAsync(
+    'CREATE TABLE IF NOT EXISTS catalogue_cover_remote_deletes (' +
+      'entity_type TEXT NOT NULL,' +
+      'entity_id TEXT NOT NULL,' +
+      'created_at TEXT NOT NULL,' +
+      'PRIMARY KEY (entity_type, entity_id)' +
+    ');'
+  );
 
-  const existing =
-    await database.getFirstAsync<CoverRow>(
-      'SELECT * FROM catalogue_cover_overrides ' +
-        'WHERE entity_type = ? AND entity_id = ?',
-      entityType,
-      entityId,
-    );
+  const existing = await database.getFirstAsync<CoverRow>(
+    'SELECT * FROM catalogue_cover_overrides WHERE entity_type = ? AND entity_id = ?',
+    entityType,
+    entityId,
+  );
 
   await database.runAsync(
-    'DELETE FROM catalogue_cover_overrides ' +
-      'WHERE entity_type = ? AND entity_id = ?',
+    'INSERT OR REPLACE INTO catalogue_cover_remote_deletes (entity_type, entity_id, created_at) VALUES (?, ?, ?)',
+    entityType,
+    entityId,
+    new Date().toISOString(),
+  );
+
+  await database.runAsync(
+    'DELETE FROM catalogue_cover_overrides WHERE entity_type = ? AND entity_id = ?',
     entityType,
     entityId,
   );
 
   if (existing?.local_uri) {
-    await deleteOwnedUri(
-      String(existing.local_uri),
-    ).catch(() => undefined);
+    await deleteOwnedUri(String(existing.local_uri)).catch(() => undefined);
   }
 
   emit(entityType, entityId, null);
+
+  const deleted = await deleteCustomCoverFromServer(entityType, entityId).catch(() => false);
+  if (deleted) {
+    await database.runAsync(
+      'DELETE FROM catalogue_cover_remote_deletes WHERE entity_type = ? AND entity_id = ?',
+      entityType,
+      entityId,
+    );
+  }
 }

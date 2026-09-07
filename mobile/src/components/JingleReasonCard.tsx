@@ -1,5 +1,4 @@
 import {
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import {
   type JingleReasonEntityType,
 } from '../storage/jingleReasons';
 import { colors } from '../theme/colors';
+import { JingleBellIcon } from './JingleBellIcon';
 
 type Props = {
   entityType: JingleReasonEntityType;
@@ -137,11 +137,7 @@ export function JingleReasonCard({
             styles.pressed,
         ]}
       >
-        <Image
-          source={require('../assets/aero/fav.png')}
-          resizeMode="contain"
-          style={styles.bellSmall}
-        />
+        <JingleBellIcon active style={styles.bellSmall} />
 
         <View style={styles.emptyCopy}>
           <Text style={styles.eyebrow}>
@@ -168,11 +164,7 @@ export function JingleReasonCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.heading}>
-          <Image
-            source={require('../assets/aero/fav.png')}
-            resizeMode="contain"
-            style={styles.bell}
-          />
+          <JingleBellIcon active style={styles.bell} />
 
           <Text style={styles.eyebrow}>
             JINGLE · ZAŠTO MI OVO ZNAČI

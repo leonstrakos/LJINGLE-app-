@@ -5,16 +5,13 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-import {
-  pressIn,
-  pressOut,
-} from '../motion/uiMotion';
 import {
   playUiCue,
   type UiCue,
 } from '../audio/uiFeedback';
+import { useReducedMotion } from '../utils/useReducedMotion';
 
 type AnimatedPressableProps = Omit<
   PressableProps,
@@ -24,6 +21,7 @@ type AnimatedPressableProps = Omit<
   pressedStyle?: StyleProp<ViewStyle>;
   cue?: UiCue | false;
   scaleTo?: number;
+  idleBreath?: boolean;
 };
 
 // animatedPressableV1
@@ -33,7 +31,8 @@ export function AnimatedPressable({
   style,
   pressedStyle,
   cue = 'tap',
-  scaleTo = 0.975,
+  scaleTo = 0.986,
+  idleBreath = false,
   onPress,
   disabled,
   ...props
@@ -42,31 +41,70 @@ export function AnimatedPressable({
     new Animated.Value(1),
   ).current;
 
-  const handlePressIn = () => {
-    // Keep the shared motion helper as the default physical feel.
-    if (scaleTo === 0.975) {
-      pressIn(scale).start();
-      return;
-    }
+  // ljingleSemanticAliveR1:hardware
+  const reducedMotion = useReducedMotion();
+  const breath = useRef(new Animated.Value(1)).current;
 
+  useEffect(() => {
+    breath.stopAnimation();
+    breath.setValue(1);
+    if (!idleBreath || reducedMotion) return;
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(breath, { toValue:1.004, duration:3200, useNativeDriver:true }),
+      Animated.timing(breath, { toValue:1, duration:3600, useNativeDriver:true }),
+    ]));
+    animation.start();
+    return () => { animation.stop(); breath.stopAnimation(); breath.setValue(1); };
+  }, [breath, idleBreath, reducedMotion]);
+
+  const livingScale = idleBreath && !reducedMotion ? Animated.multiply(scale, breath) : scale;
+
+  const handlePressIn = () => {
+    if (reducedMotion) return;
+    scale.stopAnimation();
     Animated.spring(scale, {
       toValue: scaleTo,
-      damping: 18,
-      stiffness: 320,
-      mass: 0.45,
+      damping: 24,
+      stiffness: 360,
+      mass: 0.42,
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
-    pressOut(scale).start();
+    if (reducedMotion) {
+      scale.setValue(1);
+      return;
+    }
+    scale.stopAnimation();
+    Animated.spring(scale, {
+      toValue: 1,
+      damping: 24,
+      stiffness: 360,
+      mass: 0.42,
+      useNativeDriver: true,
+    }).start();
   };
 
   return (
     <Animated.View
-      style={{
-        transform: [{ scale }],
-      }}
+      // ljingleSemanticAliveR21Exact:living-container
+      style={[
+        idleBreath
+          ? {
+              flex: 1,
+              alignSelf: 'stretch',
+            }
+          : null,
+        {
+          transform: [
+            {
+              scale:
+                livingScale,
+            },
+          ],
+        },
+      ]}
     >
       <Pressable
         {...props}

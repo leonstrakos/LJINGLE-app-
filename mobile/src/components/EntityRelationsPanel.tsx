@@ -13,6 +13,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { collectionApi } from '../services/collectionApi';
+import { entryApi } from '../services/entryApi';
 import { colors } from '../theme/colors';
 import { openCollectionReference, openEntityReference } from '../utils/entityNavigation';
 import { connectionDirectionCopy } from '../utils/connectionDirection';
@@ -29,11 +30,13 @@ import {
   type EntityReferenceType,
   type RelationType,
 } from '../types/collection';
+import { emitSemanticAlive } from '../motion/semanticAlive';
 
 type Props = {
   entityType: EntityReferenceType;
   entityId: string;
   title: string;
+  intrinsicReferences?: EntityReference[];
 };
 
 // connectionsUnifyV1 — link modals open instantly.
@@ -41,11 +44,19 @@ type Props = {
 // navigableGraphV2
 // graphDirectionV4 — direction-aware backlinks + separate notes
 // editExistingConnectionV3
-export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
+export function EntityRelationsPanel({
+  entityType,
+  entityId,
+  title,
+  intrinsicReferences = [],
+}: Props) {
+  // ljingleConnectedTrailsR1:panel
   const navigation = useNavigation();
   const [allCollections, setAllCollections] = useState<CollectionSummary[]>([]);
   const [memberships, setMemberships] = useState<CollectionSummary[]>([]);
   const [links, setLinks] = useState<EntityLink[]>([]);
+  const [entryBacklinks, setEntryBacklinks] =
+    useState<EntityReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [collectionModal, setCollectionModal] = useState(false);
@@ -64,14 +75,55 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [collections, entityCollections, entityLinks] = await Promise.all([
+      const entryBacklinkRequest =
+        entityType === 'BOOK'
+          ? entryApi.getAll({
+              bookId: entityId,
+            })
+          : entityType === 'TOPIC'
+            ? entryApi.getAll({
+                topicId: entityId,
+              })
+            : Promise.resolve([]);
+
+      const [
+        collections,
+        entityCollections,
+        entityLinks,
+        linkedEntries,
+      ] = await Promise.all([
         collectionApi.getAll(),
-        collectionApi.getForEntity(entityType, entityId),
-        collectionApi.getLinks(entityType, entityId),
+        collectionApi.getForEntity(
+          entityType,
+          entityId,
+        ),
+        collectionApi.getLinks(
+          entityType,
+          entityId,
+        ),
+        entryBacklinkRequest,
       ]);
+
       setAllCollections(collections);
       setMemberships(entityCollections);
       setLinks(entityLinks);
+      setEntryBacklinks(
+        linkedEntries.map((entry) => ({
+          entityType: 'ENTRY' as const,
+          entityId: entry.entryId,
+          title:
+            entry.title?.trim() ||
+            entry.content
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 86) ||
+            'Zapis',
+          subtitle:
+            entityType === 'BOOK'
+              ? 'Zapis iz knjige'
+              : 'Zapis uz temu',
+        })),
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Veze se nisu učitale.');
     } finally {
@@ -82,6 +134,70 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const membershipIds = useMemo(() => new Set(memberships.map((item) => item.collectionId)), [memberships]);
+
+  const automaticReferences = useMemo(() => {
+    const seen = new Set<string>();
+    const result: EntityReference[] = [];
+
+    for (const item of [
+      ...intrinsicReferences,
+      ...entryBacklinks,
+    ]) {
+      const key =
+        item.entityType + ':' + item.entityId;
+
+      if (
+        key === entityType + ':' + entityId ||
+        seen.has(key)
+      ) {
+        continue;
+      }
+
+      seen.add(key);
+      result.push(item);
+    }
+
+    return result;
+  }, [
+    entityId,
+    entityType,
+    entryBacklinks,
+    intrinsicReferences,
+  ]);
+
+  const automaticReferenceKeys = useMemo(
+    () =>
+      new Set(
+        automaticReferences.map(
+          (item) =>
+            item.entityType + ':' + item.entityId,
+        ),
+      ),
+    [automaticReferences],
+  );
+
+  const visibleManualLinks = useMemo(
+    () =>
+      links.filter((link) => {
+        const other =
+          link.sourceType === entityType &&
+          link.sourceId === entityId
+            ? link.target
+            : link.source;
+
+        return !automaticReferenceKeys.has(
+          other.entityType +
+            ':' +
+            other.entityId,
+        );
+      }),
+    [
+      automaticReferenceKeys,
+      entityId,
+      entityType,
+      links,
+    ],
+  );
 
   const toggleCollection = async (collection: CollectionSummary) => {
     if (busyCollection) return;
@@ -94,6 +210,11 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
         if (item) await collectionApi.removeItem(collection.collectionId, item.itemId);
       } else {
         await collectionApi.addItem(collection.collectionId, entityType, entityId);
+      // ljingleSemanticAliveR1:collection-transfer
+      emitSemanticAlive({
+        type: 'COLLECTION_ADD',
+        entityKey: entityType + ':' + entityId,
+      });
       }
       const [collections, entityCollections] = await Promise.all([
         collectionApi.getAll(),
@@ -234,37 +355,138 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
     <View style={styles.panel}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.kicker}>Organize & connect</Text>
-          <Text style={styles.heading}>Collections & connections</Text>
+          <Text style={styles.kicker}>POVEZANO</Text>
+          <Text style={styles.heading}>Tragovi kroz arhiv</Text>
         </View>
         {loading ? <ActivityIndicator color={colors.textMuted} size="small" /> : null}
       </View>
 
       <View style={styles.block}>
         <View style={styles.blockHeader}>
-          <Text style={styles.blockTitle}>Collections</Text>
-          <Pressable onPress={() => setCollectionModal(true)} style={styles.smallAction}><Text style={styles.smallActionText}>＋ Add</Text></Pressable>
+          <Text style={styles.blockTitle}>Memory Box</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              setCollectionModal(true)
+            }
+            style={styles.smallAction}
+          >
+            <Text style={styles.smallActionText}>
+              Uredi
+            </Text>
+          </Pressable>
         </View>
         {memberships.length > 0 ? (
           <View style={styles.chips}>
             {memberships.map((item) => (
-              <Pressable key={item.collectionId} onPress={() => setCollectionModal(true)} style={styles.collectionChip}>
+              <Pressable
+                key={item.collectionId}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  'Otvori Memory Box ' + item.name
+                }
+                onPress={() =>
+                  openCollectionReference(
+                    navigation,
+                    item.collectionId,
+                  )
+                }
+                style={({ pressed }) => [
+                  styles.collectionChip,
+                  pressed && styles.pressed,
+                ]}
+              >
                 <Text style={styles.collectionSymbol}>{item.symbol || '◇'}</Text>
                 <Text style={styles.collectionChipText}>{item.name}</Text>
               </Pressable>
             ))}
           </View>
-        ) : <Text style={styles.emptyText}>Nije još ni na jednoj polici/listi.</Text>}
+        ) : (
+          <Text style={styles.emptyText}>
+            Nije u nijednom Memory Boxu.
+          </Text>
+        )}
       </View>
-
-      <View style={styles.divider} />
 
       <View style={styles.block}>
         <View style={styles.blockHeader}>
-          <Text style={styles.blockTitle}>Connected</Text>
-          <Pressable onPress={() => void openLinks()} style={styles.smallAction}><Text style={styles.smallActionText}>↗ Link</Text></Pressable>
+          <Text style={styles.blockTitle}>Veze</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void openLinks()}
+            style={styles.smallAction}
+          >
+            <Text style={styles.smallActionText}>
+              ＋ Poveži
+            </Text>
+          </Pressable>
         </View>
-        {links.length > 0 ? links.slice(0, 5).map((link) => {
+        {automaticReferences.map((other) => (
+          <View
+            key={
+              'AUTO:' +
+              other.entityType +
+              ':' +
+              other.entityId
+            }
+            style={styles.linkRow}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                'Otvori ' +
+                entityTypeLabels[
+                  other.entityType
+                ] +
+                ' ' +
+                other.title
+              }
+              onPress={() =>
+                openEntityReference(
+                  navigation,
+                  other,
+                )
+              }
+              style={({ pressed }) => [
+                styles.linkOpen,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.linkType}>
+                <Text style={styles.linkTypeText}>
+                  {
+                    entityTypeLabels[
+                      other.entityType
+                    ]
+                  }
+                </Text>
+              </View>
+
+              <View style={styles.linkCopy}>
+                <Text
+                  numberOfLines={1}
+                  style={styles.linkTitle}
+                >
+                  {other.title}
+                </Text>
+
+                <Text
+                  numberOfLines={1}
+                  style={styles.linkRelation}
+                >
+                  {other.subtitle ||
+                    'Izravno povezano'}
+                </Text>
+              </View>
+
+              <Text style={styles.linkArrow}>
+                ›
+              </Text>
+            </Pressable>
+          </View>
+        ))}
+
+        {visibleManualLinks.length > 0 ? visibleManualLinks.map((link) => {
           const other = otherSide(link);
           const direction =
             connectionDirectionCopy(
@@ -329,7 +551,11 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
               </Pressable>
             </View>
           );
-        }) : <Text style={styles.emptyText}>Još nema ručnih veza s drugim stvarima.</Text>}
+        }) : automaticReferences.length === 0 ? (
+          <Text style={styles.emptyText}>
+            Još nema povezanih tragova.
+          </Text>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -463,11 +689,27 @@ export function EntityRelationsPanel({ entityType, entityId, title }: Props) {
 }
 
 const styles = StyleSheet.create({
-  panel: { marginTop: 18, padding: 17, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator },
+  panel: {
+    marginTop: 22,
+    paddingHorizontal: 2,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  kicker: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
-  heading: { marginTop: 3, color: colors.text, fontSize: 17, fontWeight: '900' },
-  block: { marginTop: 16 },
+  kicker: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.15,
+    textTransform: 'uppercase',
+  },
+  heading: {
+    marginTop: 4,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  block: { marginTop: 18 },
   blockHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   blockTitle: { color: colors.text, fontSize: 13, fontWeight: '900' },
   smallAction: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 9, backgroundColor: colors.fillStrong },
@@ -573,7 +815,7 @@ const styles = StyleSheet.create({
   relationChip: { alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 13, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.fill },
   relationChipActive: { backgroundColor: colors.black },
   relationText: { color: colors.text, fontSize: 11, lineHeight: 15, fontWeight: '800' },
-  relationTextActive: { color: colors.white },
+  relationTextActive: { color: colors.onAccent },
   searchInput: { minHeight: 48, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.separator, color: colors.text, fontSize: 14 },
   referenceScroller: { maxHeight: 170, marginTop: 8, flexGrow: 0 },
   referenceRow: { minHeight: 58, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },

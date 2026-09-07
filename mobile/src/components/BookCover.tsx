@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react';
+// ljingleOfflineBookCoversV1
+import NetInfo from '@react-native-community/netinfo';
+import { AppState } from 'react-native';
+import { bookCoverCacheKey, getCachedBookCover, persistBookCover, forgetBrokenBookCover } from '../services/bookCoverCache';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   type StyleProp,
@@ -212,6 +216,7 @@ function findFallbackCoverUrl(
   })();
 
   fallbackCache.set(cacheKey, lookup);
+  void lookup.then(() => fallbackCache.delete(cacheKey), () => fallbackCache.delete(cacheKey));
 
   return lookup;
 }
@@ -225,79 +230,98 @@ type Props = {
   onCoverResolved?: (url: string | null) => void;
 };
 
-export function BookCover({
-  isbn,
-  title,
-  author,
-  size = 'M',
-  style,
-  onCoverResolved,
-}: Props) {
-  const directCoverUrl = getBookCoverUrl(isbn, size);
-
-  const [coverUrl, setCoverUrl] = useState<string | null>(
-    directCoverUrl,
-  );
-  const [failed, setFailed] = useState(false);
-  const [searching, setSearching] = useState(false);
-
-  const initial =
-    title.trim().charAt(0).toUpperCase() || 'B';
+export function BookCover({ isbn, title, author, size = 'M', style, onCoverResolved }: Props) {
+  const key = bookCoverCacheKey(isbn, title, author);
+  const direct = getBookCoverUrl(isbn, size);
+  const [cover, setCover] = useState<{ key: string; uri: string } | null>(null);
+  const [retry, setRetry] = useState(0);
+  const callback = useRef(onCoverResolved);
+  callback.current = onCoverResolved;
+  const generation = useRef(0);
+  const searching = useRef(false);
+  const triedFallback = useRef(false);
+  const loaded = useRef(false);
+  const currentKey = useRef(key);
+  currentKey.current = key;
 
   useEffect(() => {
-    setFailed(false);
-    setSearching(false);
-    setCoverUrl(directCoverUrl);
-    onCoverResolved?.(null);
-  }, [
-    author,
-    directCoverUrl,
-    onCoverResolved,
-    title,
-  ]);
+    let wasOffline = false;
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const online = state.isConnected === true && state.isInternetReachable !== false;
+      if (online && wasOffline && !loaded.current) setRetry(value => value + 1);
+      if (state.isConnected === false || state.isInternetReachable === false) wasOffline = true;
+      else if (online) wasOffline = false;
+    });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && !loaded.current) setRetry(value => value + 1);
+    });
+    return () => { unsubscribe(); subscription.remove(); };
+  }, []);
 
+  useEffect(() => {
+    const request = ++generation.current;
+    let active = true;
+    searching.current = false;
+    triedFallback.current = false;
+    loaded.current = false;
+    const current = () => active && generation.current === request && currentKey.current === key;
+    void (async () => {
+      const local = await getCachedBookCover(key).catch(() => null);
+      if (!current()) return;
+      if (local) { setCover({ key, uri: local }); return; }
+      if (direct) { setCover({ key, uri: direct }); return; }
+      triedFallback.current = true;
+      searching.current = true;
+      const fallback = await findFallbackCoverUrl(isbn, title, author, size);
+      if (!current()) return;
+      searching.current = false;
+      setCover(fallback ? { key, uri: fallback } : null);
+      if (!fallback) callback.current?.(null);
+    })();
+    return () => { active = false; generation.current++; };
+  }, [key, direct, isbn, title, author, size, retry]);
+
+  const uri = cover?.key === key ? cover.uri : null;
   const handleError = async () => {
-    if (searching) return;
-
-    // A fallback image was found but could not be displayed.
-    if (coverUrl !== directCoverUrl) {
-      setFailed(true);
-      onCoverResolved?.(null);
+    if (!uri || searching.current) return;
+    const request = generation.current;
+    loaded.current = false;
+    if (/^(file:|data:)/.test(uri)) {
+      await forgetBrokenBookCover(key, uri).catch(() => undefined);
+      if (request !== generation.current || currentKey.current !== key) return;
+      setCover(null);
+      setRetry(value => value + 1);
       return;
     }
-
-    setSearching(true);
-
-    const fallbackUrl = await findFallbackCoverUrl(
-      isbn,
-      title,
-      author,
-      size,
-    );
-
-    setSearching(false);
-
-    if (fallbackUrl) {
-      setCoverUrl(fallbackUrl);
-    } else {
-      setFailed(true);
-      onCoverResolved?.(null);
-    }
+    if (triedFallback.current) { setCover(null); callback.current?.(null); return; }
+    triedFallback.current = true;
+    searching.current = true;
+    const fallback = await findFallbackCoverUrl(isbn, title, author, size);
+    if (request !== generation.current || currentKey.current !== key) return;
+    searching.current = false;
+    setCover(fallback ? { key, uri: fallback } : null);
+    if (!fallback) callback.current?.(null);
   };
-
+  const handleLoad = () => {
+    if (!uri || currentKey.current !== key) return;
+    loaded.current = true;
+    callback.current?.(uri);
+    if (!/^https:\/\//i.test(uri)) return;
+    const request = generation.current;
+    void persistBookCover(key, uri).then(local => {
+      if (request === generation.current && currentKey.current === key) setCover({ key, uri: local });
+    }).catch(() => {
+      // Keep the visible remote cover. Retry persistence when connectivity returns.
+      if (request === generation.current && currentKey.current === key) loaded.current = false;
+    });
+  };
   return (
     <View style={[styles.container, style]}>
-      <Text style={styles.initial}>{initial}</Text>
-
-      {coverUrl && !failed ? (
-        <Image
-          accessibilityLabel={`Naslovnica knjige ${title}`}
-          onError={() => void handleError()}
-          onLoad={() => onCoverResolved?.(coverUrl)}
-          resizeMode="cover"
-          source={{ uri: coverUrl }}
-          style={StyleSheet.absoluteFill}
-        />
+      <Text style={styles.missingCoverTitle}>{title}</Text>
+      {uri ? (
+        <Image key={uri} accessibilityLabel={`Naslovnica knjige ${title}`}
+          onError={() => void handleError()} onLoad={handleLoad} resizeMode="cover"
+          source={{ uri }} style={StyleSheet.absoluteFill} />
       ) : null}
     </View>
   );
@@ -312,6 +336,14 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#3A3A3C',
   },
+  missingCoverTitle: {
+    color: colors.onAccent,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  }, // gridTitlesMediaSwitchV31
   initial: {
     color: colors.white,
     fontSize: 25,
